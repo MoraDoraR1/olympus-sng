@@ -1164,10 +1164,17 @@
   });
 
   // ---------- 야생 지역(몬스터) ----------
-  function watchInfoLevel() {
+  // 감시탑 레벨 L → 몬스터 레벨 (2L+1) 이하까지 정보 공개 (Lv.1→3까지, Lv.2→5까지 ...)
+  function watchInfoThreshold() {
     const w = state.tiles.watch;
     if (!w.built) return 0;
-    return w.level >= 5 ? 2 : 1;
+    return 2 * w.level + 1;
+  }
+  function monsterInfoRevealed(monsterLevel) {
+    return monsterLevel <= watchInfoThreshold();
+  }
+  function requiredWatchLevelFor(monsterLevel) {
+    return Math.max(1, Math.ceil((monsterLevel - 1) / 2));
   }
   function squadAttackingSlot(slotId) {
     const idx = state.armies.findIndex((a) => a.mission && a.mission.targetId === slotId);
@@ -1177,7 +1184,6 @@
     const grid = document.getElementById("monster-grid");
     if (!grid) return;
     grid.innerHTML = "";
-    const infoLevel = watchInfoLevel();
     state.monsters.forEach((slot) => {
       const card = document.createElement("div");
       const attackingIdx = squadAttackingSlot(slot.id);
@@ -1193,11 +1199,12 @@
         `;
       } else if (slot.monster) {
         const m = slot.monster;
+        const revealed = monsterInfoRevealed(m.level);
         card.innerHTML = `
           <div class="icon">${m.icon}</div>
           <div class="mname">${m.name}${m.elite ? " 👑" : ""}</div>
-          <div class="mlevel">${infoLevel >= 1 ? `Lv.${m.level}` : "Lv.?"}</div>
-          <div class="mstats">${infoLevel >= 2 ? `⚔️${m.atk} 🛡️${m.def} ❤️${m.hp}` : infoLevel === 1 ? "감시탑 Lv.5+ 필요" : "감시탑 필요"}</div>
+          <div class="mlevel">${revealed ? `Lv.${m.level}` : "Lv.?"}</div>
+          <div class="mstats">${revealed ? `⚔️${m.atk} 🛡️${m.def} ❤️${m.hp}` : `감시탑 Lv.${requiredWatchLevelFor(m.level)}+ 필요`}</div>
           <button class="do-attack">공격</button>
         `;
         card.querySelector(".do-attack").addEventListener("click", () => openEngageModal("monster", slot.id));
@@ -1226,14 +1233,14 @@
     const enemy = findEnemy(kind, targetId);
     if (!enemy) return;
     const body = document.getElementById("monster-modal-body");
-    const infoLevel = kind === "castle" ? 2 : watchInfoLevel();
+    const revealed = kind === "castle" ? true : monsterInfoRevealed(enemy.level);
     const duration = battleDurationFor(enemy.level, !!enemy.elite);
     body.innerHTML = `
       <div class="modal-cols">
         <div class="col narrow">
           <h2>${enemy.icon} ${enemy.name} ${enemy.elite ? "👑 엘리트" : ""}</h2>
-          <p>레벨 ${infoLevel >= 1 ? enemy.level : "?"}</p>
-          <p>${infoLevel >= 2 ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : "감시탑을 지어야 상세 스탯을 볼 수 있습니다"}</p>
+          <p>레벨 ${revealed ? enemy.level : "?"}</p>
+          <p>${revealed ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : `감시탑 Lv.${requiredWatchLevelFor(enemy.level)}+ 필요 (야생 몬스터만 해당)`}</p>
           ${kind === "castle" ? `<p>승리 시 이 성이 그동안 모은 자원을 전부 획득합니다: ${costText(enemy.bank && Object.fromEntries(Object.entries(enemy.bank).filter(([, v]) => v >= 1).map(([k, v]) => [k, Math.round(v)])))}</p>` : ""}
           <p><span id="verdict-badge" class="verdict-badge">-</span></p>
         </div>
