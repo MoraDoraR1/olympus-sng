@@ -1036,29 +1036,26 @@
           : ""}
       </div>
     `;
+    const eligibleList = ownedList.filter((h) => h.traitType === "building" && h.traitEffect.building === tile.type);
     const heroCol = allowsHero ? `
       <div class="modal-section">
         <h3>영웅 배치</h3>
         <p>현재 배치: ${hero ? `${hero.name} (★${hero.rarity}${heroEnhance(hero.id) > 0 ? ` +${heroEnhance(hero.id)}강` : ""})` : "없음"}</p>
         ${hero ? `<button id="do-unassign">배치 해제</button>` : ""}
         <div class="hero-slot-list">
-          ${ownedList.length ? "" : "<p><small>아직 보유한 영웅이 없습니다. 여관에서 뽑아보세요.</small></p>"}
-          ${ownedList
-            .map((h) => {
-              const matches = h.traitType === "building" && h.traitEffect.building === tile.type;
-              const note = matches ? `+${heroTraitPercent(h).toFixed(1)}%` : h.traitType === "combat" ? "전투특성(부대용)" : "효과 없음";
-              return `
+          ${eligibleList.length ? "" : `<p><small>${ownedList.length ? `${tile.type}에 특화된 영웅이 아직 없습니다.` : "아직 보유한 영웅이 없습니다."} 여관에서 뽑아보세요.</small></p>`}
+          ${eligibleList
+            .map((h) => `
             <div class="hero-row" data-hero="${h.id}">
               ${heroBadgeHTML(h.id)}
               <span>${h.name}</span>
-              <span class="hr-note">${note}</span>
-            </div>`;
-            })
+              <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span>
+            </div>`)
             .join("")}
         </div>
       </div>` : "";
     const extraCol = tile.type === "감시탑"
-      ? `<div class="modal-section"><h3>감시 정보</h3><p>레벨 5 이상이면 야생 지역 몬스터의 전체 정보(스탯)까지 볼 수 있습니다. 그 이하는 레벨만 공개됩니다.</p></div>`
+      ? `<div class="modal-section"><h3>감시 정보</h3><p>감시탑 레벨 L → 몬스터 레벨 (2×L+1) 이하까지 야생 지역에서 상세 정보(레벨·스탯)를 볼 수 있습니다. 그보다 높은 레벨의 몬스터는 Lv.?로 표시됩니다.</p></div>`
       : tile.type === "병영" ? `<div class="modal-section"><h3>병사 훈련</h3>${renderTroopTrainingHTML(tileId)}</div>`
       : tile.type === "아카데미" ? `<div class="modal-section">${renderResearchHTML()}</div>`
       : "";
