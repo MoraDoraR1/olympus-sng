@@ -216,8 +216,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   width: max-content;
   margin: 0 auto;
   background-image: url("assets/board/floor.svg");
-  background-repeat: repeat;
-  background-size: 90px 90px;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-origin: content-box;
+  background-clip: content-box;
   border-radius: 16px;
 }
 #board .plot .icon { font-size: 2rem; }

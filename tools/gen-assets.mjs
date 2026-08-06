@@ -42,6 +42,8 @@ const P = {
   ink: "#3A2E1F",
   white: "#FFF8EC",
   red: "#C0433A",
+  road: "#D8C39C",
+  roadDeep: "#B89F72",
 };
 
 const svg = (inner, vb = "0 0 100 100") =>
@@ -495,20 +497,48 @@ const emptyPlot = () => svg(
    <line x1="42" y1="60" x2="58" y2="60" stroke="${P.ink}" stroke-width="3" stroke-linecap="round" opacity="0.5"/>`
 );
 
-// ---------- 바닥 텍스처(타일링) ----------
-const floorTile = () => svg(
-  `<rect width="100" height="100" fill="${P.ivory}"/>
-   <circle cx="20" cy="24" r="2.2" fill="${P.ivoryDeep}" opacity="0.6"/>
-   <circle cx="72" cy="14" r="1.6" fill="${P.ivoryDeep}" opacity="0.5"/>
-   <circle cx="55" cy="60" r="2.4" fill="${P.ivoryDeep}" opacity="0.55"/>
-   <circle cx="12" cy="70" r="1.8" fill="${P.ivoryDeep}" opacity="0.5"/>
-   <circle cx="86" cy="55" r="2" fill="${P.ivoryDeep}" opacity="0.5"/>
-   <circle cx="35" cy="88" r="1.6" fill="${P.ivoryDeep}" opacity="0.45"/>
-   <circle cx="90" cy="90" r="2.2" fill="${P.ivoryDeep}" opacity="0.5"/>
-   <path d="M 0 40 Q 25 34 50 42 T 100 38" stroke="${P.ivoryDeep}" stroke-width="1.4" fill="none" opacity="0.35"/>
-   <path d="M 0 78 Q 30 84 60 76 T 100 80" stroke="${P.ivoryDeep}" stroke-width="1.4" fill="none" opacity="0.35"/>`,
-  "0 0 100 100"
-);
+// ---------- 성 내부(보드) 배경 — game.js TILE_LAYOUT 좌표를 그대로 반영한 레이아웃 인지형 배경 ----------
+// #board는 10열×4행 CSS 그리드다. 뷰박스를 1000×400(1열=100폭, 1행=100높이)으로 맞추고
+// background-size:100% 100%(content-box)로 늘려 붙이면, 아래 좌표로 그린 도로가 실제 건물
+// 칸 위치와 그대로 정렬된다 — 건물 종류/레벨이 바뀌어도 칸 좌표 자체는 고정이므로 안전하다.
+const TILE_LAYOUT_REF = [
+  ["defense", 4, 1, 1], ["watch", 7, 1, 1], ["plot1", 3, 2, 1], ["academy", 4, 2, 1],
+  ["castle", 5, 2, 2], ["storage", 7, 2, 1], ["plot2", 8, 2, 1], ["plot3", 4, 3, 1],
+  ["tavern", 5, 3, 2], ["plot4", 7, 3, 1],
+  ["plot5", 1, 4, 1], ["plot6", 2, 4, 1], ["plot7", 3, 4, 1], ["plot8", 4, 4, 1], ["plot9", 5, 4, 1],
+  ["plot10", 6, 4, 1], ["plot11", 7, 4, 1], ["plot12", 8, 4, 1], ["plot13", 9, 4, 1], ["plot14", 10, 4, 1],
+];
+const TILE_POS = TILE_LAYOUT_REF.map(([id, col, row, span]) => ({ id, x: (col - 1 + span / 2) * 100, y: (row - 1 + 0.5) * 100 }));
+const posOf = (id) => TILE_POS.find((t) => t.id === id);
+function roadLine(x1, y1, x2, y2) {
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.roadDeep}" stroke-width="30" stroke-linecap="round"/>
+          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.road}" stroke-width="21" stroke-linecap="round"/>`;
+}
+function roadPad(x, y, r) {
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${P.roadDeep}"/><circle cx="${x}" cy="${y}" r="${r - 5}" fill="${P.road}"/>`;
+}
+const boardFloor = () => {
+  const rng = mulberry32(778);
+  let grass = `<rect width="1000" height="400" fill="${P.ivory}"/>`;
+  for (let i = 0; i < 130; i++) {
+    const x = rng() * 1000, y = rng() * 400;
+    if (rng() < 0.55) grass += grassTuft(x, y, P.foodDeep);
+    else grass += `<circle cx="${x}" cy="${y}" r="${1.4 + rng() * 1.6}" fill="${pick(rng, [P.ivoryDeep, P.food])}" opacity="0.5"/>`;
+  }
+
+  const castle = posOf("castle"), tavern = posOf("tavern");
+  let roads = "";
+  roads += roadLine(castle.x, 15, tavern.x, 385); // 성~여관을 잇는 중앙 대로(성문~마을 남쪽 끝, 두 랜드마크가 같은 열이라 일직선)
+  [1, 2, 3, 4].forEach((row) => {
+    const rowTiles = TILE_POS.filter((t) => Math.abs(t.y - ((row - 1) * 100 + 50)) < 1);
+    if (rowTiles.length < 2) return;
+    const xs = rowTiles.map((t) => t.x).sort((a, b) => a - b);
+    roads += roadLine(xs[0], rowTiles[0].y, xs[xs.length - 1], rowTiles[0].y);
+  });
+  TILE_POS.forEach((t) => { roads += roadPad(t.x, t.y, t.id === "castle" || t.id === "tavern" ? 34 : 24); });
+
+  return svg(grass + roads, "0 0 1000 400");
+};
 
 // ---------- 왕국 화면(도시맵) 배경 — 성벽 밖 야생 지역이 앉아 있는 타일링 배경 ----------
 // #kingdom-stage 전체(몬스터 배너 + 성벽/보드)의 뒤판. 보드 안쪽 floor.svg보다 살짝
@@ -660,7 +690,7 @@ Object.entries(builders).forEach(([slug, fn]) => {
   for (let t = 1; t <= 3; t++) { writeFileSync(path.join(OUT_BUILDINGS, `${slug}_${t}.svg`), fn(t)); count++; }
 });
 writeFileSync(path.join(OUT_BUILDINGS, "empty.svg"), emptyPlot()); count++;
-writeFileSync(path.join(OUT_BOARD, "floor.svg"), floorTile()); count++;
+writeFileSync(path.join(OUT_BOARD, "floor.svg"), boardFloor()); count++;
 writeFileSync(path.join(OUT_BOARD, "wall-strip.svg"), wallStrip()); count++;
 writeFileSync(path.join(OUT_BOARD, "kingdom-bg.svg"), kingdomBg()); count++;
 
