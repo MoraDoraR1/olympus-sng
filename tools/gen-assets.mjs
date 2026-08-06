@@ -391,31 +391,68 @@ const eyes = (cx, cy, spread, r, fill = P.ink) =>
 const smile = (cx, cy, w) =>
   `<path d="M ${cx - w} ${cy} Q ${cx} ${cy + w * 0.7} ${cx + w} ${cy}" fill="none" stroke="${P.ink}" stroke-width="1.6" stroke-linecap="round" opacity="0.75"/>`;
 
+// ---------- 몬스터용: 관절이 꺾인 팔다리(원판 블롭이 아니라 실제 생물처럼 보이게) ----------
+// 엉덩이/어깨(hx,hy) → 무릎/팔꿈치(꺾임) → 발/손 끝까지 두 구간 곡선. 발끝에 작은 발(굽/발톱) 표시.
+function bentLimb(hx, hy, kx, ky, fx, fy, width, fill, footType = "paw") {
+  const g = vGrad(shade(fill, 0.12), shade(fill, -0.22));
+  let s = `${g.defs}<path d="M ${hx} ${hy} Q ${kx} ${ky} ${fx} ${fy}" fill="none" stroke="${g.id}" stroke-width="${width}" stroke-linecap="round"/>`;
+  if (footType === "hoof") {
+    s += `<ellipse cx="${fx}" cy="${fy}" rx="${width * 0.62}" ry="${width * 0.42}" fill="${P.ink}" opacity="0.85" transform="rotate(20 ${fx} ${fy})"/>`;
+  } else if (footType === "claw") {
+    s += `<path d="M ${fx - width * 0.5} ${fy} l -3 4 M ${fx} ${fy + width * 0.3} l -1 5 M ${fx + width * 0.5} ${fy} l 3 4" stroke="${shade(fill, -0.3)}" stroke-width="1.6" stroke-linecap="round"/>`;
+  } else {
+    s += `<circle cx="${fx}" cy="${fy}" r="${width * 0.55}" fill="${shade(fill, -0.08)}"/>`;
+  }
+  return s;
+}
+// 뾰족귀 한 쌍(사티로스/미노타우로스/케르베로스 등 짐승형 얼굴에 사용)
+const earPair = (cx, cy, spread, size, fill) => {
+  const g = vGrad(shade(fill, 0.15), shade(fill, -0.2));
+  return `${g.defs}<path d="M ${cx - spread} ${cy} L ${cx - spread - size * 0.6} ${cy - size} L ${cx - spread + size * 0.5} ${cy - size * 0.3} Z" fill="${g.id}" stroke="${P.ink}" stroke-width="1.8" stroke-linejoin="round"/>
+   <path d="M ${cx + spread} ${cy} L ${cx + spread + size * 0.6} ${cy - size} L ${cx + spread - size * 0.5} ${cy - size * 0.3} Z" fill="${g.id}" stroke="${P.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
+};
+// 주둥이(코~입 돌출부, 미노타우로스/켄타우로스 말머리/케르베로스 개주둥이에 사용)
+const muzzle = (cx, cy, w, h, fill) => {
+  const g = vGrad(shade(fill, 0.14), shade(fill, -0.18));
+  return `${g.defs}<ellipse cx="${cx}" cy="${cy}" rx="${w}" ry="${h}" fill="${g.id}" stroke="${P.ink}" stroke-width="2"/>
+   <ellipse cx="${cx - w * 0.35}" cy="${cy + h * 0.15}" rx="${w * 0.16}" ry="${h * 0.22}" fill="${P.ink}" opacity="0.7"/>
+   <ellipse cx="${cx + w * 0.35}" cy="${cy + h * 0.15}" rx="${w * 0.16}" ry="${h * 0.22}" fill="${P.ink}" opacity="0.7"/>`;
+};
+
 monsterBuilders.centaur = () => {
   const bodyFill = "#C9A574", skin = "#E8B98A";
   const bg = roundFill(bodyFill), hg = roundFill(skin), tg = roundFill(skin);
-  let s = ground(50, 84, 26);
-  s += `${bg.defs}<ellipse cx="50" cy="66" rx="26" ry="15" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += gloss(42, 58, 8, 4);
-  s += legPair(34, 72, 9, 16, bodyFill); s += legPair(64, 72, 9, 16, bodyFill);
-  s += `<path d="M 74 58 Q 84 62 80 76" fill="none" stroke="${shade(bodyFill, -0.1)}" stroke-width="5" stroke-linecap="round"/>`;
-  s += `${tg.defs}<rect x="38" y="38" width="16" height="24" rx="7" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `${hg.defs}<circle cx="46" cy="32" r="9" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += gloss(43, 29, 3, 1.6);
-  s += eyes(46, 32, 3.2, 1.3);
-  s += smile(46, 36, 2.4);
-  s += `<path d="M 30 46 L 20 40 M 30 50 L 18 50" stroke="${P.woodDeep}" stroke-width="3" stroke-linecap="round"/>`;
+  let s = ground(50, 86, 30);
+  s += bentLimb(30, 68, 25, 77, 22, 84, 7, bodyFill, "hoof");
+  s += bentLimb(41, 73, 38, 80, 35, 86, 6.5, bodyFill, "hoof");
+  s += bentLimb(59, 73, 62, 80, 65, 86, 6.5, bodyFill, "hoof");
+  s += bentLimb(70, 68, 75, 77, 78, 84, 7, bodyFill, "hoof");
+  s += `${bg.defs}<ellipse cx="50" cy="64" rx="28" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(41, 56, 8, 4);
+  s += `<path d="M 77 56 Q 90 58 85 74" fill="none" stroke="${shade(bodyFill, -0.1)}" stroke-width="5" stroke-linecap="round"/>`;
+  s += `${tg.defs}<rect x="36" y="36" width="18" height="26" rx="8" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += bentLimb(34, 44, 24, 40, 18, 48, 4.5, skin, "paw");
+  s += bentLimb(52, 44, 60, 42, 66, 46, 4.5, skin, "paw");
+  s += `${hg.defs}<circle cx="45" cy="30" r="9" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += gloss(42, 27, 3, 1.6);
+  s += eyes(45, 30, 3.2, 1.3);
+  s += smile(45, 34, 2.4);
   return svg(s);
 };
 monsterBuilders.satyr = () => {
   const fur = "#8C6A46", skin = "#E8B98A";
   const bg = roundFill(skin), hg = roundFill(skin);
-  let s = ground(50, 88, 20);
-  s += legPair(46, 62, 8, 20, fur);
-  s += `${bg.defs}<ellipse cx="50" cy="60" rx="14" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `${hg.defs}<circle cx="50" cy="34" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += gloss(46, 30, 3.4, 1.8);
-  s += hornPair(50, 28, P.ivoryDeep);
+  let s = ground(50, 88, 22);
+  s += bentLimb(44, 58, 40, 70, 36, 84, 7, fur, "hoof");
+  s += bentLimb(56, 58, 60, 70, 64, 84, 7, fur, "hoof");
+  s += `${bg.defs}<ellipse cx="50" cy="58" rx="15" ry="19" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 51, 4, 2.2);
+  s += bentLimb(38, 52, 30, 58, 26, 66, 3.6, skin, "paw");
+  s += bentLimb(62, 52, 70, 58, 74, 64, 3.6, skin, "paw");
+  s += `${hg.defs}<circle cx="50" cy="32" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(46, 28, 3.4, 1.8);
+  s += earPair(50, 33, 12, 7, fur);
+  s += hornPair(50, 25, P.ivoryDeep);
   s += eyes(50, 34, 4, 1.6);
   s += smile(50, 39, 3);
   return svg(s);
@@ -423,22 +460,29 @@ monsterBuilders.satyr = () => {
 monsterBuilders.harpy = () => {
   const feather = "#8A7B6B", skin = "#E8B98A";
   const bg = roundFill(feather), hg = roundFill(skin);
-  let s = ground(50, 88, 22);
+  let s = ground(50, 90, 24);
   s += wingPair(50, 56, feather);
-  s += `${bg.defs}<ellipse cx="50" cy="62" rx="12" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="62" rx="13" ry="19" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<path d="M 45 79 L 38 90 L 46 82 Z M 55 79 L 62 90 L 54 82 Z" fill="${shade(feather, -0.1)}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`;
+  s += bentLimb(45, 76, 41, 82, 38, 88, 4.2, feather, "claw");
+  s += bentLimb(55, 76, 59, 82, 62, 88, 4.2, feather, "claw");
   s += `${hg.defs}<circle cx="50" cy="38" r="10" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
   s += gloss(46, 34, 3, 1.6);
   s += eyes(50, 37, 3.6, 1.4);
   s += `<path d="M 50 42 l 6 3 l -6 2 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/>`;
-  s += `<path d="M 42 78 l -4 6 M 58 78 l 4 6" stroke="${P.ink}" stroke-width="2.4" stroke-linecap="round"/>`;
   return svg(s);
 };
 monsterBuilders.cyclops = () => {
   const skin = "#9FAE8C";
-  const bg = roundFill(skin);
-  let s = ground(50, 90, 24);
-  s += legPair(42, 70, 10, 14, skin);
-  s += `${bg.defs}<ellipse cx="50" cy="56" rx="22" ry="24" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  const bg = roundFill(skin), sg = roundFill(skin);
+  let s = ground(50, 92, 28);
+  s += bentLimb(40, 74, 36, 82, 33, 90, 8, skin, "paw");
+  s += bentLimb(60, 74, 64, 82, 67, 90, 8, skin, "paw");
+  s += `${bg.defs}<ellipse cx="50" cy="56" rx="23" ry="25" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${sg.defs}<ellipse cx="27" cy="58" rx="9" ry="12" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.4"/>
+   <ellipse cx="73" cy="58" rx="9" ry="12" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += bentLimb(24, 50, 18, 58, 14, 68, 5.5, skin, "paw");
+  s += bentLimb(76, 50, 82, 58, 86, 68, 5.5, skin, "paw");
   s += gloss(41, 42, 6, 3.5);
   s += `<path d="M 40 44 Q 50 39 60 44" fill="none" stroke="${P.ink}" stroke-width="2" stroke-linecap="round" opacity="0.7"/>`;
   s += `<circle cx="50" cy="52" r="10" fill="${P.white}" stroke="${P.ink}" stroke-width="2.4"/>`;
@@ -449,9 +493,13 @@ monsterBuilders.cyclops = () => {
 };
 monsterBuilders.gorgon = () => {
   const skin = "#8FAE7C";
-  const rg = roundFill(skin), hg = roundFill(skin);
-  let s = ground(50, 88, 20);
-  s += `${rg.defs}<path d="M 38 78 Q 50 88 62 78 L 60 58 L 40 58 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  const rg = roundFill(skin), hg = roundFill(skin), sg = roundFill(skin);
+  let s = ground(50, 88, 22);
+  s += `${rg.defs}<path d="M 38 80 Q 50 90 62 80 L 59 56 L 41 56 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${sg.defs}<path d="M 36 58 Q 33 50 40 47 L 45 56 Z" fill="${sg.id}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/>
+   <path d="M 64 58 Q 67 50 60 47 L 55 56 Z" fill="${sg.id}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/>`;
+  s += bentLimb(37, 52, 30, 58, 26, 66, 3.8, skin, "claw");
+  s += bentLimb(63, 52, 70, 58, 74, 66, 3.8, skin, "claw");
   s += `${hg.defs}<circle cx="50" cy="42" r="14" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   s += gloss(45, 37, 4, 2.2);
   for (let i = 0; i < 6; i++) {
@@ -467,20 +515,27 @@ monsterBuilders.gorgon = () => {
 monsterBuilders.minotaur = () => {
   const skin = "#8C6A46", furHead = "#5B4636";
   const tg = roundFill(skin), hg = roundFill(furHead);
-  let s = ground(50, 90, 24);
-  s += legPair(42, 72, 10, 14, skin);
-  s += `${tg.defs}<rect x="30" y="50" width="40" height="26" rx="10" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `${hg.defs}<circle cx="50" cy="36" r="13" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += gloss(45, 31, 3.6, 2);
-  s += hornPair(50, 28, P.ivoryDeep);
-  s += `<path d="M 43 33 q 2 -2.4 4 0 M 53 33 q 2 -2.4 4 0" stroke="${P.ink}" stroke-width="1.8" stroke-linecap="round" fill="none"/>`;
-  s += `<path d="M 45 40 q 5 4 10 0" fill="none" stroke="${P.ink}" stroke-width="2"/>`;
+  let s = ground(50, 92, 26);
+  s += bentLimb(40, 72, 35, 82, 31, 90, 8, skin, "hoof");
+  s += bentLimb(60, 72, 65, 82, 69, 90, 8, skin, "hoof");
+  s += `${tg.defs}<rect x="29" y="50" width="42" height="27" rx="11" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += bentLimb(30, 54, 22, 60, 16, 68, 5, skin, "paw");
+  s += bentLimb(70, 54, 78, 60, 84, 68, 5, skin, "paw");
+  s += `${hg.defs}<circle cx="50" cy="36" r="14" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 30, 3.8, 2);
+  const bigHornG = vGrad(shade(P.ivoryDeep, 0.24), shade(P.ivoryDeep, -0.18));
+  s += `${bigHornG.defs}<path d="M 39 27 Q 28 16 33 3" fill="none" stroke="${bigHornG.id}" stroke-width="4.2" stroke-linecap="round"/>
+   <path d="M 61 27 Q 72 16 67 3" fill="none" stroke="${bigHornG.id}" stroke-width="4.2" stroke-linecap="round"/>`;
+  s += muzzle(50, 44, 8, 6, shade(furHead, 0.18));
+  s += eyes(50, 32, 5, 1.8);
   return svg(s);
 };
 monsterBuilders.griffin = () => {
   const fur = "#D6A24C", beak = P.gold;
   const bg = roundFill(fur), hg = roundFill(fur);
-  let s = ground(50, 88, 24);
+  let s = ground(50, 90, 26);
+  s += bentLimb(38, 72, 34, 80, 31, 88, 6.5, fur, "claw");
+  s += bentLimb(62, 72, 66, 80, 69, 88, 6.5, fur, "claw");
   s += wingPair(50, 52, fur);
   s += `${bg.defs}<ellipse cx="50" cy="62" rx="20" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   s += `${hg.defs}<circle cx="50" cy="40" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
@@ -493,20 +548,31 @@ monsterBuilders.griffin = () => {
 monsterBuilders.karkinos = () => {
   const shell = "#C9694A";
   const sg = roundFill(shell), c1 = roundFill(shell), c2 = roundFill(shell);
-  let s = ground(50, 84, 26);
-  s += `${sg.defs}<ellipse cx="50" cy="62" rx="26" ry="17" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  let s = ground(50, 84, 28);
+  s += `${sg.defs}<ellipse cx="50" cy="62" rx="27" ry="18" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   s += gloss(42, 54, 7, 3.5);
-  s += `${c1.defs}<path d="M 26 56 Q 14 48 16 38 Q 24 40 28 52 Z" fill="${c1.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
-  s += `${c2.defs}<path d="M 74 56 Q 86 48 84 38 Q 76 40 72 52 Z" fill="${c2.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += bentLimb(28, 58, 16, 48, 12, 40, 5, shell, "paw");
+  s += `${c1.defs}<path d="M 12 40 Q 2 32 4 22 Q 14 26 18 38 Z" fill="${c1.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>
+   <path d="M 8 30 L 2 26 M 8 30 L 4 36" stroke="${P.ink}" stroke-width="2" stroke-linecap="round" fill="none"/>`;
+  s += bentLimb(72, 58, 84, 48, 88, 40, 5, shell, "paw");
+  s += `${c2.defs}<path d="M 88 40 Q 98 32 96 22 Q 86 26 82 38 Z" fill="${c2.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>
+   <path d="M 92 30 L 98 26 M 92 30 L 96 36" stroke="${P.ink}" stroke-width="2" stroke-linecap="round" fill="none"/>`;
   s += legPair(34, 76, 6, 8, shell); s += legPair(50, 78, 6, 8, shell); s += legPair(66, 76, 6, 8, shell);
   s += eyes(50, 56, 8, 2.2);
   return svg(s);
 };
 monsterBuilders.lamia = () => {
   const scale = "#7FA35C", skin = "#E8B98A";
-  const bg = roundFill(scale), tg = roundFill(skin);
-  let s = ground(50, 88, 20);
-  s += `${bg.defs}<path d="M 50 84 Q 30 74 40 60 Q 50 50 38 40 Q 46 34 54 42 Q 62 52 50 62 Q 42 72 62 78 Z" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  const tailC = shade(scale, -0.05);
+  const tg = roundFill(skin);
+  let s = ground(52, 90, 22);
+  s += `<path d="M 50 56 Q 68 62 58 74" fill="none" stroke="${tailC}" stroke-width="17" stroke-linecap="round"/>`;
+  s += `<path d="M 58 72 Q 48 80 62 88" fill="none" stroke="${tailC}" stroke-width="12" stroke-linecap="round"/>`;
+  s += `<path d="M 61 87 Q 55 92 64 95" fill="none" stroke="${tailC}" stroke-width="6.5" stroke-linecap="round"/>`;
+  s += `<path d="M 55 60 Q 60 62 58 66" fill="none" stroke="${shade(scale, -0.28)}" stroke-width="1.4" opacity="0.5"/>`;
+  s += `<path d="M 55 78 Q 50 80 52 84" fill="none" stroke="${shade(scale, -0.28)}" stroke-width="1.4" opacity="0.5"/>`;
+  s += bentLimb(42, 44, 34, 48, 29, 55, 3.4, skin, "paw");
+  s += bentLimb(58, 44, 66, 48, 71, 54, 3.4, skin, "paw");
   s += `${tg.defs}<ellipse cx="50" cy="46" rx="11" ry="14" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
   s += gloss(46, 41, 3, 1.6);
   s += eyes(50, 44, 4, 1.4);
@@ -522,7 +588,11 @@ monsterBuilders.empusa = () => {
   s += `${bg.defs}<ellipse cx="50" cy="58" rx="14" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   s += `${hg.defs}<circle cx="50" cy="36" r="10" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
   s += gloss(46, 32, 3, 1.6);
-  s += `<path d="M 44 26 l 3 -7 l 3 7 Z M 56 26 l -3 -7 l 3 7 Z" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`;
+  const flameOuter = dGrad(shade(P.red, 0.15), shade(P.roofDeep, -0.05));
+  const flameInner = dGrad(shade(P.gold, 0.35), P.gold);
+  const tongue = (x, y, h, w, grad) => `<path d="M ${x - w} ${y} Q ${x - w * 1.3} ${y - h * 0.55} ${x} ${y - h} Q ${x + w * 1.3} ${y - h * 0.55} ${x + w} ${y} Z" fill="${grad.id}" stroke="${P.ink}" stroke-width="1.3" stroke-linejoin="round"/>`;
+  s += `${flameOuter.defs}${tongue(42, 28, 13, 3.4, flameOuter)}${tongue(58, 28, 13, 3.4, flameOuter)}`;
+  s += `${flameInner.defs}${tongue(50, 28, 17, 3.8, flameInner)}`;
   s += `<circle cx="46" cy="36" r="1.6" fill="${P.gold}"/><circle cx="54" cy="36" r="1.6" fill="${P.gold}"/>`;
   s += smile(50, 41, 2.6);
   return svg(s);
@@ -530,9 +600,13 @@ monsterBuilders.empusa = () => {
 // 엘리트 3종 — 조금 더 크고 디테일이 많게, 송곳니로 더 사나운 인상을 준다
 monsterBuilders.medusa = () => {
   const skin = "#7FA36A";
-  const rg = roundFill(skin), hg = roundFill(skin);
-  let s = ground(50, 88, 24);
-  s += `${rg.defs}<path d="M 34 82 Q 50 92 66 82 L 62 56 L 38 56 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  const rg = roundFill(skin), hg = roundFill(skin), sg = roundFill(skin);
+  let s = ground(50, 88, 26);
+  s += `${rg.defs}<path d="M 33 84 Q 50 94 67 84 L 63 56 L 37 56 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${sg.defs}<path d="M 35 58 Q 31 48 40 44 L 46 56 Z" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>
+   <path d="M 65 58 Q 69 48 60 44 L 54 56 Z" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += bentLimb(36, 52, 27, 58, 22, 66, 4.2, skin, "claw");
+  s += bentLimb(64, 52, 73, 58, 78, 66, 4.2, skin, "claw");
   s += `${hg.defs}<circle cx="50" cy="40" r="17" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.8"/>`;
   s += gloss(43, 33, 5, 2.6);
   for (let i = 0; i < 9; i++) {
@@ -548,12 +622,18 @@ monsterBuilders.medusa = () => {
 monsterBuilders.hydra = () => {
   const scale = "#4E8F5B";
   const bg = roundFill(scale);
-  let s = ground(50, 90, 26);
+  let s = ground(50, 90, 28);
+  s += bentLimb(38, 82, 34, 88, 30, 92, 6, scale, "claw");
+  s += bentLimb(62, 82, 66, 88, 70, 92, 6, scale, "claw");
   s += `${bg.defs}<ellipse cx="50" cy="78" rx="20" ry="10" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   [[32, -18], [50, -30], [68, -18]].forEach(([nx, dy]) => {
     const headY = 78 + dy;
     const ng = roundFill(scale);
     s += `<path d="M ${nx} 74 Q ${nx - 6} ${headY + 20} ${nx} ${headY}" fill="none" stroke="${shade(scale, -0.06)}" stroke-width="7" stroke-linecap="round"/>`;
+    for (let i = 1; i <= 2; i++) {
+      const spy = 74 + (headY - 74) * (i / 3);
+      s += `<polygon points="${nx - 1.8},${spy} ${nx + 1.8},${spy} ${nx},${spy - 3.6}" fill="${shade(scale, -0.22)}" stroke="${P.ink}" stroke-width="0.6"/>`;
+    }
     s += `${ng.defs}<circle cx="${nx}" cy="${headY}" r="8" fill="${ng.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
     s += gloss(nx - 2.5, headY - 3, 2.2, 1.2);
     s += `<circle cx="${nx - 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/><circle cx="${nx + 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/>`;
@@ -564,16 +644,20 @@ monsterBuilders.hydra = () => {
 monsterBuilders.cerberus = () => {
   const fur = "#4A4038";
   const bg = roundFill(fur);
-  let s = ground(50, 90, 26);
-  s += legPair(34, 74, 8, 12, fur); s += legPair(50, 76, 8, 12, fur); s += legPair(66, 74, 8, 12, fur);
-  s += `${bg.defs}<ellipse cx="50" cy="66" rx="24" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  let s = ground(50, 90, 28);
+  s += bentLimb(30, 70, 26, 78, 22, 86, 6.5, fur, "claw");
+  s += bentLimb(42, 74, 40, 80, 38, 88, 6, fur, "claw");
+  s += bentLimb(58, 74, 60, 80, 62, 88, 6, fur, "claw");
+  s += bentLimb(70, 70, 74, 78, 78, 86, 6.5, fur, "claw");
+  s += `${bg.defs}<ellipse cx="50" cy="66" rx="25" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   s += gloss(40, 58, 7, 3.5);
   [34, 50, 66].forEach((hx) => {
     const hg = roundFill(fur);
+    s += earPair(hx, 36, 6, 6, fur);
     s += `${hg.defs}<circle cx="${hx}" cy="42" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
     s += gloss(hx - 3.5, 38, 3, 1.6);
-    s += `<circle cx="${hx - 3}" cy="42" r="1.6" fill="${P.red}"/><circle cx="${hx + 3}" cy="42" r="1.6" fill="${P.red}"/>`;
-    s += `<path d="M ${hx - 3} 48 l -1.4 3.4 M ${hx + 3} 48 l 1.4 3.4" stroke="${P.white}" stroke-width="1.8" stroke-linecap="round"/>`;
+    s += muzzle(hx, 49, 5.5, 4, shade(fur, 0.1));
+    s += `<circle cx="${hx - 3}" cy="41" r="1.6" fill="${P.red}"/><circle cx="${hx + 3}" cy="41" r="1.6" fill="${P.red}"/>`;
   });
   return svg(s);
 };
@@ -903,15 +987,27 @@ function kamiPortrait() {
   return svg(s);
 }
 
+// 최고 티어(3, 레벨 14+)는 은은한 금빛 외곽 광채를 더해 "여기까지 키웠다"는
+// 성취감이 한눈에 보이도록 한다 — 건물 형태 자체(창문/깃발/별 장식)는 이미
+// tier별로 달라지지만, 그것만으로는 차이가 약해서 별도 후처리로 확실히 강조.
+function addTier3Glow(svgStr) {
+  const m = svgStr.match(/^<svg ([^>]*)>([\s\S]*)<\/svg>\s*$/);
+  if (!m) return svgStr;
+  const [, attrs, inner] = m;
+  const id = "t3glow";
+  const defs = `<filter id="${id}" x="-45%" y="-45%" width="190%" height="190%"><feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="${P.gold}" flood-opacity="0.9"/></filter>`;
+  return `<svg ${attrs}>${defs}<g filter="url(#${id})">${inner}</g></svg>\n`;
+}
+
 // ---------- 파일로 쓰기 ----------
 const slugMap = { castle: "castle", tavern: "tavern", barracks: "barracks", farm: "farm", lumber: "lumber", quarry: "quarry", storage: "storage", academy: "academy", defense: "defense", watch: "watch" };
 let count = 0;
 Object.entries(builders).forEach(([slug, fn]) => {
   if (slug === "wallgate") {
-    for (let t = 1; t <= 3; t++) { writeFileSync(path.join(OUT_BUILDINGS, `wall_${t}.svg`), fn(t)); count++; }
+    for (let t = 1; t <= 3; t++) { writeFileSync(path.join(OUT_BUILDINGS, `wall_${t}.svg`), t === 3 ? addTier3Glow(fn(t)) : fn(t)); count++; }
     return;
   }
-  for (let t = 1; t <= 3; t++) { writeFileSync(path.join(OUT_BUILDINGS, `${slug}_${t}.svg`), fn(t)); count++; }
+  for (let t = 1; t <= 3; t++) { writeFileSync(path.join(OUT_BUILDINGS, `${slug}_${t}.svg`), t === 3 ? addTier3Glow(fn(t)) : fn(t)); count++; }
 });
 writeFileSync(path.join(OUT_BUILDINGS, "empty.svg"), emptyPlot()); count++;
 writeFileSync(path.join(OUT_BOARD, "floor.svg"), boardFloor()); count++;
