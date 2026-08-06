@@ -128,11 +128,22 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px;
   width: 110px; pointer-events: auto;
 }
-.wm-castle .icon, .wm-mine .icon { font-size: 2.8rem; animation: idle-float 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
-.wm-mine .icon { font-size: 3rem; animation-duration: 3s; }
-.wm-castle .wm-name { font-family: var(--font-display); font-size: .74rem; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.wm-castle .wm-bank { font-size: .66rem; color: var(--gold); font-weight: 800; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.wm-castle .wm-status { font-size: .68rem; font-weight: 800; color: var(--wood); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.wm-castle .icon, .wm-mine .icon { font-size: 4.4rem; position: relative; z-index: 1; animation: idle-float 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
+.wm-mine .icon { font-size: 4.8rem; animation-duration: 3s; }
+.wm-castle .wm-name,
+.wm-castle .wm-bank,
+.wm-castle .wm-status,
+.wm-mine .wm-name {
+  position: relative; z-index: 2;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-radius: 999px;
+  padding: 0 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  text-shadow: none;
+}
+.wm-castle .wm-name, .wm-mine .wm-name { font-family: var(--font-display); font-size: .74rem; margin-top: -20px; font-weight: 700; }
+.wm-castle .wm-bank { font-size: .66rem; color: var(--gold); font-weight: 800; }
+.wm-castle .wm-status { font-size: .68rem; font-weight: 800; color: var(--wood); }
 .wm-castle button.do-attack-castle { font-size: .74rem; padding: 4px 10px; background: #b0463f; color: #fff; }
 .wm-marcher {
   position: absolute; transform: translate(-50%, -50%); font-size: 1.4rem;
@@ -174,7 +185,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   padding: 10px;
   cursor: pointer;
   background: rgba(138,122,99,0.06);
-  transform: rotateX(30deg);
+  transform: rotateX(14deg);
   transform-origin: top center;
   box-shadow: 0 30px 40px -20px rgba(0,0,0,.35);
   margin-bottom: -30px;
@@ -222,13 +233,26 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   background-clip: content-box;
   border-radius: 16px;
 }
-#board .plot .icon { font-size: 2rem; }
+#board .plot .icon { font-size: 4rem; position: relative; z-index: 1; }
 #board .plot .name { font-size: .72rem; }
 #board .plot .level { font-size: .64rem; }
 #board .plot .rate { font-size: .58rem; line-height: 1.15; }
 #board .plot .build-cost { font-size: .64rem; }
 #board .plot { padding: 4px 4px; gap: 1px; min-height: 0; }
-#board .plot .hero-chip { width: 18px; height: 18px; font-size: .58rem; top: 3px; right: 3px; }
+#board .plot .name,
+#board .plot .level,
+#board .plot .rate,
+#board .plot .build-cost {
+  position: relative;
+  z-index: 2;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-radius: 999px;
+  padding: 0 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  text-shadow: none;
+}
+#board .plot .name { margin-top: -18px; font-weight: 700; }
+#board .plot .hero-chip { width: 18px; height: 18px; font-size: .58rem; top: 3px; right: 3px; z-index: 3; }
 
 /* 왕국을 둘러싼 야생 지역 — 성벽 위에 가로로 흐르는 한 줄(스크롤 없이 화면에 다 들어오도록 절대배치 대신 일반 흐름 사용) */
 .monster-grid {
@@ -253,11 +277,22 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   .monster-card { width: 84px; font-size: .85em; }
 }
 .monster-card.elite .icon { filter: drop-shadow(0 0 6px #d64545); }
-.monster-card .icon { font-size: 2.6rem; animation: idle-float 2.2s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
-.monster-card .mname { font-family: var(--font-display); font-size: .8rem; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.monster-card .mlevel { font-size: .68rem; font-weight: 700; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.monster-card .mstats { font-size: .62rem; font-weight: 600; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.monster-card .mstatus { font-size: .68rem; font-weight: 800; color: var(--wood); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.monster-card .icon { font-size: 4.2rem; position: relative; z-index: 1; animation: idle-float 2.2s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+.monster-card .mname,
+.monster-card .mlevel,
+.monster-card .mstats,
+.monster-card .mstatus {
+  position: relative; z-index: 2;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-radius: 999px;
+  padding: 0 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  text-shadow: none;
+}
+.monster-card .mname { font-family: var(--font-display); font-size: .8rem; margin-top: -20px; font-weight: 700; }
+.monster-card .mlevel { font-size: .68rem; font-weight: 700; color: var(--ink-soft); }
+.monster-card .mstats { font-size: .62rem; font-weight: 600; color: var(--ink-soft); }
+.monster-card .mstatus { font-size: .68rem; font-weight: 800; color: var(--wood); }
 .monster-card .mstatus.battle { color: #d64545; }
 .monster-card button.do-attack { margin-top: 2px; font-size: .74rem; padding: 4px 9px; background: #b0463f; color: #fff; }
 @keyframes idle-float {

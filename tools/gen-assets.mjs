@@ -44,6 +44,8 @@ const P = {
   red: "#C0433A",
   road: "#D8C39C",
   roadDeep: "#B89F72",
+  grassPale: "#DCE8C6",
+  grassMid: "#C9DDAE",
 };
 
 const svg = (inner, vb = "0 0 100 100") =>
@@ -519,11 +521,19 @@ function roadPad(x, y, r) {
 }
 const boardFloor = () => {
   const rng = mulberry32(778);
-  let grass = `<rect width="1000" height="400" fill="${P.ivory}"/>`;
-  for (let i = 0; i < 130; i++) {
+  // 도로가 아닌 전체 영역은 초록 잔디가 기본값(요청: "도로가 아닌 곳은 초록색")
+  let grass = `<rect width="1000" height="400" fill="${P.grassPale}"/>`;
+  // 완만한 명암 패치로 밋밋한 단색 초록을 피함
+  grass += `<path d="M -10 0 Q 250 60 500 10 Q 750 -30 1010 40 L 1010 -10 L -10 -10 Z" fill="${P.grassMid}" opacity="0.5"/>`;
+  grass += `<path d="M -10 410 Q 260 350 520 400 Q 780 440 1010 380 L 1010 410 L -10 410 Z" fill="${P.grassMid}" opacity="0.5"/>`;
+  grass += `<ellipse cx="150" cy="200" rx="140" ry="90" fill="${P.grassMid}" opacity="0.35"/>`;
+  grass += `<ellipse cx="850" cy="220" rx="150" ry="95" fill="${P.grassMid}" opacity="0.35"/>`;
+  for (let i = 0; i < 220; i++) {
     const x = rng() * 1000, y = rng() * 400;
-    if (rng() < 0.55) grass += grassTuft(x, y, P.foodDeep);
-    else grass += `<circle cx="${x}" cy="${y}" r="${1.4 + rng() * 1.6}" fill="${pick(rng, [P.ivoryDeep, P.food])}" opacity="0.5"/>`;
+    const roll = rng();
+    if (roll < 0.6) grass += grassTuft(x, y, pick(rng, [P.foodDeep, P.food]));
+    else if (roll < 0.88) grass += `<circle cx="${x}" cy="${y}" r="${1.5 + rng() * 1.8}" fill="${P.food}" opacity="0.4"/>`;
+    else grass += `<circle cx="${x}" cy="${y}" r="${1.2 + rng()}" fill="${P.gold}" opacity="0.55"/>`;
   }
 
   const castle = posOf("castle"), tavern = posOf("tavern");
