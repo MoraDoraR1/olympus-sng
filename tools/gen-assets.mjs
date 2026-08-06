@@ -499,10 +499,10 @@ const titleBg = () => svg(
 );
 
 const emptyPlot = () => svg(
-  `${ground(50, 78, 22)}
-   <rect x="30" y="46" width="40" height="28" rx="5" fill="none" stroke="${P.ink}" stroke-width="3" stroke-dasharray="6 5" opacity="0.55"/>
-   <line x1="50" y1="52" x2="50" y2="68" stroke="${P.ink}" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-   <line x1="42" y1="60" x2="58" y2="60" stroke="${P.ink}" stroke-width="3" stroke-linecap="round" opacity="0.5"/>`
+  `${ground(50, 68, 22)}
+   <rect x="30" y="36" width="40" height="28" rx="5" fill="none" stroke="${P.ink}" stroke-width="3" stroke-dasharray="6 5" opacity="0.55"/>
+   <line x1="50" y1="42" x2="50" y2="58" stroke="${P.ink}" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+   <line x1="42" y1="50" x2="58" y2="50" stroke="${P.ink}" stroke-width="3" stroke-linecap="round" opacity="0.5"/>`
 );
 
 // ---------- 성 내부(보드) 배경 — game.js TILE_LAYOUT 좌표를 그대로 반영한 레이아웃 인지형 배경 ----------
