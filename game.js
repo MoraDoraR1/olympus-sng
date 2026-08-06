@@ -48,27 +48,29 @@
   };
 
   // ---------- 왕도풍 타일 배치 (10열 그리드, 20타일 + 성벽) ----------
+  // 실사용 폭은 3~8열(6칸)로 좁혀 좌우 1~2열을 잔디 여백으로 남기고, 4개 행에
+  // 골고루 나눠 배치한다(이전 버전은 1·3행이 텅 비고 4행에만 몰려 배경과 어긋나 보였다).
   const TILE_LAYOUT = [
+    { id: "plot11", type: null, col: 3, row: 1 },
     { id: "defense", type: "방어탑", col: 4, row: 1 },
     { id: "watch", type: "감시탑", col: 7, row: 1 },
+    { id: "plot12", type: null, col: 8, row: 1 },
     { id: "plot1", type: null, col: 3, row: 2 },
     { id: "academy", type: "아카데미", col: 4, row: 2 },
     { id: "castle", type: "성", col: 5, row: 2, span: 2 },
     { id: "storage", type: "자원보호소", col: 7, row: 2 },
     { id: "plot2", type: null, col: 8, row: 2 },
+    { id: "plot13", type: null, col: 3, row: 3 },
     { id: "plot3", type: null, col: 4, row: 3 },
     { id: "tavern", type: "여관", col: 5, row: 3, span: 2 },
     { id: "plot4", type: null, col: 7, row: 3 },
-    { id: "plot5", type: null, col: 1, row: 4 },
-    { id: "plot6", type: null, col: 2, row: 4 },
-    { id: "plot7", type: null, col: 3, row: 4 },
-    { id: "plot8", type: null, col: 4, row: 4 },
-    { id: "plot9", type: null, col: 5, row: 4 },
-    { id: "plot10", type: null, col: 6, row: 4 },
-    { id: "plot11", type: null, col: 7, row: 4 },
-    { id: "plot12", type: null, col: 8, row: 4 },
-    { id: "plot13", type: null, col: 9, row: 4 },
-    { id: "plot14", type: null, col: 10, row: 4 },
+    { id: "plot14", type: null, col: 8, row: 3 },
+    { id: "plot5", type: null, col: 3, row: 4 },
+    { id: "plot6", type: null, col: 4, row: 4 },
+    { id: "plot7", type: null, col: 5, row: 4 },
+    { id: "plot8", type: null, col: 6, row: 4 },
+    { id: "plot9", type: null, col: 7, row: 4 },
+    { id: "plot10", type: null, col: 8, row: 4 },
   ];
 
   // ---------- 병영 병사 종류 (그리스 신화 테마, 훈련 대기열) ----------

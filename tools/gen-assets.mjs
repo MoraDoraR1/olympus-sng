@@ -48,8 +48,14 @@ const P = {
   grassMid: "#C9DDAE",
 };
 
-const svg = (inner, vb = "0 0 100 100") =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${inner}</svg>\n`;
+// SVG의 기본 preserveAspectRatio(xMidYMid meet)는 background-size:100% 100%로
+// 요청해도 뷰박스 비율을 지켜 레터박스(위아래 또는 좌우 여백)를 남긴다 — floor.svg처럼
+// 뷰박스 비율과 실제 배치 비율이 다른 배경은 완전히 비균등 스트레치가 되어야 하므로
+// preserveAspectRatio="none"을 명시한다(정사각형 아이콘류는 어차피 비율이 같아 무해함).
+const svg = (inner, vb = "0 0 100 100") => {
+  const [, , w, h] = vb.split(" ").map(Number);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}" preserveAspectRatio="none">${inner}</svg>\n`;
+};
 
 // 둥근 사각 벽체
 const wall = (x, y, w, h, fill, stroke = P.ink, r = 6) =>
@@ -500,17 +506,17 @@ const emptyPlot = () => svg(
 );
 
 // ---------- 성 내부(보드) 배경 — game.js TILE_LAYOUT 좌표를 그대로 반영한 레이아웃 인지형 배경 ----------
-// #board는 10열×4행 CSS 그리드다. 뷰박스를 1000×400(1열=100폭, 1행=100높이)으로 맞추고
-// background-size:100% 100%(content-box)로 늘려 붙이면, 아래 좌표로 그린 도로가 실제 건물
-// 칸 위치와 그대로 정렬된다 — 건물 종류/레벨이 바뀌어도 칸 좌표 자체는 고정이므로 안전하다.
+// #board는 10열×4행 CSS 그리드다. 실제 렌더링 비율(약 1.4:1, 132px×10 / 236px×4 기준)에 맞춰
+// 뷰박스를 1000×700(1열=100폭, 1행=175높이)으로 잡는다 — background-size:100% 100%로 늘려도
+// 뷰박스 자체가 실제 칸 비율과 거의 같아 도로 원형 허브가 타원으로 찌그러지지 않는다.
+const ROW_H = 175;
 const TILE_LAYOUT_REF = [
-  ["defense", 4, 1, 1], ["watch", 7, 1, 1], ["plot1", 3, 2, 1], ["academy", 4, 2, 1],
-  ["castle", 5, 2, 2], ["storage", 7, 2, 1], ["plot2", 8, 2, 1], ["plot3", 4, 3, 1],
-  ["tavern", 5, 3, 2], ["plot4", 7, 3, 1],
-  ["plot5", 1, 4, 1], ["plot6", 2, 4, 1], ["plot7", 3, 4, 1], ["plot8", 4, 4, 1], ["plot9", 5, 4, 1],
-  ["plot10", 6, 4, 1], ["plot11", 7, 4, 1], ["plot12", 8, 4, 1], ["plot13", 9, 4, 1], ["plot14", 10, 4, 1],
+  ["plot11", 3, 1, 1], ["defense", 4, 1, 1], ["watch", 7, 1, 1], ["plot12", 8, 1, 1],
+  ["plot1", 3, 2, 1], ["academy", 4, 2, 1], ["castle", 5, 2, 2], ["storage", 7, 2, 1], ["plot2", 8, 2, 1],
+  ["plot13", 3, 3, 1], ["plot3", 4, 3, 1], ["tavern", 5, 3, 2], ["plot4", 7, 3, 1], ["plot14", 8, 3, 1],
+  ["plot5", 3, 4, 1], ["plot6", 4, 4, 1], ["plot7", 5, 4, 1], ["plot8", 6, 4, 1], ["plot9", 7, 4, 1], ["plot10", 8, 4, 1],
 ];
-const TILE_POS = TILE_LAYOUT_REF.map(([id, col, row, span]) => ({ id, x: (col - 1 + span / 2) * 100, y: (row - 1 + 0.5) * 100 }));
+const TILE_POS = TILE_LAYOUT_REF.map(([id, col, row, span]) => ({ id, x: (col - 1 + span / 2) * 100, y: (row - 1 + 0.5) * ROW_H }));
 const posOf = (id) => TILE_POS.find((t) => t.id === id);
 // 살짝 휜 곡선 + 가장자리 흙 스펙클로 자로 잰 듯한 직선/원 느낌을 피한다(자연스러운 흙길)
 function roadLine(x1, y1, x2, y2, rng) {
@@ -544,15 +550,16 @@ function roadPad(x, y, r, rng) {
 }
 const boardFloor = () => {
   const rng = mulberry32(778);
+  const VB_H = ROW_H * 4;
   // 도로가 아닌 전체 영역은 초록 잔디가 기본값(요청: "도로가 아닌 곳은 초록색")
-  let grass = `<rect width="1000" height="400" fill="${P.grassPale}"/>`;
+  let grass = `<rect width="1000" height="${VB_H}" fill="${P.grassPale}"/>`;
   // 완만한 명암 패치로 밋밋한 단색 초록을 피함
-  grass += `<path d="M -10 0 Q 250 60 500 10 Q 750 -30 1010 40 L 1010 -10 L -10 -10 Z" fill="${P.grassMid}" opacity="0.5"/>`;
-  grass += `<path d="M -10 410 Q 260 350 520 400 Q 780 440 1010 380 L 1010 410 L -10 410 Z" fill="${P.grassMid}" opacity="0.5"/>`;
-  grass += `<ellipse cx="150" cy="200" rx="140" ry="90" fill="${P.grassMid}" opacity="0.35"/>`;
-  grass += `<ellipse cx="850" cy="220" rx="150" ry="95" fill="${P.grassMid}" opacity="0.35"/>`;
+  grass += `<path d="M -10 0 Q 250 105 500 17 Q 750 -52 1010 70 L 1010 -17 L -10 -17 Z" fill="${P.grassMid}" opacity="0.5"/>`;
+  grass += `<path d="M -10 ${VB_H + 17} Q 260 ${VB_H - 87} 520 ${VB_H} Q 780 ${VB_H + 70} 1010 ${VB_H - 35} L 1010 ${VB_H + 17} L -10 ${VB_H + 17} Z" fill="${P.grassMid}" opacity="0.5"/>`;
+  grass += `<ellipse cx="150" cy="${VB_H * 0.5}" rx="140" ry="${VB_H * 0.225}" fill="${P.grassMid}" opacity="0.35"/>`;
+  grass += `<ellipse cx="850" cy="${VB_H * 0.55}" rx="150" ry="${VB_H * 0.238}" fill="${P.grassMid}" opacity="0.35"/>`;
   for (let i = 0; i < 220; i++) {
-    const x = rng() * 1000, y = rng() * 400;
+    const x = rng() * 1000, y = rng() * VB_H;
     const roll = rng();
     if (roll < 0.6) grass += grassTuft(x, y, pick(rng, [P.foodDeep, P.food]));
     else if (roll < 0.88) grass += `<circle cx="${x}" cy="${y}" r="${1.5 + rng() * 1.8}" fill="${P.food}" opacity="0.4"/>`;
@@ -563,11 +570,11 @@ const boardFloor = () => {
   let roads = "";
   // 중앙 대로를 성문 위쪽 끝→성→여관→마을 남쪽 끝, 세 구간으로 나눈다 — 한 곡선으로 이으면
   // 중간에 낀 성/여관 좌표가 흔들림 때문에 실제 칸 중심에서 벗어나 버린다.
-  roads += roadLine(castle.x, 15, castle.x, castle.y, rng);
+  roads += roadLine(castle.x, 26, castle.x, castle.y, rng);
   roads += roadLine(castle.x, castle.y, tavern.x, tavern.y, rng);
-  roads += roadLine(tavern.x, tavern.y, tavern.x, 385, rng);
+  roads += roadLine(tavern.x, tavern.y, tavern.x, VB_H - 26, rng);
   [1, 2, 3, 4].forEach((row) => {
-    const rowTiles = TILE_POS.filter((t) => Math.abs(t.y - ((row - 1) * 100 + 50)) < 1).sort((a, b) => a.x - b.x);
+    const rowTiles = TILE_POS.filter((t) => Math.abs(t.y - ((row - 1) * ROW_H + ROW_H / 2)) < 1).sort((a, b) => a.x - b.x);
     if (rowTiles.length < 2) return;
     // 같은 이유로 그 행에 있는 타일들을 하나의 긴 곡선이 아니라 인접 타일끼리 짧게 잇는다
     for (let i = 0; i < rowTiles.length - 1; i++) {
@@ -576,7 +583,7 @@ const boardFloor = () => {
   });
   TILE_POS.forEach((t) => { roads += roadPad(t.x, t.y, t.id === "castle" || t.id === "tavern" ? 40 : 28, rng); });
 
-  return svg(grass + roads, "0 0 1000 400");
+  return svg(grass + roads, `0 0 1000 ${VB_H}`);
 };
 
 // ---------- 왕국 화면(도시맵) 배경 — 성벽 밖 야생 지역이 앉아 있는 타일링 배경 ----------
