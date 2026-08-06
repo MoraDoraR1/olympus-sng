@@ -213,7 +213,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .board-wrap {
   overflow-x: auto;
-  padding: 6px 0 16px;
+  padding: 6px 0 8px;
   position: relative;
   z-index: 2;
   max-width: 92vw;
