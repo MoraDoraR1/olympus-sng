@@ -57,36 +57,95 @@ const svg = (inner, vb = "0 0 100 100") => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}" preserveAspectRatio="none">${inner}</svg>\n`;
 };
 
-// 둥근 사각 벽체
-const wall = (x, y, w, h, fill, stroke = P.ink, r = 6) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+// ---------- 색상 유틸 & 그라디언트(평면 단색 대신 입체감을 준다) ----------
+function shade(hex, percent) {
+  const num = parseInt(hex.slice(1), 16);
+  let r = (num >> 16) & 0xff, g = (num >> 8) & 0xff, b = num & 0xff;
+  const t = percent < 0 ? 0 : 255;
+  const p = Math.abs(percent);
+  r = Math.round((t - r) * p + r);
+  g = Math.round((t - g) * p + g);
+  b = Math.round((t - b) * p + b);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+let uidCounter = 0;
+const uid = (prefix) => `${prefix}${uidCounter++}`;
+// 세로 그라디언트(위쪽 밝게 → 아래쪽 어둡게) — 벽/지붕의 기본 입체감
+function vGrad(c1, c2) {
+  const id = uid("vg");
+  return { id: `url(#${id})`, defs: `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient>` };
+}
+// 대각 그라디언트(좌상단 밝게 → 우하단 어둡게) — 둥근 몸통/머리에 사용해 공 같은 입체감
+function dGrad(c1, c2) {
+  const id = uid("dg");
+  return { id: `url(#${id})`, defs: `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient>` };
+}
+// 광택 하이라이트 — 둥근 형태 위에 옅은 흰 타원을 얹어 매끈한 느낌을 더한다
+const gloss = (cx, cy, rx, ry = rx * 0.55, rot = -25) =>
+  `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${P.white}" opacity="0.4" transform="rotate(${rot} ${cx} ${cy})"/>`;
 
-// 삼각 지붕
-const roofTri = (cx, y, halfW, h, fill, stroke = P.ink) => {
-  const x1 = cx - halfW, x2 = cx + halfW, apexY = y - h;
-  return `<path d="M ${x1} ${y} L ${cx} ${apexY} L ${x2} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+// 둥근 사각 벽체 — 세로 그라디언트 + 판자/석재 이음선 텍스처
+const wall = (x, y, w, h, fill, stroke = P.ink, r = 6) => {
+  const g = vGrad(shade(fill, 0.24), shade(fill, -0.16));
+  let s = `${g.defs}<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${g.id}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for (let ly = y + 8.5; ly < y + h - 3; ly += 8.5) {
+    s += `<line x1="${x + 2}" y1="${ly}" x2="${x + w - 2}" y2="${ly}" stroke="${shade(fill, -0.22)}" stroke-width="1" opacity="0.35"/>`;
+  }
+  return s;
 };
 
-// 사다리꼴 지붕(넓은 건물용)
-const roofTrap = (x, y, w, h, inset, fill, stroke = P.ink) =>
-  `<path d="M ${x} ${y} L ${x + inset} ${y - h} L ${x + w - inset} ${y - h} L ${x + w} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+// 삼각 지붕 — 그라디언트 + 기와 결
+const roofTri = (cx, y, halfW, h, fill, stroke = P.ink) => {
+  const x1 = cx - halfW, x2 = cx + halfW, apexY = y - h;
+  const g = vGrad(shade(fill, 0.2), shade(fill, -0.2));
+  let s = `${g.defs}<path d="M ${x1} ${y} L ${cx} ${apexY} L ${x2} ${y} Z" fill="${g.id}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for (let i = 1; i <= 3; i++) {
+    const t = i / 4;
+    const lx1 = x1 + (cx - x1) * t, ly1 = y + (apexY - y) * t;
+    const lx2 = x2 + (cx - x2) * t;
+    s += `<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly1}" stroke="${shade(fill, -0.3)}" stroke-width="1.3" opacity="0.5"/>`;
+  }
+  return s;
+};
+
+// 사다리꼴 지붕(넓은 건물용) — 그라디언트 + 기와 결
+const roofTrap = (x, y, w, h, inset, fill, stroke = P.ink) => {
+  const g = vGrad(shade(fill, 0.2), shade(fill, -0.2));
+  let s = `${g.defs}<path d="M ${x} ${y} L ${x + inset} ${y - h} L ${x + w - inset} ${y - h} L ${x + w} ${y} Z" fill="${g.id}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  for (let i = 1; i <= 2; i++) {
+    const t = i / 3;
+    const lx1 = x + inset * t, ly = y - h * t;
+    const lx2 = x + w - inset * t;
+    s += `<line x1="${lx1}" y1="${ly}" x2="${lx2}" y2="${ly}" stroke="${shade(fill, -0.3)}" stroke-width="1.3" opacity="0.5"/>`;
+  }
+  return s;
+};
 
 const circleWindow = (cx, cy, r, fill = P.ivory) =>
-  `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${P.ink}" stroke-width="1.6"/>
+   <circle cx="${cx - r * 0.3}" cy="${cy - r * 0.3}" r="${r * 0.3}" fill="${P.white}" opacity="0.55"/>`;
 
 const rectWindow = (x, y, w, h, fill = P.ivory) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${fill}" stroke="${P.ink}" stroke-width="1.6"/>
+   <line x1="${x + w / 2}" y1="${y + 1.2}" x2="${x + w / 2}" y2="${y + h - 1.2}" stroke="${P.ink}" stroke-width="1" opacity="0.4"/>`;
 
 const flag = (x, y, h, fill) =>
   `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - h}" stroke="${P.ink}" stroke-width="2" stroke-linecap="round"/>
    <path d="M ${x} ${y - h} L ${x + 14} ${y - h + 4} L ${x} ${y - h + 8} Z" fill="${fill}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
 
-const door = (cx, y, w, h, fill = P.woodDeep) =>
-  `<path d="M ${cx - w / 2} ${y} L ${cx - w / 2} ${y - h + w / 2} A ${w / 2} ${w / 2} 0 0 1 ${cx + w / 2} ${y - h + w / 2} L ${cx + w / 2} ${y} Z" fill="${fill}" stroke="${P.ink}" stroke-width="1.8"/>`;
+const door = (cx, y, w, h, fill = P.woodDeep) => {
+  const g = vGrad(shade(fill, 0.22), shade(fill, -0.14));
+  return `${g.defs}<path d="M ${cx - w / 2} ${y} L ${cx - w / 2} ${y - h + w / 2} A ${w / 2} ${w / 2} 0 0 1 ${cx + w / 2} ${y - h + w / 2} L ${cx + w / 2} ${y} Z" fill="${g.id}" stroke="${P.ink}" stroke-width="1.8"/>
+   <line x1="${cx}" y1="${y - h + w / 2}" x2="${cx}" y2="${y}" stroke="${P.ink}" stroke-width="1" opacity="0.35"/>
+   <circle cx="${cx + w * 0.2}" cy="${y - h * 0.4}" r="1.1" fill="${P.gold}"/>`;
+};
 
-// 낮은 지반 base(모든 건물이 같은 기준선 위에 서 있다는 느낌)
-const ground = (cx, y, w) =>
-  `<ellipse cx="${cx}" cy="${y}" rx="${w}" ry="4" fill="${P.ink}" opacity="0.12"/>`;
+// 낮은 지반 그림자 — 부드러운 블러로 공중에 뜬 느낌 없이 자연스럽게 안착
+const ground = (cx, y, w) => {
+  const id = uid("bl");
+  return `<filter id="${id}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4"/></filter>
+   <ellipse cx="${cx}" cy="${y}" rx="${w}" ry="4" fill="${P.ink}" opacity="0.16" filter="url(#${id})"/>`;
+};
 
 const star = (cx, cy, r, fill = P.gold) => {
   const pts = [];
@@ -95,7 +154,8 @@ const star = (cx, cy, r, fill = P.gold) => {
     const ang = (Math.PI / 5) * i - Math.PI / 2;
     pts.push(`${cx + Math.cos(ang) * rad},${cy + Math.sin(ang) * rad}`);
   }
-  return `<polygon points="${pts.join(" ")}" fill="${fill}" stroke="${P.ink}" stroke-width="1.2" stroke-linejoin="round"/>`;
+  const g = vGrad(shade(fill, 0.3), shade(fill, -0.15));
+  return `${g.defs}<polygon points="${pts.join(" ")}" fill="${g.id}" stroke="${P.ink}" stroke-width="1.2" stroke-linejoin="round"/>`;
 };
 
 // ---------- 건물별 생성기: (tier 1~3) => svg 문자열 ----------
@@ -129,7 +189,8 @@ builders.tavern = (t) => {
   s += rectWindow(x + w - 15, y - h + 10, 9, 8);
   // 맥주잔 간판(이모지 대신 벡터로 직접 그림 — 헤드리스/이모지폰트 미탑재 환경 대응)
   const mugY = y - h - 10;
-  s += `<circle cx="50" cy="${mugY}" r="8" fill="${P.gold}" stroke="${P.ink}" stroke-width="2"/>`;
+  const mg = dGrad(shade(P.gold, 0.25), shade(P.gold, -0.15));
+  s += `${mg.defs}<circle cx="50" cy="${mugY}" r="8" fill="${mg.id}" stroke="${P.ink}" stroke-width="2"/>`;
   s += `<rect x="46.5" y="${mugY - 4.5}" width="6" height="7" rx="1" fill="${P.white}" stroke="${P.ink}" stroke-width="1.2"/>`;
   s += `<path d="M 52.5 ${mugY - 3} q 3.4 0 3.4 2.4 q 0 2.4 -3.4 2.4" fill="none" stroke="${P.ink}" stroke-width="1.2"/>`;
   s += `<rect x="46.5" y="${mugY - 5.6}" width="6" height="1.8" rx="0.9" fill="${P.food}" stroke="${P.ink}" stroke-width="0.8"/>`;
@@ -146,10 +207,12 @@ builders.barracks = (t) => {
   s += door(50, y, 12, 16, "#5b4636");
   s += rectWindow(x + 6, y - h + 9, 8, 7);
   s += rectWindow(x + w - 14, y - h + 9, 8, 7);
-  // 교차 창(칼) 문장
+  // 교차 창(칼) 문장 — 뒤에 방패꼴 배지를 깔아 무게감을 더함
   const cx = 50, cy = y - h - 6;
-  s += `<line x1="${cx - 9}" y1="${cy - 9}" x2="${cx + 9}" y2="${cy + 9}" stroke="${P.stoneDeep}" stroke-width="3" stroke-linecap="round"/>`;
-  s += `<line x1="${cx + 9}" y1="${cy - 9}" x2="${cx - 9}" y2="${cy + 9}" stroke="${P.stoneDeep}" stroke-width="3" stroke-linecap="round"/>`;
+  const badge = dGrad(shade(P.stone, 0.22), shade(P.stoneDeep, -0.1));
+  s += `${badge.defs}<circle cx="${cx}" cy="${cy}" r="11" fill="${badge.id}" stroke="${P.ink}" stroke-width="1.8" opacity="0.9"/>`;
+  s += `<line x1="${cx - 9}" y1="${cy - 9}" x2="${cx + 9}" y2="${cy + 9}" stroke="${P.ivory}" stroke-width="3" stroke-linecap="round"/>`;
+  s += `<line x1="${cx + 9}" y1="${cy - 9}" x2="${cx - 9}" y2="${cy + 9}" stroke="${P.ivory}" stroke-width="3" stroke-linecap="round"/>`;
   if (t >= 2) s += flag(x + 4, y - h - 2, 12, P.red);
   if (t >= 3) { s += flag(x + w - 4, y - h - 2, 12, P.red); s += circleWindow(50, y - h + 2, 5, P.gold); }
   return svg(s);
@@ -165,8 +228,11 @@ builders.farm = (t) => {
   s += rectWindow(x + w / 2 - 4, y - h + 8, 8, 7);
   // 곡물 사일로
   const sx = 50 + 14, sr = 9 + t;
-  s += `<rect x="${sx - sr}" y="${y - 34 - t * 3}" width="${sr * 2}" height="${34 + t * 3}" rx="${sr}" fill="${P.foodDeep}" stroke="${P.ink}" stroke-width="2.5"/>`;
-  s += `<ellipse cx="${sx}" cy="${y - 34 - t * 3}" rx="${sr}" ry="4" fill="${P.food}" stroke="${P.ink}" stroke-width="2"/>`;
+  const silo = vGrad(shade(P.foodDeep, 0.2), shade(P.foodDeep, -0.16));
+  s += `${silo.defs}<rect x="${sx - sr}" y="${y - 34 - t * 3}" width="${sr * 2}" height="${34 + t * 3}" rx="${sr}" fill="${silo.id}" stroke="${P.ink}" stroke-width="2.5"/>`;
+  s += `<line x1="${sx}" y1="${y - 30 - t * 3}" x2="${sx}" y2="${y - 6}" stroke="${shade(P.foodDeep, -0.3)}" stroke-width="1" opacity="0.4"/>`;
+  const siloCap = dGrad(shade(P.food, 0.22), shade(P.food, -0.1));
+  s += `${siloCap.defs}<ellipse cx="${sx}" cy="${y - 34 - t * 3}" rx="${sr}" ry="4" fill="${siloCap.id}" stroke="${P.ink}" stroke-width="2"/>`;
   if (t >= 2) s += `<circle cx="${sx}" cy="${y - 10}" r="4" fill="${P.gold}"/>`;
   if (t >= 3) { s += star(sx, y - 40 - t * 3, 5); s += `<circle cx="${x + 8}" cy="${y - h - 6}" r="4" fill="${P.gold}"/>`; }
   return svg(s);
@@ -178,10 +244,13 @@ builders.lumber = (t) => {
   const w = 40, h = 18, x = 50 - w / 2;
   s += wall(x, y - h, w, h, P.woodDeep, P.ink, 4);
   s += roofTrap(x - 2, y - h, w + 4, 12 + t, 5, P.wood);
-  // 통나무 더미
+  // 통나무 더미 — 나이테 결을 추가해 통나무 단면 느낌을 강화
   for (let i = 0; i < 3; i++) {
-    s += `<circle cx="${x + 8 + i * 9}" cy="${y - 2}" r="6" fill="${P.wood}" stroke="${P.ink}" stroke-width="2"/>`;
-    s += `<circle cx="${x + 8 + i * 9}" cy="${y - 2}" r="2.4" fill="${P.woodDeep}"/>`;
+    const lx = x + 8 + i * 9;
+    const lg = dGrad(shade(P.wood, 0.22), shade(P.wood, -0.14));
+    s += `${lg.defs}<circle cx="${lx}" cy="${y - 2}" r="6" fill="${lg.id}" stroke="${P.ink}" stroke-width="2"/>`;
+    s += `<circle cx="${lx}" cy="${y - 2}" r="4.1" fill="none" stroke="${P.woodDeep}" stroke-width="0.9" opacity="0.6"/>`;
+    s += `<circle cx="${lx}" cy="${y - 2}" r="2.4" fill="${P.woodDeep}"/>`;
   }
   if (t >= 2) s += `<path d="M ${x + w - 10} ${y - h - 2} l 5 -12 l 5 12 z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.6"/>`; // 도끼머리 느낌 삼각
   if (t >= 3) s += star(50, y - h - 12, 5);
@@ -195,8 +264,12 @@ builders.quarry = (t) => {
     { cx: 38, cy: y - 10, r: 14 }, { cx: 58, cy: y - 16, r: 17 + t * 2 }, { cx: 70, cy: y - 6, r: 10 },
   ];
   rocks.forEach((r, i) => {
-    s += `<polygon points="${r.cx - r.r},${r.cy + r.r * 0.6} ${r.cx - r.r * 0.5},${r.cy - r.r} ${r.cx + r.r * 0.4},${r.cy - r.r * 0.9} ${r.cx + r.r},${r.cy + r.r * 0.5} ${r.cx + r.r * 0.2},${r.cy + r.r}` +
-      `" fill="${i === 1 ? P.stone : P.stoneDeep}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    const base = i === 1 ? P.stone : P.stoneDeep;
+    const rg = dGrad(shade(base, 0.24), shade(base, -0.2));
+    s += `${rg.defs}<polygon points="${r.cx - r.r},${r.cy + r.r * 0.6} ${r.cx - r.r * 0.5},${r.cy - r.r} ${r.cx + r.r * 0.4},${r.cy - r.r * 0.9} ${r.cx + r.r},${r.cy + r.r * 0.5} ${r.cx + r.r * 0.2},${r.cy + r.r}` +
+      `" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    // 결정면 하이라이트 선 — 바위가 여러 면으로 깎인 느낌
+    s += `<line x1="${r.cx - r.r * 0.5}" y1="${r.cy - r.r}" x2="${r.cx + r.r * 0.15}" y2="${r.cy - r.r * 0.1}" stroke="${shade(base, -0.32)}" stroke-width="1.3" opacity="0.5" stroke-linecap="round"/>`;
   });
   if (t >= 2) s += `<polygon points="55,${y - 30} 60,${y - 42} 65,${y - 30} 60,${y - 24}" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
   if (t >= 3) s += star(50, y - 38, 5);
@@ -208,10 +281,17 @@ builders.storage = (t) => {
   let s = ground(50, 92, 30 + t * 2);
   s += wall(x, y - h, w, h, P.roof, P.ink, 5);
   s += roofTrap(x - 3, y - h, w + 6, 12 + t, 5, P.roofDeep);
-  // 상자 더미
-  s += `<rect x="${x + 6}" y="${y - 16}" width="14" height="14" rx="2" fill="${P.wood}" stroke="${P.ink}" stroke-width="2"/>`;
-  s += `<rect x="${x + w - 22}" y="${y - 20}" width="16" height="18" rx="2" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="2"/>`;
-  if (t >= 2) s += `<rect x="${50 - 7}" y="${y - 24}" width="14" height="12" rx="2" fill="${P.gold}" stroke="${P.ink}" stroke-width="2"/>`;
+  // 상자 더미 — 대각 띠(끈)로 나무 상자 느낌을 더함
+  const cr1 = vGrad(shade(P.wood, 0.2), shade(P.wood, -0.14));
+  s += `${cr1.defs}<rect x="${x + 6}" y="${y - 16}" width="14" height="14" rx="2" fill="${cr1.id}" stroke="${P.ink}" stroke-width="2"/>`;
+  s += `<line x1="${x + 6}" y1="${y - 16}" x2="${x + 20}" y2="${y - 2}" stroke="${P.ink}" stroke-width="1" opacity="0.3"/>`;
+  const cr2 = vGrad(shade(P.woodDeep, 0.2), shade(P.woodDeep, -0.14));
+  s += `${cr2.defs}<rect x="${x + w - 22}" y="${y - 20}" width="16" height="18" rx="2" fill="${cr2.id}" stroke="${P.ink}" stroke-width="2"/>`;
+  s += `<line x1="${x + w - 22}" y1="${y - 20}" x2="${x + w - 6}" y2="${y - 2}" stroke="${P.ink}" stroke-width="1" opacity="0.3"/>`;
+  if (t >= 2) {
+    const cr3 = vGrad(shade(P.gold, 0.2), shade(P.gold, -0.14));
+    s += `${cr3.defs}<rect x="${50 - 7}" y="${y - 24}" width="14" height="12" rx="2" fill="${cr3.id}" stroke="${P.ink}" stroke-width="2"/>`;
+  }
   if (t >= 3) s += star(50, y - h - 8, 5);
   return svg(s);
 };
@@ -222,10 +302,13 @@ builders.academy = (t) => {
   s += roofTri(50, y - colH, w / 2 + 4, 16, P.ivoryDeep);
   s += wall(50 - w / 2 + 2, y - colH + 2, w - 4, 4, P.ivory, P.ink, 2);
   const colW = 6, gap = (w - 8 - colW * 4) / 3;
+  const colG = vGrad(P.ivory, shade(P.ivory, -0.14));
   for (let i = 0; i < 4; i++) {
-    s += `<rect x="${50 - w / 2 + 4 + i * (colW + gap)}" y="${y - colH + 5}" width="${colW}" height="${colH - 5}" fill="${P.ivory}" stroke="${P.ink}" stroke-width="2"/>`;
+    s += `${i === 0 ? colG.defs : ""}<rect x="${50 - w / 2 + 4 + i * (colW + gap)}" y="${y - colH + 5}" width="${colW}" height="${colH - 5}" fill="${colG.id}" stroke="${P.ink}" stroke-width="2"/>`;
+    s += `<line x1="${50 - w / 2 + 4 + i * (colW + gap) + colW * 0.3}" y1="${y - colH + 7}" x2="${50 - w / 2 + 4 + i * (colW + gap) + colW * 0.3}" y2="${y - 6}" stroke="${P.white}" stroke-width="0.8" opacity="0.5"/>`;
   }
-  s += `<rect x="${50 - w / 2 + 2}" y="${y - 4}" width="${w - 4}" height="4" fill="${P.ivoryDeep}" stroke="${P.ink}" stroke-width="2"/>`;
+  const baseG = vGrad(shade(P.ivoryDeep, 0.1), shade(P.ivoryDeep, -0.18));
+  s += `${baseG.defs}<rect x="${50 - w / 2 + 2}" y="${y - 4}" width="${w - 4}" height="4" fill="${baseG.id}" stroke="${P.ink}" stroke-width="2"/>`;
   if (t >= 2) {
     // 페디먼트 위 태양 문장(이모지 대신 벡터 — 신전 박공의 장식 원반 느낌)
     const sy = y - colH - 7;
@@ -245,8 +328,9 @@ builders.defense = (t) => {
   const y = 90, w = 22 + t * 2, h = 40 + t * 6, x = 50 - w / 2;
   let s = ground(50, 92, 22);
   s += wall(x, y - h, w, h, P.stone, P.ink, 4);
-  s += `<rect x="${x - 2}" y="${y - h - 8}" width="${w + 4}" height="10" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="2"/>`;
-  for (let i = 0; i < 3; i++) s += `<rect x="${x - 1 + i * (w / 3 + 1)}" y="${y - h - 13}" width="6" height="6" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  const parapet = vGrad(shade(P.stoneDeep, 0.16), shade(P.stoneDeep, -0.16));
+  s += `${parapet.defs}<rect x="${x - 2}" y="${y - h - 8}" width="${w + 4}" height="10" fill="${parapet.id}" stroke="${P.ink}" stroke-width="2"/>`;
+  for (let i = 0; i < 3; i++) s += `${parapet.defs}<rect x="${x - 1 + i * (w / 3 + 1)}" y="${y - h - 13}" width="6" height="6" fill="${parapet.id}" stroke="${P.ink}" stroke-width="1.6"/>`;
   s += circleWindow(50, y - h + 12, 4, P.ink);
   if (t >= 2) s += flag(50, y - h - 8, 14, P.red);
   if (t >= 3) s += star(50, y - h - 24, 5);
@@ -270,7 +354,8 @@ builders.wallgate = (t) => {
   const w = 70, h = 26 + t * 2, x = 50 - w / 2, y = 82;
   let s = ground(50, 86, 34);
   s += wall(x, y - h, w, h, P.stone, P.ink, 3);
-  for (let i = 0; i < 6; i++) s += `<rect x="${x - 2 + i * (w / 6 + 0.2)}" y="${y - h - 6}" width="${w / 6 - 2}" height="8" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  const crenG = vGrad(shade(P.stone, 0.14), shade(P.stone, -0.16));
+  for (let i = 0; i < 6; i++) s += `${crenG.defs}<rect x="${x - 2 + i * (w / 6 + 0.2)}" y="${y - h - 6}" width="${w / 6 - 2}" height="8" fill="${crenG.id}" stroke="${P.ink}" stroke-width="1.6"/>`;
   s += door(50, y, 14, 18, P.stoneDeep);
   if (t >= 2) s += flag(x + 8, y - h - 6, 12, P.red);
   if (t >= 3) s += flag(x + w - 8, y - h - 6, 12, P.red);
@@ -279,61 +364,96 @@ builders.wallgate = (t) => {
 
 // ---------- 몬스터(일반 10종 + 엘리트 3종) ----------
 const monsterBuilders = {};
-const legPair = (cx, y, spread, len, fill) =>
-  `<line x1="${cx - spread}" y1="${y}" x2="${cx - spread}" y2="${y + len}" stroke="${fill}" stroke-width="5" stroke-linecap="round"/>
-   <line x1="${cx + spread}" y1="${y}" x2="${cx + spread}" y2="${y + len}" stroke="${fill}" stroke-width="5" stroke-linecap="round"/>`;
-const hornPair = (cx, cy, fill) =>
-  `<path d="M ${cx - 5} ${cy} Q ${cx - 10} ${cy - 10} ${cx - 4} ${cy - 13}" fill="none" stroke="${fill}" stroke-width="3" stroke-linecap="round"/>
-   <path d="M ${cx + 5} ${cy} Q ${cx + 10} ${cy - 10} ${cx + 4} ${cy - 13}" fill="none" stroke="${fill}" stroke-width="3" stroke-linecap="round"/>`;
-const wingPair = (cx, cy, fill) =>
-  `<path d="M ${cx - 8} ${cy} Q ${cx - 34} ${cy - 6} ${cx - 30} ${cy + 20} Q ${cx - 16} ${cy + 12} ${cx - 8} ${cy + 10} Z" fill="${fill}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>
-   <path d="M ${cx + 8} ${cy} Q ${cx + 34} ${cy - 6} ${cx + 30} ${cy + 20} Q ${cx + 16} ${cy + 12} ${cx + 8} ${cy + 10} Z" fill="${fill}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+const legPair = (cx, y, spread, len, fill) => {
+  const g = vGrad(shade(fill, 0.14), shade(fill, -0.2));
+  return `${g.defs}<line x1="${cx - spread}" y1="${y}" x2="${cx - spread}" y2="${y + len}" stroke="${g.id}" stroke-width="5" stroke-linecap="round"/>
+   <line x1="${cx + spread}" y1="${y}" x2="${cx + spread}" y2="${y + len}" stroke="${g.id}" stroke-width="5" stroke-linecap="round"/>`;
+};
+const hornPair = (cx, cy, fill) => {
+  const g = vGrad(shade(fill, 0.2), shade(fill, -0.15));
+  return `${g.defs}<path d="M ${cx - 5} ${cy} Q ${cx - 10} ${cy - 10} ${cx - 4} ${cy - 13}" fill="none" stroke="${g.id}" stroke-width="3" stroke-linecap="round"/>
+   <path d="M ${cx + 5} ${cy} Q ${cx + 10} ${cy - 10} ${cx + 4} ${cy - 13}" fill="none" stroke="${g.id}" stroke-width="3" stroke-linecap="round"/>`;
+};
+const wingPair = (cx, cy, fill) => {
+  const g = dGrad(shade(fill, 0.2), shade(fill, -0.18));
+  return `${g.defs}<path d="M ${cx - 8} ${cy} Q ${cx - 34} ${cy - 6} ${cx - 30} ${cy + 20} Q ${cx - 16} ${cy + 12} ${cx - 8} ${cy + 10} Z" fill="${g.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>
+   <path d="M ${cx + 8} ${cy} Q ${cx + 34} ${cy - 6} ${cx + 30} ${cy + 20} Q ${cx + 16} ${cy + 12} ${cx + 8} ${cy + 10} Z" fill="${g.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>
+   <path d="M ${cx - 12} ${cy + 2} Q ${cx - 23} ${cy + 5} ${cx - 22} ${cy + 16}" fill="none" stroke="${shade(fill, -0.3)}" stroke-width="1.1" opacity="0.55"/>
+   <path d="M ${cx + 12} ${cy + 2} Q ${cx + 23} ${cy + 5} ${cx + 22} ${cy + 16}" fill="none" stroke="${shade(fill, -0.3)}" stroke-width="1.1" opacity="0.55"/>`;
+};
+// 둥근 몸통/머리에 공용으로 쓰는 대각 그라디언트 채움 + 광택
+const roundFill = (fill) => dGrad(shade(fill, 0.22), shade(fill, -0.16));
+// 단순한 점 눈 대신 살짝 곡선을 준 눈 — 표정이 살아있게
+const eyes = (cx, cy, spread, r, fill = P.ink) =>
+  `<circle cx="${cx - spread}" cy="${cy}" r="${r}" fill="${fill}"/><circle cx="${cx + spread}" cy="${cy}" r="${r}" fill="${fill}"/>
+   <circle cx="${cx - spread + r * 0.3}" cy="${cy - r * 0.3}" r="${r * 0.32}" fill="${P.white}" opacity="0.85"/>
+   <circle cx="${cx + spread + r * 0.3}" cy="${cy - r * 0.3}" r="${r * 0.32}" fill="${P.white}" opacity="0.85"/>`;
+const smile = (cx, cy, w) =>
+  `<path d="M ${cx - w} ${cy} Q ${cx} ${cy + w * 0.7} ${cx + w} ${cy}" fill="none" stroke="${P.ink}" stroke-width="1.6" stroke-linecap="round" opacity="0.75"/>`;
 
 monsterBuilders.centaur = () => {
   const bodyFill = "#C9A574", skin = "#E8B98A";
+  const bg = roundFill(bodyFill), hg = roundFill(skin), tg = roundFill(skin);
   let s = ground(50, 84, 26);
-  s += `<ellipse cx="50" cy="66" rx="26" ry="15" fill="${bodyFill}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="66" rx="26" ry="15" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(42, 58, 8, 4);
   s += legPair(34, 72, 9, 16, bodyFill); s += legPair(64, 72, 9, 16, bodyFill);
-  s += `<path d="M 74 58 Q 84 62 80 76" fill="none" stroke="${bodyFill}" stroke-width="5" stroke-linecap="round"/>`;
-  s += `<rect x="38" y="38" width="16" height="24" rx="7" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `<circle cx="46" cy="32" r="9" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<path d="M 74 58 Q 84 62 80 76" fill="none" stroke="${shade(bodyFill, -0.1)}" stroke-width="5" stroke-linecap="round"/>`;
+  s += `${tg.defs}<rect x="38" y="38" width="16" height="24" rx="7" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${hg.defs}<circle cx="46" cy="32" r="9" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += gloss(43, 29, 3, 1.6);
+  s += eyes(46, 32, 3.2, 1.3);
+  s += smile(46, 36, 2.4);
   s += `<path d="M 30 46 L 20 40 M 30 50 L 18 50" stroke="${P.woodDeep}" stroke-width="3" stroke-linecap="round"/>`;
   return svg(s);
 };
 monsterBuilders.satyr = () => {
   const fur = "#8C6A46", skin = "#E8B98A";
+  const bg = roundFill(skin), hg = roundFill(skin);
   let s = ground(50, 88, 20);
   s += legPair(46, 62, 8, 20, fur);
-  s += `<ellipse cx="50" cy="60" rx="14" ry="18" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<circle cx="50" cy="34" r="11" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="60" rx="14" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${hg.defs}<circle cx="50" cy="34" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(46, 30, 3.4, 1.8);
   s += hornPair(50, 28, P.ivoryDeep);
-  s += `<circle cx="46" cy="34" r="1.6" fill="${P.ink}"/><circle cx="54" cy="34" r="1.6" fill="${P.ink}"/>`;
+  s += eyes(50, 34, 4, 1.6);
+  s += smile(50, 39, 3);
   return svg(s);
 };
 monsterBuilders.harpy = () => {
   const feather = "#8A7B6B", skin = "#E8B98A";
+  const bg = roundFill(feather), hg = roundFill(skin);
   let s = ground(50, 88, 22);
   s += wingPair(50, 56, feather);
-  s += `<ellipse cx="50" cy="62" rx="12" ry="18" fill="${feather}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `<circle cx="50" cy="38" r="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="62" rx="12" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${hg.defs}<circle cx="50" cy="38" r="10" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += gloss(46, 34, 3, 1.6);
+  s += eyes(50, 37, 3.6, 1.4);
   s += `<path d="M 50 42 l 6 3 l -6 2 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/>`;
   s += `<path d="M 42 78 l -4 6 M 58 78 l 4 6" stroke="${P.ink}" stroke-width="2.4" stroke-linecap="round"/>`;
   return svg(s);
 };
 monsterBuilders.cyclops = () => {
   const skin = "#9FAE8C";
+  const bg = roundFill(skin);
   let s = ground(50, 90, 24);
   s += legPair(42, 70, 10, 14, skin);
-  s += `<ellipse cx="50" cy="56" rx="22" ry="24" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="56" rx="22" ry="24" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(41, 42, 6, 3.5);
+  s += `<path d="M 40 44 Q 50 39 60 44" fill="none" stroke="${P.ink}" stroke-width="2" stroke-linecap="round" opacity="0.7"/>`;
   s += `<circle cx="50" cy="52" r="10" fill="${P.white}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `<circle cx="50" cy="52" r="4.4" fill="${P.red}"/>`;
+  s += `<circle cx="50" cy="52" r="4.4" fill="${P.red}"/><circle cx="50" cy="52" r="1.6" fill="${P.ink}"/>`;
+  s += `<circle cx="47.5" cy="49.5" r="1.4" fill="${P.white}" opacity="0.85"/>`;
+  s += smile(50, 66, 5);
   return svg(s);
 };
 monsterBuilders.gorgon = () => {
   const skin = "#8FAE7C";
+  const rg = roundFill(skin), hg = roundFill(skin);
   let s = ground(50, 88, 20);
-  s += `<path d="M 38 78 Q 50 88 62 78 L 60 58 L 40 58 Z" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `<circle cx="50" cy="42" r="14" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${rg.defs}<path d="M 38 78 Q 50 88 62 78 L 60 58 L 40 58 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${hg.defs}<circle cx="50" cy="42" r="14" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 37, 4, 2.2);
   for (let i = 0; i < 6; i++) {
     const ang = (Math.PI / 5) * i - Math.PI * 0.9;
     const x1 = 50 + Math.cos(ang) * 12, y1 = 42 + Math.sin(ang) * 12;
@@ -341,63 +461,80 @@ monsterBuilders.gorgon = () => {
     s += `<path d="M ${x1} ${y1} Q ${x2 + 4} ${y2 - 4} ${x2} ${y2}" fill="none" stroke="${P.foodDeep}" stroke-width="3" stroke-linecap="round"/>`;
   }
   s += `<circle cx="45" cy="42" r="1.8" fill="${P.gold}"/><circle cx="55" cy="42" r="1.8" fill="${P.gold}"/>`;
+  s += smile(50, 47, 3);
   return svg(s);
 };
 monsterBuilders.minotaur = () => {
   const skin = "#8C6A46", furHead = "#5B4636";
+  const tg = roundFill(skin), hg = roundFill(furHead);
   let s = ground(50, 90, 24);
   s += legPair(42, 72, 10, 14, skin);
-  s += `<rect x="30" y="50" width="40" height="26" rx="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<circle cx="50" cy="36" r="13" fill="${furHead}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${tg.defs}<rect x="30" y="50" width="40" height="26" rx="10" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${hg.defs}<circle cx="50" cy="36" r="13" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 31, 3.6, 2);
   s += hornPair(50, 28, P.ivoryDeep);
+  s += `<path d="M 43 33 q 2 -2.4 4 0 M 53 33 q 2 -2.4 4 0" stroke="${P.ink}" stroke-width="1.8" stroke-linecap="round" fill="none"/>`;
   s += `<path d="M 45 40 q 5 4 10 0" fill="none" stroke="${P.ink}" stroke-width="2"/>`;
   return svg(s);
 };
 monsterBuilders.griffin = () => {
   const fur = "#D6A24C", beak = P.gold;
+  const bg = roundFill(fur), hg = roundFill(fur);
   let s = ground(50, 88, 24);
   s += wingPair(50, 52, fur);
-  s += `<ellipse cx="50" cy="62" rx="20" ry="16" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<circle cx="50" cy="40" r="11" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="62" rx="20" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${hg.defs}<circle cx="50" cy="40" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(46, 36, 3.2, 1.8);
+  s += eyes(50, 38, 3.6, 1.4);
   s += `<path d="M 50 42 l 9 3 l -9 4 Z" fill="${beak}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
-  s += `<path d="M 68 74 Q 78 78 74 66" fill="none" stroke="${fur}" stroke-width="4" stroke-linecap="round"/>`;
+  s += `<path d="M 68 74 Q 78 78 74 66" fill="none" stroke="${shade(fur, -0.1)}" stroke-width="4" stroke-linecap="round"/>`;
   return svg(s);
 };
 monsterBuilders.karkinos = () => {
   const shell = "#C9694A";
+  const sg = roundFill(shell), c1 = roundFill(shell), c2 = roundFill(shell);
   let s = ground(50, 84, 26);
-  s += `<ellipse cx="50" cy="62" rx="26" ry="17" fill="${shell}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<path d="M 26 56 Q 14 48 16 38 Q 24 40 28 52 Z" fill="${shell}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
-  s += `<path d="M 74 56 Q 86 48 84 38 Q 76 40 72 52 Z" fill="${shell}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `${sg.defs}<ellipse cx="50" cy="62" rx="26" ry="17" fill="${sg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(42, 54, 7, 3.5);
+  s += `${c1.defs}<path d="M 26 56 Q 14 48 16 38 Q 24 40 28 52 Z" fill="${c1.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `${c2.defs}<path d="M 74 56 Q 86 48 84 38 Q 76 40 72 52 Z" fill="${c2.id}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
   s += legPair(34, 76, 6, 8, shell); s += legPair(50, 78, 6, 8, shell); s += legPair(66, 76, 6, 8, shell);
-  s += `<circle cx="42" cy="56" r="2.2" fill="${P.ink}"/><circle cx="58" cy="56" r="2.2" fill="${P.ink}"/>`;
+  s += eyes(50, 56, 8, 2.2);
   return svg(s);
 };
 monsterBuilders.lamia = () => {
   const scale = "#7FA35C", skin = "#E8B98A";
+  const bg = roundFill(scale), tg = roundFill(skin);
   let s = ground(50, 88, 20);
-  s += `<path d="M 50 84 Q 30 74 40 60 Q 50 50 38 40 Q 46 34 54 42 Q 62 52 50 62 Q 42 72 62 78 Z" fill="${scale}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
-  s += `<ellipse cx="50" cy="46" rx="11" ry="14" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
-  s += `<circle cx="46" cy="44" r="1.6" fill="${P.ink}"/><circle cx="54" cy="44" r="1.6" fill="${P.ink}"/>`;
+  s += `${bg.defs}<path d="M 50 84 Q 30 74 40 60 Q 50 50 38 40 Q 46 34 54 42 Q 62 52 50 62 Q 42 72 62 78 Z" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `${tg.defs}<ellipse cx="50" cy="46" rx="11" ry="14" fill="${tg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += gloss(46, 41, 3, 1.6);
+  s += eyes(50, 44, 4, 1.4);
+  s += smile(50, 50, 2.6);
   return svg(s);
 };
 monsterBuilders.empusa = () => {
   const skin = "#A85B4F";
+  const bg = roundFill(skin), hg = roundFill(skin);
   let s = ground(50, 90, 20);
-  s += `<line x1="44" y1="66" x2="42" y2="84" stroke="${skin}" stroke-width="5" stroke-linecap="round"/>`;
+  s += `<line x1="44" y1="66" x2="42" y2="84" stroke="${shade(skin, -0.1)}" stroke-width="5" stroke-linecap="round"/>`;
   s += `<rect x="52" y="70" width="6" height="14" rx="2" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.6"/>`;
-  s += `<ellipse cx="50" cy="58" rx="14" ry="18" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<circle cx="50" cy="36" r="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="58" rx="14" ry="18" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${hg.defs}<circle cx="50" cy="36" r="10" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += gloss(46, 32, 3, 1.6);
   s += `<path d="M 44 26 l 3 -7 l 3 7 Z M 56 26 l -3 -7 l 3 7 Z" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`;
   s += `<circle cx="46" cy="36" r="1.6" fill="${P.gold}"/><circle cx="54" cy="36" r="1.6" fill="${P.gold}"/>`;
+  s += smile(50, 41, 2.6);
   return svg(s);
 };
-// 엘리트 3종 — 조금 더 크고 디테일이 많게
+// 엘리트 3종 — 조금 더 크고 디테일이 많게, 송곳니로 더 사나운 인상을 준다
 monsterBuilders.medusa = () => {
   const skin = "#7FA36A";
+  const rg = roundFill(skin), hg = roundFill(skin);
   let s = ground(50, 88, 24);
-  s += `<path d="M 34 82 Q 50 92 66 82 L 62 56 L 38 56 Z" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  s += `<circle cx="50" cy="40" r="17" fill="${skin}" stroke="${P.ink}" stroke-width="2.8"/>`;
+  s += `${rg.defs}<path d="M 34 82 Q 50 92 66 82 L 62 56 L 38 56 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${hg.defs}<circle cx="50" cy="40" r="17" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.8"/>`;
+  s += gloss(43, 33, 5, 2.6);
   for (let i = 0; i < 9; i++) {
     const ang = (Math.PI / 8) * i - Math.PI * 1.02;
     const x1 = 50 + Math.cos(ang) * 15, y1 = 40 + Math.sin(ang) * 15;
@@ -405,28 +542,38 @@ monsterBuilders.medusa = () => {
     s += `<path d="M ${x1} ${y1} Q ${x2 + 5} ${y2 - 5} ${x2} ${y2}" fill="none" stroke="${P.foodDeep}" stroke-width="3.4" stroke-linecap="round"/>`;
   }
   s += `<circle cx="44" cy="40" r="2.6" fill="${P.gold}"/><circle cx="56" cy="40" r="2.6" fill="${P.gold}"/>`;
+  s += `<path d="M 46 48 l -1.6 4 M 54 48 l 1.6 4" stroke="${P.white}" stroke-width="2" stroke-linecap="round"/>`;
   return svg(s);
 };
 monsterBuilders.hydra = () => {
   const scale = "#4E8F5B";
+  const bg = roundFill(scale);
   let s = ground(50, 90, 26);
-  s += `<ellipse cx="50" cy="78" rx="20" ry="10" fill="${scale}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="78" rx="20" ry="10" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
   [[32, -18], [50, -30], [68, -18]].forEach(([nx, dy]) => {
     const headY = 78 + dy;
-    s += `<path d="M ${nx} 74 Q ${nx - 6} ${headY + 20} ${nx} ${headY}" fill="none" stroke="${scale}" stroke-width="7" stroke-linecap="round"/>`;
-    s += `<circle cx="${nx}" cy="${headY}" r="8" fill="${scale}" stroke="${P.ink}" stroke-width="2.4"/>`;
+    const ng = roundFill(scale);
+    s += `<path d="M ${nx} 74 Q ${nx - 6} ${headY + 20} ${nx} ${headY}" fill="none" stroke="${shade(scale, -0.06)}" stroke-width="7" stroke-linecap="round"/>`;
+    s += `${ng.defs}<circle cx="${nx}" cy="${headY}" r="8" fill="${ng.id}" stroke="${P.ink}" stroke-width="2.4"/>`;
+    s += gloss(nx - 2.5, headY - 3, 2.2, 1.2);
     s += `<circle cx="${nx - 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/><circle cx="${nx + 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/>`;
+    s += `<path d="M ${nx - 3} ${headY + 4} l 6 0 l -3 3 Z" fill="${P.white}" stroke="${P.ink}" stroke-width="0.8"/>`;
   });
   return svg(s);
 };
 monsterBuilders.cerberus = () => {
   const fur = "#4A4038";
+  const bg = roundFill(fur);
   let s = ground(50, 90, 26);
   s += legPair(34, 74, 8, 12, fur); s += legPair(50, 76, 8, 12, fur); s += legPair(66, 74, 8, 12, fur);
-  s += `<ellipse cx="50" cy="66" rx="24" ry="16" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `${bg.defs}<ellipse cx="50" cy="66" rx="24" ry="16" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(40, 58, 7, 3.5);
   [34, 50, 66].forEach((hx) => {
-    s += `<circle cx="${hx}" cy="42" r="11" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+    const hg = roundFill(fur);
+    s += `${hg.defs}<circle cx="${hx}" cy="42" r="11" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+    s += gloss(hx - 3.5, 38, 3, 1.6);
     s += `<circle cx="${hx - 3}" cy="42" r="1.6" fill="${P.red}"/><circle cx="${hx + 3}" cy="42" r="1.6" fill="${P.red}"/>`;
+    s += `<path d="M ${hx - 3} 48 l -1.4 3.4 M ${hx + 3} 48 l 1.4 3.4" stroke="${P.white}" stroke-width="1.8" stroke-linecap="round"/>`;
   });
   return svg(s);
 };
