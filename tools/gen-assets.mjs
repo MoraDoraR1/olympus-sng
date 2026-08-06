@@ -1,7 +1,7 @@
 // 올림포스 도시 — 절차적 SVG 에셋 생성기
 // ART_DIRECTION.md(파스텔·단순 아이소메트릭·둥근 모서리) 기준을 코드로 옮긴 것.
 // 실행: node tools/gen-assets.mjs  (assets/ 아래에 .svg 파일들을 생성한다)
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -11,11 +11,19 @@ const OUT_BOARD = path.join(ROOT, "assets/board");
 const OUT_MONSTERS = path.join(ROOT, "assets/monsters");
 const OUT_WORLDMAP = path.join(ROOT, "assets/worldmap");
 const OUT_TITLE = path.join(ROOT, "assets/title");
+const OUT_HEROES = path.join(ROOT, "assets/heroes");
 mkdirSync(OUT_BUILDINGS, { recursive: true });
 mkdirSync(OUT_BOARD, { recursive: true });
 mkdirSync(OUT_MONSTERS, { recursive: true });
 mkdirSync(OUT_WORLDMAP, { recursive: true });
 mkdirSync(OUT_TITLE, { recursive: true });
+mkdirSync(OUT_HEROES, { recursive: true });
+
+// data/heroes.js는 브라우저 전역 `const HEROES = [...]`이므로 같은 방식으로 평가해 재사용한다
+const heroesSrc = readFileSync(path.join(ROOT, "data/heroes.js"), "utf8");
+const heroesMod = { exports: {} };
+new Function("module", "exports", `${heroesSrc}\nmodule.exports = HEROES;`)(heroesMod, heroesMod.exports);
+const HEROES = heroesMod.exports;
 
 // ---------- 공통 팔레트 (style.css :root 값과 동일하게 유지) ----------
 const P = {
@@ -513,6 +521,115 @@ const wallStrip = () => svg(
   "0 0 120 40"
 );
 
+// ---------- 영웅 초상화(300명) ----------
+// ASSET_LIST.md 4절의 "파츠 조합형" 권고를 그대로 코드로 구현: id를 시드로 한
+// 결정적(deterministic) 난수로 매번 같은 결과가 나오도록 하되, 300명 각자 다른
+// 조합(피부·머리색·머리모양·수염·의상색)이 나오게 한다. 등급이 높을수록 장신구가
+// 화려해지고(머리띠→월계관→금관+오라), ★8 아홉 명(신급)은 이름별로 상징 아이템을
+// 직접 지정해 더 상징성 있게 만든다.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
+const SKIN_TONES = ["#F0C9A0", "#E8B98A", "#D6A26B", "#C98B5C", "#8C5A3C"];
+const HAIR_COLORS = ["#2B2118", "#3A2A1C", "#5B3A29", "#6B4423", "#8C6A46", "#3A3A3A", "#B8AA95", "#A8582E"];
+const CLOTH_COLORS = ["#7FA35C", "#4C8FE0", "#C0433A", "#9B59D0", "#5B7A8F", "#B5651D", "#4E8F5B", "#C9694A", "#3E7C8A", "#A0527A"];
+
+function leaf(cx, cy, ang, fill) {
+  return `<ellipse cx="${cx}" cy="${cy}" rx="4.2" ry="2.1" fill="${fill}" stroke="${P.ink}" stroke-width="0.9" transform="rotate(${ang} ${cx} ${cy})"/>`;
+}
+function laurel(bothSides, color) {
+  const side = (mult) => {
+    let s = "";
+    for (let i = 0; i < 4; i++) {
+      const t = i / 3;
+      s += leaf(50 + mult * (23 + t * 5), 38 - t * 15, mult * (25 + t * 25), color);
+    }
+    return s;
+  };
+  return side(1) + (bothSides ? side(-1) : "");
+}
+function hairShape(style, color) {
+  if (style === 0) // 짧은 스타일
+    return `<path d="M 27 50 Q 28 27 50 25 Q 72 27 73 50 Q 66 34 50 32 Q 34 34 27 50 Z" fill="${color}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  if (style === 1) // 풍성한 웨이브
+    return `<path d="M 23 55 Q 17 26 50 22 Q 83 26 77 55 Q 78 42 68 40 Q 72 30 50 28 Q 28 30 32 40 Q 22 42 23 55 Z" fill="${color}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  // 긴 머리(어깨까지)
+  return `<path d="M 25 52 Q 16 30 50 24 Q 84 30 75 52 Q 80 70 74 88 Q 68 72 70 54 Q 70 34 50 30 Q 30 34 30 54 Q 32 72 26 88 Q 20 70 25 52 Z" fill="${color}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+}
+function beardShape(color) {
+  return `<path d="M 38 62 Q 40 76 50 78 Q 60 76 62 62 Q 62 70 50 72 Q 38 70 38 62 Z" fill="${color}" stroke="${P.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
+}
+// ★8 신급 9명 전용 상징 아이템(작은 배지로 초상 오른쪽 아래에 얹는다)
+const GOD_SYMBOL = {
+  292: (c) => `<path d="M -6 4 Q -2 -8 8 -6 Q 4 -2 -2 2 Q -6 6 -6 4 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/>` , // 크로노스: 낫
+  293: (c) => `<path d="M -6 8 L -6 -8 M -3 8 L -3 -6 M 0 8 L 0 -8 M -6 -8 Q -3 -12 0 -8" fill="none" stroke="${P.stoneDeep}" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/>`, // 포세이돈: 삼지창
+  294: (c) => `<circle r="6" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/>` + Array.from({ length: 8 }).map((_, i) => { const a = i * Math.PI / 4; return `<line x1="${50 + Math.cos(a) * 7}" y1="${50 + Math.sin(a) * 7}" x2="${50 + Math.cos(a) * 10}" y2="${50 + Math.sin(a) * 10}" stroke="${P.gold}" stroke-width="1.4" stroke-linecap="round"/>`; }).join(""), // 아폴론: 태양
+  295: (c) => `<path d="M 0 -6 Q 6 -6 6 0 Q 6 6 0 8 Q -6 6 -6 0 Q -6 -6 0 -6 Z" fill="#E091B0" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/>`, // 아프로디테: 장미
+  296: (c) => `<path d="M -2 -8 L 3 -1 L -1 -1 L 4 8 L -6 -2 L -1 -2 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 제우스: 번개
+  297: (c) => `<path d="M 0 -7 Q 5 -3 3 4 Q 0 8 -3 4 Q -5 -3 0 -7 Z" fill="#9B59D0" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><circle cx="50" cy="45" r="1.4" fill="${P.gold}"/>`, // 헤라: 공작깃털
+  298: (c) => `<path d="M -5 8 L -5 -8 M 0 8 L 0 -10 M 5 8 L 5 -8 M -5 -8 Q 0 -12 5 -8" fill="none" stroke="#4A3A5C" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/>`, // 하데스: 두갈래창(빈덴트)
+  299: (c) => `<ellipse cx="-5" cy="-2" rx="4" ry="2" fill="${P.food}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(-20)"/><ellipse cx="0" cy="-6" rx="4" ry="2" fill="${P.food}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(10)"/><ellipse cx="5" cy="-2" rx="4" ry="2" fill="${P.foodDeep}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(35)"/>`, // 가이아: 이파리
+};
+const GOD_AURA = { 292: "#9C9C9C", 293: "#4C8FE0", 294: "#E8B93B", 295: "#E091B0", 296: "#3B5BA6", 297: "#9B59D0", 298: "#4A3A5C", 299: "#7FB069" };
+
+function heroPortrait(hero) {
+  const rng = mulberry32(hero.id * 2654435761);
+  const skin = pick(rng, SKIN_TONES);
+  const hairColor = pick(rng, HAIR_COLORS);
+  const cloth = pick(rng, CLOTH_COLORS);
+  const hairStyle = Math.floor(rng() * 3);
+  const hasBeard = rng() < 0.32;
+  const r = hero.rarity;
+
+  let s = "";
+  if (r >= 7 || GOD_AURA[hero.id]) {
+    s += `<circle cx="50" cy="54" r="29" fill="none" stroke="${GOD_AURA[hero.id] || P.gold}" stroke-width="2" opacity="0.5"/>`;
+  }
+  s += `<path d="M 18 96 Q 50 72 82 96 L 82 100 L 18 100 Z" fill="${cloth}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `<rect x="43" y="68" width="14" height="16" fill="${skin}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  s += `<circle cx="50" cy="54" r="22" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  if (hasBeard) s += beardShape(hairColor);
+  s += hairShape(hairStyle, hairColor);
+  s += `<circle cx="43" cy="55" r="2" fill="${P.ink}"/><circle cx="57" cy="55" r="2" fill="${P.ink}"/>`;
+  s += `<path d="M 45 64 Q 50 67 55 64" stroke="${P.ink}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+
+  if (r >= 3 && r <= 4) s += `<path d="M 28 48 Q 50 40 72 48" stroke="${pick(rng, [P.gold, cloth, P.stoneDeep])}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+  else if (r >= 5 && r <= 6) s += laurel(false, P.food);
+  else if (r === 7) s += laurel(true, P.gold);
+  else if (r >= 8) {
+    s += laurel(true, P.gold);
+    s += `<path d="M 33 33 L 37 21 L 43 31 L 50 19 L 57 31 L 63 21 L 67 33 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  }
+  if (GOD_SYMBOL[hero.id]) {
+    s += `<circle cx="72" cy="76" r="11" fill="${P.ivory}" stroke="${P.ink}" stroke-width="1.8"/>`;
+    s += `<g transform="translate(22 26)">${GOD_SYMBOL[hero.id]()}</g>`;
+  }
+  return svg(s);
+}
+// 까미 전용 — 사람이 아니라 고양이(설정상 신화 인물이 아니라 강사님 고양이)
+function kamiPortrait() {
+  let s = `<circle cx="50" cy="54" r="29" fill="none" stroke="${P.gold}" stroke-width="2" opacity="0.6"/>`;
+  s += `<path d="M 20 96 Q 50 76 80 96 L 80 100 L 20 100 Z" fill="#8C6A46" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `<path d="M 29 38 L 22 16 L 42 32 Z" fill="#D9A066" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `<path d="M 71 38 L 78 16 L 58 32 Z" fill="#D9A066" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `<path d="M 31 36 L 27 22 L 39 33 Z" fill="#F0C9A0"/>`;
+  s += `<path d="M 69 36 L 73 22 L 61 33 Z" fill="#F0C9A0"/>`;
+  s += `<circle cx="50" cy="54" r="22" fill="#D9A066" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<path d="M 40 33 L 42 41 M 50 31 L 50 39 M 60 33 L 58 41" stroke="#B5651D" stroke-width="2" stroke-linecap="round"/>`;
+  s += `<ellipse cx="42" cy="55" rx="3" ry="4.4" fill="${P.ink}"/><ellipse cx="58" cy="55" rx="3" ry="4.4" fill="${P.ink}"/>`;
+  s += `<circle cx="50" cy="59" r="1.8" fill="${P.red}"/>`;
+  s += `<path d="M 50 60 L 46 64 M 50 60 L 54 64" stroke="${P.ink}" stroke-width="1.4" stroke-linecap="round"/>`;
+  s += `<path d="M 23 55 L 36 57 M 23 62 L 36 60 M 77 55 L 64 57 M 77 62 L 64 60" stroke="${P.ink}" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>`;
+  return svg(s);
+}
+
 // ---------- 파일로 쓰기 ----------
 const slugMap = { castle: "castle", tavern: "tavern", barracks: "barracks", farm: "farm", lumber: "lumber", quarry: "quarry", storage: "storage", academy: "academy", defense: "defense", watch: "watch" };
 let count = 0;
@@ -532,4 +649,9 @@ Object.entries(worldmapBuilders).forEach(([key, fn]) => { writeFileSync(path.joi
 writeFileSync(path.join(OUT_WORLDMAP, "background.svg"), worldmapBg()); count++;
 writeFileSync(path.join(OUT_TITLE, "background.svg"), titleBg()); count++;
 
-console.log(`생성 완료: ${count}개 SVG (assets/buildings, assets/board, assets/monsters, assets/worldmap, assets/title)`);
+HEROES.forEach((hero) => {
+  writeFileSync(path.join(OUT_HEROES, `${hero.id}.svg`), hero.secret ? kamiPortrait() : heroPortrait(hero));
+  count++;
+});
+
+console.log(`생성 완료: ${count}개 SVG (assets/buildings, assets/board, assets/monsters, assets/worldmap, assets/title, assets/heroes: ${HEROES.length}명)`);

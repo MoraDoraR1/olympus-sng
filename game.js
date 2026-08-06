@@ -222,7 +222,9 @@
   });
 
   const RES_LABEL = { food: "🌾", wood: "🪵", stone: "🪨", gold: "🪙" };
-  const RARITY_EMOJI = { 1: "🧑", 2: "🧝", 3: "🗡️", 4: "🧙", 5: "👑", 6: "⚡", 7: "🦉", 8: "🌟" };
+  function heroPortraitHTML(hero) {
+    return `<img src="assets/heroes/${hero.id}.svg" alt="${hero.name}" />`;
+  }
   const KAMI = HEROES.find((h) => h.secret) || null;
   const HERO_BY_ID = Object.fromEntries(HEROES.map((h) => [h.id, h]));
   const BASE_CAP = 10000000; // 1000만
@@ -1164,7 +1166,7 @@
         cell.className = `hero-card card-fresh hc-r${hero.rarity}` + (isKami ? " kami" : "");
         cell.innerHTML = `
           <span class="star-badge r${hero.rarity}">★${hero.rarity}</span>
-          <div class="portrait">${isKami ? "🐱" : RARITY_EMOJI[hero.rarity] || "🧑"}</div>
+          <div class="portrait">${heroPortraitHTML(hero)}</div>
           <div class="hname">${hero.name}</div>
           <div class="hdomain">${hero.domain}</div>
           <div class="hstats">⚔️${hero.atk} 🛡️${hero.def} ❤️${hero.hp}</div>
@@ -1439,7 +1441,7 @@
       const cell = document.createElement("div");
       cell.className = "codex-cell" + (owned ? "" : " locked");
       cell.innerHTML = `
-        <div class="portrait">${owned ? (hero.secret ? "🐱" : RARITY_EMOJI[hero.rarity] || "🧑") : "❔"}</div>
+        <div class="portrait">${owned ? heroPortraitHTML(hero) : "❔"}</div>
         <div>${owned ? hero.name : "???"}</div>
         <span class="star-badge r${hero.rarity}" style="font-size:.6rem;">★${hero.rarity}</span>
       `;
@@ -1459,7 +1461,7 @@
       ? `⚔️ 영웅 특성 — 부대 ${hero.traitEffect.statKey === "atk" ? "공격력" : hero.traitEffect.statKey === "def" ? "방어력" : "체력"} +${heroTraitPercent(hero).toFixed(1)}%`
       : `🏛️ 영웅 특성 — ${hero.traitEffect.building} 생산/효과 +${heroTraitPercent(hero).toFixed(1)}%`;
     return `
-      <h3>${hero.secret ? "🐱" : RARITY_EMOJI[hero.rarity]} ${hero.name} ${heroBadgeHTML(hero.id)}</h3>
+      <h3><span class="modal-icon">${heroPortraitHTML(hero)}</span>${hero.name} ${heroBadgeHTML(hero.id)}</h3>
       <p>${hero.domain} · ${hero.culture}</p>
       <p><em>${hero.flavor}</em></p>
       <p>${traitDesc}</p>
@@ -1494,7 +1496,7 @@
       const cell = document.createElement("div");
       cell.className = "codex-cell";
       cell.innerHTML = `
-        <div class="portrait">${hero.secret ? "🐱" : RARITY_EMOJI[hero.rarity] || "🧑"}</div>
+        <div class="portrait">${heroPortraitHTML(hero)}</div>
         <div>${hero.name}</div>
         <span class="star-badge r${hero.rarity}" style="font-size:.6rem;">★${hero.rarity}</span>
       `;
