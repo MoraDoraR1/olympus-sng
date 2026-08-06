@@ -220,11 +220,14 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 #board {
   display: grid;
-  grid-template-columns: repeat(10, 190px);
+  /* 1·2·9·10열은 성벽과의 여백용 얇은 열, 3~8열(실제 건물/부지)만 정사각형 큰 칸 —
+     전체 폭이 board-wrap의 92vw 안에 들어와야 기본 스크롤 위치에서도 항상 가운데
+     정렬된다(여백 열까지 큰 칸이면 폭이 넘쳐 오른쪽 여백만 잘려 성이 오른쪽으로 치우쳐 보인다) */
+  grid-template-columns: 20px 20px repeat(6, 240px) 20px 20px;
   /* 행 높이가 콘텐츠에 따라 들쭉날쭉하면 배경(floor.svg)의 도로가 실제 칸과 어긋난다 — 반드시 고정값 유지 */
-  grid-auto-rows: 320px;
+  grid-auto-rows: 240px;
   gap: 22px;
-  padding: 14px 20px;
+  padding: 16px;
   width: max-content;
   margin: 0 auto;
   background-image: url("assets/board/floor.svg");
@@ -307,10 +310,6 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   box-shadow: none;
 }
 .plot.tile-empty .icon { font-size: 2.4rem; opacity: .65; }
-.plot.tile-castle {
-  border: 2px solid var(--roof);
-  background: linear-gradient(160deg, var(--panel), rgba(231,162,107,0.25));
-}
 
 .type-choice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .type-choice {
