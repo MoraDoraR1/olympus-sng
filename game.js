@@ -607,6 +607,10 @@
     save();
   }
   function assignHero(tileId, heroId) {
+    if (state.armies.some((a) => a.mission && a.heroIds.includes(heroId))) {
+      toast("출정 중인 영웅은 배치를 바꿀 수 없습니다");
+      return;
+    }
     state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
     Object.values(state.tiles).forEach((t) => { if (t.heroId === heroId) t.heroId = null; });
     state.tiles[tileId].heroId = heroId;
@@ -1367,9 +1371,13 @@
           let idx = selectedSlot;
           if (idx === -1 || army.heroIds[idx]) idx = army.heroIds.findIndex((h) => !h);
           if (idx === -1) { toast("부대 슬롯이 가득 찼습니다 (최대 3명)"); return; }
+          let unassignedFromBuilding = false;
+          Object.values(state.tiles).forEach((t) => { if (t.heroId === heroId) { t.heroId = null; unassignedFromBuilding = true; } });
           army.heroIds[idx] = heroId;
           save();
+          renderBoard();
           render();
+          if (unassignedFromBuilding) toast(`${HERO_BY_ID[heroId].name}의 건물 배치가 해제되고 부대에 편성되었습니다`);
         });
       });
     }
