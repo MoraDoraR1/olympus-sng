@@ -510,6 +510,25 @@ const floorTile = () => svg(
   "0 0 100 100"
 );
 
+// ---------- 왕국 화면(도시맵) 배경 — 성벽 밖 야생 지역이 앉아 있는 타일링 배경 ----------
+// #kingdom-stage 전체(몬스터 배너 + 성벽/보드)의 뒤판. 보드 안쪽 floor.svg보다 살짝
+// 더 "야외" 느낌(풀숲 덤불)을 주되, 카드/성벽 위에 텍스트가 계속 올라가므로 톤은 낮게 유지.
+const grassTuft = (cx, cy, fill) =>
+  `<path d="M ${cx} ${cy} Q ${cx - 3} ${cy - 9} ${cx - 1} ${cy - 13} Q ${cx} ${cy - 8} ${cx} ${cy - 13} Q ${cx + 1} ${cy - 8} ${cx + 2} ${cy - 13} Q ${cx + 4} ${cy - 9} ${cx} ${cy}"
+     fill="none" stroke="${fill}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+const kingdomBg = () => svg(
+  `<rect width="200" height="200" fill="${P.ivory}"/>
+   <path d="M -10 40 Q 60 20 120 45 Q 170 60 210 35 L 210 -10 L -10 -10 Z" fill="${P.food}" opacity="0.10"/>
+   <path d="M -10 170 Q 70 190 140 165 Q 180 150 210 175 L 210 210 L -10 210 Z" fill="${P.food}" opacity="0.10"/>
+   ${[[24, 30], [150, 18], [70, 70], [175, 95], [30, 120], [110, 150], [185, 170], [55, 185], [140, 55]]
+     .map(([x, y]) => grassTuft(x, y, P.foodDeep)).join("")}
+   ${[[45, 55], [130, 40], [95, 110], [20, 150], [160, 130], [65, 25]]
+     .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" fill="${P.gold}" opacity="0.5"/>`).join("")}
+   ${[[80, 20], [15, 90], [155, 75], [110, 180], [190, 40]]
+     .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${P.ivoryDeep}" opacity="0.6"/>`).join("")}`,
+  "0 0 200 200"
+);
+
 // 성벽 9-slice용 반복 스트립(가로로 이어붙일 벽돌 텍스처)
 const wallStrip = () => svg(
   `<rect width="120" height="40" fill="${P.stone}"/>
@@ -643,6 +662,7 @@ Object.entries(builders).forEach(([slug, fn]) => {
 writeFileSync(path.join(OUT_BUILDINGS, "empty.svg"), emptyPlot()); count++;
 writeFileSync(path.join(OUT_BOARD, "floor.svg"), floorTile()); count++;
 writeFileSync(path.join(OUT_BOARD, "wall-strip.svg"), wallStrip()); count++;
+writeFileSync(path.join(OUT_BOARD, "kingdom-bg.svg"), kingdomBg()); count++;
 
 Object.entries(monsterBuilders).forEach(([key, fn]) => { writeFileSync(path.join(OUT_MONSTERS, `${key}.svg`), fn()); count++; });
 Object.entries(worldmapBuilders).forEach(([key, fn]) => { writeFileSync(path.join(OUT_WORLDMAP, `castle_${key}.svg`), fn()); count++; });
