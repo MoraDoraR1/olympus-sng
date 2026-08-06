@@ -512,12 +512,35 @@ const TILE_LAYOUT_REF = [
 ];
 const TILE_POS = TILE_LAYOUT_REF.map(([id, col, row, span]) => ({ id, x: (col - 1 + span / 2) * 100, y: (row - 1 + 0.5) * 100 }));
 const posOf = (id) => TILE_POS.find((t) => t.id === id);
-function roadLine(x1, y1, x2, y2) {
-  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.roadDeep}" stroke-width="30" stroke-linecap="round"/>
-          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.road}" stroke-width="21" stroke-linecap="round"/>`;
+// 살짝 휜 곡선 + 가장자리 흙 스펙클로 자로 잰 듯한 직선/원 느낌을 피한다(자연스러운 흙길)
+function roadLine(x1, y1, x2, y2, rng) {
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const wobble = (rng() - 0.5) * Math.min(24, len * 0.1);
+  const cx = mx + nx * wobble, cy = my + ny * wobble;
+  let s = `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${P.roadDeep}" stroke-width="32" stroke-linecap="round"/>`;
+  s += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${P.road}" stroke-width="22" stroke-linecap="round"/>`;
+  const steps = Math.max(5, Math.round(len / 35));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const px = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
+    const py = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+    const side = rng() < 0.5 ? -1 : 1;
+    const off = 8 + rng() * 10;
+    s += `<circle cx="${px + nx * side * off}" cy="${py + ny * side * off}" r="${1 + rng() * 1.6}" fill="${pick(rng, [P.roadDeep, P.grassMid])}" opacity="0.5"/>`;
+  }
+  return s;
 }
-function roadPad(x, y, r) {
-  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${P.roadDeep}"/><circle cx="${x}" cy="${y}" r="${r - 5}" fill="${P.road}"/>`;
+function roadPad(x, y, r, rng) {
+  let s = `<circle cx="${x}" cy="${y}" r="${r + 7}" fill="${P.road}" opacity="0.3"/>`;
+  s += `<circle cx="${x}" cy="${y}" r="${r}" fill="${P.roadDeep}"/><circle cx="${x}" cy="${y}" r="${r - 6}" fill="${P.road}"/>`;
+  for (let i = 0; i < 10; i++) {
+    const ang = rng() * Math.PI * 2, rr = r * (0.55 + rng() * 0.5);
+    s += `<circle cx="${x + Math.cos(ang) * rr}" cy="${y + Math.sin(ang) * rr}" r="${1 + rng()}" fill="${P.roadDeep}" opacity="0.4"/>`;
+  }
+  return s;
 }
 const boardFloor = () => {
   const rng = mulberry32(778);
@@ -538,14 +561,20 @@ const boardFloor = () => {
 
   const castle = posOf("castle"), tavern = posOf("tavern");
   let roads = "";
-  roads += roadLine(castle.x, 15, tavern.x, 385); // 성~여관을 잇는 중앙 대로(성문~마을 남쪽 끝, 두 랜드마크가 같은 열이라 일직선)
+  // 중앙 대로를 성문 위쪽 끝→성→여관→마을 남쪽 끝, 세 구간으로 나눈다 — 한 곡선으로 이으면
+  // 중간에 낀 성/여관 좌표가 흔들림 때문에 실제 칸 중심에서 벗어나 버린다.
+  roads += roadLine(castle.x, 15, castle.x, castle.y, rng);
+  roads += roadLine(castle.x, castle.y, tavern.x, tavern.y, rng);
+  roads += roadLine(tavern.x, tavern.y, tavern.x, 385, rng);
   [1, 2, 3, 4].forEach((row) => {
-    const rowTiles = TILE_POS.filter((t) => Math.abs(t.y - ((row - 1) * 100 + 50)) < 1);
+    const rowTiles = TILE_POS.filter((t) => Math.abs(t.y - ((row - 1) * 100 + 50)) < 1).sort((a, b) => a.x - b.x);
     if (rowTiles.length < 2) return;
-    const xs = rowTiles.map((t) => t.x).sort((a, b) => a - b);
-    roads += roadLine(xs[0], rowTiles[0].y, xs[xs.length - 1], rowTiles[0].y);
+    // 같은 이유로 그 행에 있는 타일들을 하나의 긴 곡선이 아니라 인접 타일끼리 짧게 잇는다
+    for (let i = 0; i < rowTiles.length - 1; i++) {
+      roads += roadLine(rowTiles[i].x, rowTiles[i].y, rowTiles[i + 1].x, rowTiles[i + 1].y, rng);
+    }
   });
-  TILE_POS.forEach((t) => { roads += roadPad(t.x, t.y, t.id === "castle" || t.id === "tavern" ? 34 : 24); });
+  TILE_POS.forEach((t) => { roads += roadPad(t.x, t.y, t.id === "castle" || t.id === "tavern" ? 40 : 28, rng); });
 
   return svg(grass + roads, "0 0 1000 400");
 };
@@ -569,16 +598,26 @@ const kingdomBg = () => svg(
   "0 0 200 200"
 );
 
-// 성벽 9-slice용 반복 스트립(가로로 이어붙일 벽돌 텍스처)
-const wallStrip = () => svg(
-  `<rect width="120" height="40" fill="${P.stone}"/>
-   ${[0, 1].map((row) => [0, 1, 2, 3].map((col) => {
-     const x = col * 30 + (row % 2 ? 15 : 0), y = row * 20;
-     return `<rect x="${x - 15}" y="${y}" width="28" height="18" rx="2" fill="${row ? P.stoneDeep : P.stone}" stroke="${P.ink}" stroke-width="1.4" opacity="0.9"/>`;
-   }).join("")).join("")}
-   <rect x="0" y="0" width="120" height="40" fill="none" stroke="${P.ink}" stroke-width="2"/>`,
-  "0 0 120 40"
-);
+// 성벽 9-slice용 반복 스트립 — 자로 잰 격자 대신 크기가 들쭉날쭉한 부정형 석재로 자연스럽게
+const wallStrip = () => {
+  const rng = mulberry32(4242);
+  let s = `<rect width="120" height="40" fill="${P.stoneDeep}"/>`;
+  [6, 25].forEach((y, ri) => {
+    let x = ri % 2 ? -14 : -4;
+    while (x < 128) {
+      const w = 18 + rng() * 13;
+      const h = 13 + rng() * 4;
+      const jitterY = (rng() - 0.5) * 3;
+      s += `<rect x="${x}" y="${y + jitterY}" width="${w}" height="${h}" rx="3" fill="${pick(rng, [P.stone, P.stoneDeep])}" stroke="${P.ink}" stroke-width="1.2" opacity="0.9"/>`;
+      x += w + 2 + rng() * 2;
+    }
+  });
+  for (let i = 0; i < 46; i++) {
+    s += `<circle cx="${rng() * 120}" cy="${rng() * 40}" r="${0.5 + rng()}" fill="${P.ink}" opacity="0.12"/>`;
+  }
+  s += `<rect x="0" y="0" width="120" height="40" fill="none" stroke="${P.ink}" stroke-width="2"/>`;
+  return svg(s, "0 0 120 40");
+};
 
 // ---------- 영웅 초상화(300명) ----------
 // ASSET_LIST.md 4절의 "파츠 조합형" 권고를 그대로 코드로 구현: id를 시드로 한

@@ -176,10 +176,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wall-frame {
   position: relative;
   z-index: 2;
-  border: 20px solid #8a7a63;
+  border: 8px solid #8a7a63;
   border-image-source: url("assets/board/wall-strip.svg");
   border-image-slice: 15 55 fill;
-  border-image-width: 20px;
+  border-image-width: 8px;
   border-image-repeat: round;
   border-radius: 26px;
   padding: 10px;
@@ -221,7 +221,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 #board {
   display: grid;
   grid-template-columns: repeat(10, 78px);
-  grid-auto-rows: minmax(84px, auto);
+  /* 행 높이가 콘텐츠에 따라 들쭉날쭉하면 배경(floor.svg)의 도로가 실제 칸과 어긋난다 — 반드시 고정값 유지 */
+  grid-auto-rows: 220px;
   gap: 6px;
   padding: 6px 24px;
   width: max-content;
@@ -233,7 +234,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   background-clip: content-box;
   border-radius: 16px;
 }
-#board .plot .icon { font-size: 4rem; position: relative; z-index: 1; }
+#board .plot .icon { font-size: 6rem; position: relative; z-index: 1; }
 #board .plot .name { font-size: .72rem; }
 #board .plot .level { font-size: .64rem; }
 #board .plot .rate { font-size: .58rem; line-height: 1.15; }
@@ -251,7 +252,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
   text-shadow: none;
 }
-#board .plot .name { margin-top: -18px; font-weight: 700; }
+#board .plot .name { margin-top: -30px; font-weight: 700; }
 #board .plot .hero-chip { width: 18px; height: 18px; font-size: .58rem; top: 3px; right: 3px; z-index: 3; }
 
 /* 왕국을 둘러싼 야생 지역 — 성벽 위에 가로로 흐르는 한 줄(스크롤 없이 화면에 다 들어오도록 절대배치 대신 일반 흐름 사용) */
