@@ -176,23 +176,23 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wall-frame {
   position: relative;
   z-index: 2;
-  border: 8px solid #8a7a63;
+  border: 2px solid #8a7a63;
   border-image-source: url("assets/board/wall-strip.svg");
   border-image-slice: 15 55 fill;
-  border-image-width: 8px;
+  border-image-width: 2px;
   border-image-repeat: round;
-  border-radius: 26px;
-  padding: 10px;
+  border-radius: 10px;
+  padding: 2px;
   cursor: pointer;
   background: rgba(138,122,99,0.06);
   transform: rotateX(14deg);
   transform-origin: top center;
-  box-shadow: 0 30px 40px -20px rgba(0,0,0,.35);
-  margin-bottom: -30px;
+  box-shadow: 0 14px 20px -14px rgba(0,0,0,.35);
+  margin-bottom: -14px;
 }
 .wall-frame.unbuilt {
   border-image-source: none;
-  border-width: 9px;
+  border-width: 3px;
   border-style: dashed;
   border-color: var(--line);
   background: transparent;
