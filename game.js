@@ -253,7 +253,7 @@
   function freshState() {
     const tiles = {};
     TILE_LAYOUT.forEach((t) => {
-      tiles[t.id] = { type: t.type, built: t.id === "castle", level: t.id === "castle" ? 1 : 0, heroId: null, training: null };
+      tiles[t.id] = { type: t.type, built: t.id === "castle", level: t.id === "castle" ? 1 : 0, heroId: null, training: null, upgrading: null };
     });
     tiles.wall = { type: "성벽", built: false, level: 0, heroId: null };
     return {
@@ -383,6 +383,10 @@
     Object.entries(bdef.upgradeCost).forEach(([r, v]) => { cost[r] = Math.round(v * factor); });
     return cost;
   }
+  // 레벨업 소요 시간(초) — 레벨이 높을수록 오래 걸리되 여관 주기(5분)를 넘지 않게 상한
+  function upgradeSecondsFor(level) {
+    return Math.min(300, 15 + level * 10);
+  }
   // 레벨업 선행조건: 성이 항상 상한선 + 건물별 기본 연관 건물 레벨
   function levelUpMissing(tileId) {
     const tile = state.tiles[tileId];
@@ -456,6 +460,12 @@
           tile.training = null;
         }
       }
+    });
+    Object.keys(state.tiles).forEach((tileId) => {
+      const tile = state.tiles[tileId];
+      if (!tile.upgrading) return;
+      tile.upgrading.timeLeft -= 1;
+      if (tile.upgrading.timeLeft <= 0) completeUpgrade(tileId);
     });
     state.monsters.forEach((slot) => {
       if (!slot.monster) {
@@ -631,24 +641,33 @@
   function upgrade(tileId) {
     const tile = state.tiles[tileId];
     if (tile.level >= MAX_LEVEL) { toast(`이미 최대 레벨(${MAX_LEVEL})입니다`); return; }
+    if (tile.upgrading) { toast("이미 레벨업이 진행 중입니다"); return; }
     const missing = levelUpMissing(tileId);
     if (missing.length) { toast(`레벨업 조건 부족: ${missing.join(", ")}`); return; }
     const cost = upgradeCostFor(tile.type, tile.level);
     if (!cost) return;
     if (!canAfford(cost)) { toast("자원이 부족합니다"); return; }
     pay(cost);
-    tile.level += 1;
-    if (tile.type === "여관") {
-      const need = tavernSlotsForLevel(tile.level) - state.tavern.candidates.length;
-      for (let i = 0; i < need; i++) state.tavern.candidates.push(rollHeroId());
-    }
-    toast(`⬆️ ${tile.type} 레벨 ${tile.level}!`);
-    if (tile.type === "여관") { renderTavernModal(); renderTavernCards(); }
+    const seconds = upgradeSecondsFor(tile.level);
+    tile.upgrading = { targetLevel: tile.level + 1, timeLeft: seconds, total: seconds };
+    toast(`🏗️ ${tile.type} 레벨업 시작! (${seconds}s 후 Lv.${tile.upgrading.targetLevel})`);
+    if (tile.type === "여관") renderTavernModal();
     else openBuildingModal(tileId);
     renderBoard();
     renderTopbar();
-    renderWallFrame();
     save();
+  }
+  function completeUpgrade(tileId) {
+    const tile = state.tiles[tileId];
+    tile.level = tile.upgrading.targetLevel;
+    tile.upgrading = null;
+    if (tile.type === "여관") {
+      const need = tavernSlotsForLevel(tile.level) - state.tavern.candidates.length;
+      for (let i = 0; i < need; i++) state.tavern.candidates.push(rollHeroId());
+      renderTavernCards();
+    }
+    toast(`⬆️ ${tile.type} 레벨 ${tile.level}!`);
+    renderWallFrame();
   }
   function assignHero(tileId, heroId) {
     if (state.armies.some((a) => a.mission && a.heroIds.includes(heroId))) {
@@ -969,10 +988,13 @@
         if (tile.type === "감시탑") {
           parts.push(tile.level >= 5 ? "몬스터 정보 전체 공개" : "몬스터 레벨만 공개");
         }
+        if (tile.upgrading) {
+          parts.push(`🏗️ Lv.${tile.upgrading.targetLevel} 레벨업 중 (${tile.upgrading.timeLeft}s)`);
+        }
         rateLine = parts.filter(Boolean).join(" ");
       }
 
-      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "");
+      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.upgrading ? " upgrading" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "");
       plot.innerHTML = `
         <div class="icon">${buildingIconHTML(tile.type, tile.level)}</div>
         <div class="name">${tile.type}</div>
@@ -1047,6 +1069,12 @@
     `;
   }
 
+  function renderUpgradeStatusHTML(tileId) {
+    const tile = state.tiles[tileId];
+    const pct = Math.round(100 * (1 - tile.upgrading.timeLeft / tile.upgrading.total));
+    return `<div class="training-status">🏗️ Lv.${tile.upgrading.targetLevel}(으)로 레벨업 중 — ${tile.upgrading.timeLeft}s 남음 (${pct}%)</div>`;
+  }
+
   // 건물의 생산/기능 수치를 특정 레벨 기준으로 계산(레벨업 전/후 비교에 재사용)
   function productionLineForLevel(tileId, level) {
     const tile = state.tiles[tileId];
@@ -1093,7 +1121,9 @@
           </div>` : `<div class="compare-line"><div class="compare-cur">${productionLineForLevel(tileId, tile.level) || "특별한 생산 효과 없음"}</div></div>`}
         ${upCost
           ? tile.level < MAX_LEVEL
-            ? `${renderReqChecklistHTML(tileId)}<button id="do-upgrade" ${missing.length ? "disabled" : ""}>레벨업 (${costText(upCost)})</button>`
+            ? tile.upgrading
+              ? renderUpgradeStatusHTML(tileId)
+              : `${renderReqChecklistHTML(tileId)}<button id="do-upgrade" ${missing.length ? "disabled" : ""}>레벨업 (${costText(upCost)})</button>`
             : `<p><small>최대 레벨입니다</small></p>`
           : ""}
       </div>
@@ -1166,7 +1196,9 @@
       meta.innerHTML = `
         <span>여관 Lv.${tile.level}/${MAX_LEVEL} · 슬롯 ${tavernSlotsForLevel(tile.level)}명</span>
         ${tile.level < MAX_LEVEL
-          ? `${renderReqChecklistHTML("tavern")}<button id="btn-tavern-upgrade" ${missing.length ? "disabled" : ""}>⬆️ 레벨업 (${costText(upCost)})</button>`
+          ? tile.upgrading
+            ? renderUpgradeStatusHTML("tavern")
+            : `${renderReqChecklistHTML("tavern")}<button id="btn-tavern-upgrade" ${missing.length ? "disabled" : ""}>⬆️ 레벨업 (${costText(upCost)})</button>`
           : "<span> (최대 레벨)</span>"}
       `;
       const upBtn = meta.querySelector("#btn-tavern-upgrade");
