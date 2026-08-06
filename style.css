@@ -31,6 +31,12 @@
 :root[data-theme="dark"] { --bg: #2B2620; --panel: #3A332A; --ink: #FBF3E7; --ink-soft: #d8c6a8; --line: rgba(251,243,231,.4); }
 :root[data-theme="light"] { --bg: #F4E9D8; --panel: #FFF8EC; --ink: #3A2E1F; --ink-soft: #6b5738; --line: rgba(74,59,42,.5); }
 
+.icon img, .portrait img, .modal-icon img {
+  width: 1em; height: 1em; object-fit: contain; display: block;
+}
+.modal-icon { display: inline-flex; vertical-align: middle; font-size: 2.1rem; margin-right: 4px; }
+.modal-icon img { filter: drop-shadow(0 2px 2px rgba(0,0,0,.22)); }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
@@ -149,7 +155,11 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wall-frame {
   position: relative;
   z-index: 2;
-  border: 9px solid #8a7a63;
+  border: 20px solid #8a7a63;
+  border-image-source: url("assets/board/wall-strip.svg");
+  border-image-slice: 15 55 fill;
+  border-image-width: 20px;
+  border-image-repeat: round;
   border-radius: 26px;
   padding: 10px;
   cursor: pointer;
@@ -160,6 +170,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   margin-bottom: -30px;
 }
 .wall-frame.unbuilt {
+  border-image-source: none;
+  border-width: 9px;
   border-style: dashed;
   border-color: var(--line);
   background: transparent;
@@ -193,6 +205,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   padding: 6px 24px;
   width: max-content;
   margin: 0 auto;
+  background-image: url("assets/board/floor.svg");
+  background-repeat: repeat;
+  background-size: 90px 90px;
+  border-radius: 16px;
 }
 #board .plot .icon { font-size: 2rem; }
 #board .plot .name { font-size: .72rem; }

@@ -18,6 +18,24 @@
   };
   const SELECTABLE_TYPES = Object.keys(BUILDING_TYPES).filter((t) => BUILDING_TYPES[t].selectable);
 
+  // ---------- 건물 스프라이트(절차적 SVG, assets/buildings/) ----------
+  const BUILDING_SLUG = {
+    "성": "castle", "여관": "tavern", "병영": "barracks", "농장": "farm", "벌목장": "lumber",
+    "채석장": "quarry", "자원보호소": "storage", "아카데미": "academy", "방어탑": "defense",
+    "감시탑": "watch", "성벽": "wall",
+  };
+  function spriteTier(level) {
+    if (level >= 14) return 3;
+    if (level >= 7) return 2;
+    return 1;
+  }
+  function buildingSpriteSrc(type, level) {
+    return `assets/buildings/${BUILDING_SLUG[type]}_${spriteTier(level || 1)}.svg`;
+  }
+  function buildingIconHTML(type, level, cssClass) {
+    return `<img class="${cssClass || ""}" src="${buildingSpriteSrc(type, level)}" alt="${type}" />`;
+  }
+
   // 다른 건물 레벨이 조건이 되는 기본적인 선행 관계 (성이 항상 최종 상한선)
   const LEVEL_REQUIREMENTS = {
     "병영": [{ type: "농장", offset: -2 }],
@@ -888,7 +906,7 @@
 
       if (!tile.type) {
         plot.className = "plot tile-empty";
-        plot.innerHTML = `<div class="icon">➕</div><div class="name">부지</div><div class="level">건설 가능</div>`;
+        plot.innerHTML = `<div class="icon"><img src="assets/buildings/empty.svg" alt="빈 부지" /></div><div class="name">부지</div><div class="level">건설 가능</div>`;
         plot.addEventListener("click", () => openPlotChooserModal(def.id));
         board.appendChild(plot);
         return;
@@ -916,7 +934,7 @@
 
       plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "");
       plot.innerHTML = `
-        <div class="icon">${bdef.icon}</div>
+        <div class="icon">${buildingIconHTML(tile.type, tile.level)}</div>
         <div class="name">${tile.type}</div>
         <div class="level">${tile.built ? "Lv." + tile.level + "/" + MAX_LEVEL : "미건설"}</div>
         ${rateLine ? `<div class="rate">${rateLine}</div>` : ""}
@@ -940,7 +958,7 @@
         ${SELECTABLE_TYPES.map(
           (type) => `
           <div class="type-choice" data-type="${type}">
-            <span class="icon">${BUILDING_TYPES[type].icon}</span>
+            <span class="icon">${buildingIconHTML(type, 1)}</span>
             <span class="tc-name">${type}</span>
             <span class="tc-cost">🪙 ${BUILDING_TYPES[type].buildCostGold}</span>
           </div>`
@@ -958,7 +976,7 @@
     const bdef = BUILDING_TYPES[tile.type];
     const body = document.getElementById("building-modal-body");
     body.innerHTML = `
-      <h2>${bdef.icon} ${tile.type} 건설</h2>
+      <h2><span class="modal-icon">${buildingIconHTML(tile.type, 1)}</span>${tile.type} 건설</h2>
       <p>필요 자원: 🪙 ${bdef.buildCostGold}</p>
       <button id="do-build">건설하기</button>
     `;
@@ -1025,7 +1043,7 @@
 
     const infoCol = `
       <div class="modal-section">
-        <h2>${bdef.icon} ${tile.type} <small>Lv.${tile.level}/${MAX_LEVEL}</small></h2>
+        <h2><span class="modal-icon">${buildingIconHTML(tile.type, tile.level)}</span>${tile.type} <small>Lv.${tile.level}/${MAX_LEVEL}</small></h2>
         <p class="building-desc">${bdef.desc || ""}</p>
         ${tile.level < MAX_LEVEL ? `
           <div class="compare-line">
@@ -1491,7 +1509,7 @@
       <div class="help-list">
         ${Object.entries(BUILDING_TYPES).map(([name, def]) => `
           <div class="help-row">
-            <span class="icon">${def.icon}</span>
+            <span class="icon">${buildingIconHTML(name, 1)}</span>
             <span class="help-name">${name}</span>
             <span class="help-desc">${def.desc || ""}</span>
           </div>
