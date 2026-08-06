@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900"><defs>
+     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#F7E9C9"/><stop offset="1" stop-color="#F4E9D8"/>
+     </linearGradient>
+   </defs>
+   <rect width="1600" height="900" fill="url(#sky)"/>
+   <path d="M -50 620 L 260 320 L 430 480 L 620 260 L 900 620 Z" fill="#D6864C" opacity="0.28"/>
+   <path d="M 500 650 L 820 280 L 1060 470 L 1300 330 L 1650 650 Z" fill="#8F897C" opacity="0.24"/>
+   <path d="M 780 420 L 900 300 L 960 360 L 900 400 Z" fill="#FFF8EC" opacity="0.5"/>
+   <ellipse cx="220" cy="200" rx="70" ry="25.2" fill="#FFF8EC" opacity="0.55"/><ellipse cx="420" cy="260" rx="100" ry="36" fill="#FFF8EC" opacity="0.55"/><ellipse cx="1200" cy="220" rx="90" ry="32.4" fill="#FFF8EC" opacity="0.55"/><ellipse cx="1400" cy="300" rx="60" ry="21.599999999999998" fill="#FFF8EC" opacity="0.55"/><ellipse cx="760" cy="160" rx="80" ry="28.799999999999997" fill="#FFF8EC" opacity="0.55"/>
+   <path d="M 720 900 Q 800 560 900 460 Q 1000 560 1020 900 Z" fill="#EADFC7" opacity="0.4"/>
+   <rect x="770" y="560" width="10" height="330" fill="#EADFC7" opacity="0.5"/><rect x="800" y="570" width="10" height="300" fill="#EADFC7" opacity="0.5"/><rect x="830" y="560" width="10" height="270" fill="#EADFC7" opacity="0.5"/><rect x="860" y="570" width="10" height="240" fill="#EADFC7" opacity="0.5"/><rect x="890" y="560" width="10" height="210" fill="#EADFC7" opacity="0.5"/><rect x="920" y="570" width="10" height="180" fill="#EADFC7" opacity="0.5"/></svg>

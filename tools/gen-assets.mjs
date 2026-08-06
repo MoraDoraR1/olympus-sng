@@ -8,8 +8,14 @@ import path from "node:path";
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OUT_BUILDINGS = path.join(ROOT, "assets/buildings");
 const OUT_BOARD = path.join(ROOT, "assets/board");
+const OUT_MONSTERS = path.join(ROOT, "assets/monsters");
+const OUT_WORLDMAP = path.join(ROOT, "assets/worldmap");
+const OUT_TITLE = path.join(ROOT, "assets/title");
 mkdirSync(OUT_BUILDINGS, { recursive: true });
 mkdirSync(OUT_BOARD, { recursive: true });
+mkdirSync(OUT_MONSTERS, { recursive: true });
+mkdirSync(OUT_WORLDMAP, { recursive: true });
+mkdirSync(OUT_TITLE, { recursive: true });
 
 // ---------- 공통 팔레트 (style.css :root 값과 동일하게 유지) ----------
 const P = {
@@ -253,6 +259,227 @@ builders.wallgate = (t) => {
   return svg(s);
 };
 
+// ---------- 몬스터(일반 10종 + 엘리트 3종) ----------
+const monsterBuilders = {};
+const legPair = (cx, y, spread, len, fill) =>
+  `<line x1="${cx - spread}" y1="${y}" x2="${cx - spread}" y2="${y + len}" stroke="${fill}" stroke-width="5" stroke-linecap="round"/>
+   <line x1="${cx + spread}" y1="${y}" x2="${cx + spread}" y2="${y + len}" stroke="${fill}" stroke-width="5" stroke-linecap="round"/>`;
+const hornPair = (cx, cy, fill) =>
+  `<path d="M ${cx - 5} ${cy} Q ${cx - 10} ${cy - 10} ${cx - 4} ${cy - 13}" fill="none" stroke="${fill}" stroke-width="3" stroke-linecap="round"/>
+   <path d="M ${cx + 5} ${cy} Q ${cx + 10} ${cy - 10} ${cx + 4} ${cy - 13}" fill="none" stroke="${fill}" stroke-width="3" stroke-linecap="round"/>`;
+const wingPair = (cx, cy, fill) =>
+  `<path d="M ${cx - 8} ${cy} Q ${cx - 34} ${cy - 6} ${cx - 30} ${cy + 20} Q ${cx - 16} ${cy + 12} ${cx - 8} ${cy + 10} Z" fill="${fill}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>
+   <path d="M ${cx + 8} ${cy} Q ${cx + 34} ${cy - 6} ${cx + 30} ${cy + 20} Q ${cx + 16} ${cy + 12} ${cx + 8} ${cy + 10} Z" fill="${fill}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+
+monsterBuilders.centaur = () => {
+  const bodyFill = "#C9A574", skin = "#E8B98A";
+  let s = ground(50, 84, 26);
+  s += `<ellipse cx="50" cy="66" rx="26" ry="15" fill="${bodyFill}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += legPair(34, 72, 9, 16, bodyFill); s += legPair(64, 72, 9, 16, bodyFill);
+  s += `<path d="M 74 58 Q 84 62 80 76" fill="none" stroke="${bodyFill}" stroke-width="5" stroke-linecap="round"/>`;
+  s += `<rect x="38" y="38" width="16" height="24" rx="7" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<circle cx="46" cy="32" r="9" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<path d="M 30 46 L 20 40 M 30 50 L 18 50" stroke="${P.woodDeep}" stroke-width="3" stroke-linecap="round"/>`;
+  return svg(s);
+};
+monsterBuilders.satyr = () => {
+  const fur = "#8C6A46", skin = "#E8B98A";
+  let s = ground(50, 88, 20);
+  s += legPair(46, 62, 8, 20, fur);
+  s += `<ellipse cx="50" cy="60" rx="14" ry="18" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="34" r="11" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += hornPair(50, 28, P.ivoryDeep);
+  s += `<circle cx="46" cy="34" r="1.6" fill="${P.ink}"/><circle cx="54" cy="34" r="1.6" fill="${P.ink}"/>`;
+  return svg(s);
+};
+monsterBuilders.harpy = () => {
+  const feather = "#8A7B6B", skin = "#E8B98A";
+  let s = ground(50, 88, 22);
+  s += wingPair(50, 56, feather);
+  s += `<ellipse cx="50" cy="62" rx="12" ry="18" fill="${feather}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<circle cx="50" cy="38" r="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<path d="M 50 42 l 6 3 l -6 2 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/>`;
+  s += `<path d="M 42 78 l -4 6 M 58 78 l 4 6" stroke="${P.ink}" stroke-width="2.4" stroke-linecap="round"/>`;
+  return svg(s);
+};
+monsterBuilders.cyclops = () => {
+  const skin = "#9FAE8C";
+  let s = ground(50, 90, 24);
+  s += legPair(42, 70, 10, 14, skin);
+  s += `<ellipse cx="50" cy="56" rx="22" ry="24" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="52" r="10" fill="${P.white}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<circle cx="50" cy="52" r="4.4" fill="${P.red}"/>`;
+  return svg(s);
+};
+monsterBuilders.gorgon = () => {
+  const skin = "#8FAE7C";
+  let s = ground(50, 88, 20);
+  s += `<path d="M 38 78 Q 50 88 62 78 L 60 58 L 40 58 Z" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<circle cx="50" cy="42" r="14" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  for (let i = 0; i < 6; i++) {
+    const ang = (Math.PI / 5) * i - Math.PI * 0.9;
+    const x1 = 50 + Math.cos(ang) * 12, y1 = 42 + Math.sin(ang) * 12;
+    const x2 = 50 + Math.cos(ang) * 21, y2 = 42 + Math.sin(ang) * 19;
+    s += `<path d="M ${x1} ${y1} Q ${x2 + 4} ${y2 - 4} ${x2} ${y2}" fill="none" stroke="${P.foodDeep}" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  s += `<circle cx="45" cy="42" r="1.8" fill="${P.gold}"/><circle cx="55" cy="42" r="1.8" fill="${P.gold}"/>`;
+  return svg(s);
+};
+monsterBuilders.minotaur = () => {
+  const skin = "#8C6A46", furHead = "#5B4636";
+  let s = ground(50, 90, 24);
+  s += legPair(42, 72, 10, 14, skin);
+  s += `<rect x="30" y="50" width="40" height="26" rx="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="36" r="13" fill="${furHead}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += hornPair(50, 28, P.ivoryDeep);
+  s += `<path d="M 45 40 q 5 4 10 0" fill="none" stroke="${P.ink}" stroke-width="2"/>`;
+  return svg(s);
+};
+monsterBuilders.griffin = () => {
+  const fur = "#D6A24C", beak = P.gold;
+  let s = ground(50, 88, 24);
+  s += wingPair(50, 52, fur);
+  s += `<ellipse cx="50" cy="62" rx="20" ry="16" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="40" r="11" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<path d="M 50 42 l 9 3 l -9 4 Z" fill="${beak}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
+  s += `<path d="M 68 74 Q 78 78 74 66" fill="none" stroke="${fur}" stroke-width="4" stroke-linecap="round"/>`;
+  return svg(s);
+};
+monsterBuilders.karkinos = () => {
+  const shell = "#C9694A";
+  let s = ground(50, 84, 26);
+  s += `<ellipse cx="50" cy="62" rx="26" ry="17" fill="${shell}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<path d="M 26 56 Q 14 48 16 38 Q 24 40 28 52 Z" fill="${shell}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `<path d="M 74 56 Q 86 48 84 38 Q 76 40 72 52 Z" fill="${shell}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += legPair(34, 76, 6, 8, shell); s += legPair(50, 78, 6, 8, shell); s += legPair(66, 76, 6, 8, shell);
+  s += `<circle cx="42" cy="56" r="2.2" fill="${P.ink}"/><circle cx="58" cy="56" r="2.2" fill="${P.ink}"/>`;
+  return svg(s);
+};
+monsterBuilders.lamia = () => {
+  const scale = "#7FA35C", skin = "#E8B98A";
+  let s = ground(50, 88, 20);
+  s += `<path d="M 50 84 Q 30 74 40 60 Q 50 50 38 40 Q 46 34 54 42 Q 62 52 50 62 Q 42 72 62 78 Z" fill="${scale}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `<ellipse cx="50" cy="46" rx="11" ry="14" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<circle cx="46" cy="44" r="1.6" fill="${P.ink}"/><circle cx="54" cy="44" r="1.6" fill="${P.ink}"/>`;
+  return svg(s);
+};
+monsterBuilders.empusa = () => {
+  const skin = "#A85B4F";
+  let s = ground(50, 90, 20);
+  s += `<line x1="44" y1="66" x2="42" y2="84" stroke="${skin}" stroke-width="5" stroke-linecap="round"/>`;
+  s += `<rect x="52" y="70" width="6" height="14" rx="2" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  s += `<ellipse cx="50" cy="58" rx="14" ry="18" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="36" r="10" fill="${skin}" stroke="${P.ink}" stroke-width="2.4"/>`;
+  s += `<path d="M 44 26 l 3 -7 l 3 7 Z M 56 26 l -3 -7 l 3 7 Z" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`;
+  s += `<circle cx="46" cy="36" r="1.6" fill="${P.gold}"/><circle cx="54" cy="36" r="1.6" fill="${P.gold}"/>`;
+  return svg(s);
+};
+// 엘리트 3종 — 조금 더 크고 디테일이 많게
+monsterBuilders.medusa = () => {
+  const skin = "#7FA36A";
+  let s = ground(50, 88, 24);
+  s += `<path d="M 34 82 Q 50 92 66 82 L 62 56 L 38 56 Z" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += `<circle cx="50" cy="40" r="17" fill="${skin}" stroke="${P.ink}" stroke-width="2.8"/>`;
+  for (let i = 0; i < 9; i++) {
+    const ang = (Math.PI / 8) * i - Math.PI * 1.02;
+    const x1 = 50 + Math.cos(ang) * 15, y1 = 40 + Math.sin(ang) * 15;
+    const x2 = 50 + Math.cos(ang) * 26, y2 = 40 + Math.sin(ang) * 23;
+    s += `<path d="M ${x1} ${y1} Q ${x2 + 5} ${y2 - 5} ${x2} ${y2}" fill="none" stroke="${P.foodDeep}" stroke-width="3.4" stroke-linecap="round"/>`;
+  }
+  s += `<circle cx="44" cy="40" r="2.6" fill="${P.gold}"/><circle cx="56" cy="40" r="2.6" fill="${P.gold}"/>`;
+  return svg(s);
+};
+monsterBuilders.hydra = () => {
+  const scale = "#4E8F5B";
+  let s = ground(50, 90, 26);
+  s += `<ellipse cx="50" cy="78" rx="20" ry="10" fill="${scale}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  [[32, -18], [50, -30], [68, -18]].forEach(([nx, dy]) => {
+    const headY = 78 + dy;
+    s += `<path d="M ${nx} 74 Q ${nx - 6} ${headY + 20} ${nx} ${headY}" fill="none" stroke="${scale}" stroke-width="7" stroke-linecap="round"/>`;
+    s += `<circle cx="${nx}" cy="${headY}" r="8" fill="${scale}" stroke="${P.ink}" stroke-width="2.4"/>`;
+    s += `<circle cx="${nx - 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/><circle cx="${nx + 2.5}" cy="${headY - 1}" r="1.4" fill="${P.gold}"/>`;
+  });
+  return svg(s);
+};
+monsterBuilders.cerberus = () => {
+  const fur = "#4A4038";
+  let s = ground(50, 90, 26);
+  s += legPair(34, 74, 8, 12, fur); s += legPair(50, 76, 8, 12, fur); s += legPair(66, 74, 8, 12, fur);
+  s += `<ellipse cx="50" cy="66" rx="24" ry="16" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  [34, 50, 66].forEach((hx) => {
+    s += `<circle cx="${hx}" cy="42" r="11" fill="${fur}" stroke="${P.ink}" stroke-width="2.6"/>`;
+    s += `<circle cx="${hx - 3}" cy="42" r="1.6" fill="${P.red}"/><circle cx="${hx + 3}" cy="42" r="1.6" fill="${P.red}"/>`;
+  });
+  return svg(s);
+};
+
+// ---------- 월드맵: 성채 아이콘(내 도시 1 + NPC 4티어) ----------
+const worldmapBuilders = {};
+const wmCastleBase = (accent, big) => {
+  const s0 = big ? 1.15 : 1;
+  let s = ground(50, 92 * s0, 30 * s0);
+  s += wall(50 - 22 * s0, 60 * s0, 44 * s0, 30 * s0, P.ivoryDeep);
+  s += wall(50 - 30 * s0, 50 * s0, 12 * s0, 40 * s0, P.ivoryDeep);
+  s += wall(50 + 18 * s0, 50 * s0, 12 * s0, 40 * s0, P.ivoryDeep);
+  s += roofTri(50 - 24 * s0, 50 * s0, 8 * s0, 12 * s0, accent);
+  s += roofTri(50 + 24 * s0, 50 * s0, 8 * s0, 12 * s0, accent);
+  s += roofTrap(50 - 20 * s0, 60 * s0, 40 * s0, 12 * s0, 5 * s0, accent);
+  s += door(50, 90 * s0, 10 * s0, 14 * s0);
+  return s;
+};
+worldmapBuilders.mine = () => svg(wmCastleBase(P.gold, true) + flag(50, 40, 14, P.gold));
+worldmapBuilders.t1 = () => svg(wmCastleBase(P.stone, false));
+worldmapBuilders.t2 = () => svg(wmCastleBase(P.roof, false));
+worldmapBuilders.t3 = () => svg(wmCastleBase(P.wood, false) + flag(50 - 30, 46, 10, P.red));
+worldmapBuilders.t4 = () => svg(wmCastleBase(P.red, false) + flag(50 - 30, 46, 10, P.red) + flag(50 + 30, 46, 10, P.red));
+
+// ---------- 월드맵 배경(대륙 지도, 1600×1000) ----------
+// 성채가 화면 전역(0~100%)에 흩뿌려지므로 지평선/하늘 없는 완전한 탑다운 지형으로 구성
+const worldmapBg = () => svg(
+  `<defs>
+     <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1">
+       <stop offset="0" stop-color="#BFE0DE"/><stop offset="1" stop-color="#A9D2CF"/>
+     </linearGradient>
+   </defs>
+   <rect width="1600" height="1000" fill="url(#sea)"/>
+   <path d="M 40 60 Q 500 -10 900 70 Q 1300 30 1560 140 Q 1600 500 1540 860 Q 1200 1010 850 950 Q 450 1020 60 900 Q -20 500 40 60 Z"
+     fill="${P.ivory}" opacity="0.9"/>
+   <path d="M 120 140 Q 550 90 880 170 Q 1230 130 1480 230 Q 1500 520 1460 800 Q 1180 920 860 880 Q 500 940 150 830 Q 90 480 120 140 Z"
+     fill="${P.food}" opacity="0.32"/>
+   <path d="M 260 260 Q 600 220 900 300 Q 1150 270 1360 360 Q 1360 560 1300 720 Q 1020 800 760 760 Q 480 800 260 700 Q 220 470 260 260 Z"
+     fill="${P.foodDeep}" opacity="0.22"/>
+   ${[[300, 260], [640, 190], [980, 250], [1280, 200], [520, 560], [1080, 620], [220, 720], [1380, 650]].map(([cx, cy], i) => {
+     const s = 26 + (i % 3) * 8;
+     return `<path d="M ${cx - s} ${cy + s * 0.6} L ${cx} ${cy - s} L ${cx + s} ${cy + s * 0.6} Z" fill="${P.stoneDeep}" opacity="0.3"/>
+             <path d="M ${cx - s * 0.4} ${cy + s * 0.6} L ${cx} ${cy - s * 0.1} L ${cx + s * 0.4} ${cy + s * 0.6} Z" fill="${P.ivoryDeep}" opacity="0.5"/>`;
+   }).join("")}
+   ${Array.from({ length: 16 }).map((_, i) => {
+     const cx = 160 + (i * 187) % 1360, cy = 140 + (i * 233) % 760;
+     return `<circle cx="${cx}" cy="${cy}" r="9" fill="${P.foodDeep}" opacity="0.28"/><circle cx="${cx + 12}" cy="${cy + 6}" r="6" fill="${P.foodDeep}" opacity="0.22"/>`;
+   }).join("")}
+   <path d="M 100 900 Q 500 830 800 900 Q 1150 840 1520 900" stroke="${P.roofDeep}" stroke-width="4" stroke-dasharray="2 14" fill="none" opacity="0.4" stroke-linecap="round"/>`,
+  "0 0 1600 1000"
+);
+
+// ---------- 타이틀 화면 배경(올림포스 산/구름 실루엣) ----------
+const titleBg = () => svg(
+  `<defs>
+     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#F7E9C9"/><stop offset="1" stop-color="${P.ivory}"/>
+     </linearGradient>
+   </defs>
+   <rect width="1600" height="900" fill="url(#sky)"/>
+   <path d="M -50 620 L 260 320 L 430 480 L 620 260 L 900 620 Z" fill="${P.roofDeep}" opacity="0.28"/>
+   <path d="M 500 650 L 820 280 L 1060 470 L 1300 330 L 1650 650 Z" fill="${P.stoneDeep}" opacity="0.24"/>
+   <path d="M 780 420 L 900 300 L 960 360 L 900 400 Z" fill="${P.white}" opacity="0.5"/>
+   ${[[220, 200, 70], [420, 260, 100], [1200, 220, 90], [1400, 300, 60], [760, 160, 80]].map(([cx, cy, w]) =>
+     `<ellipse cx="${cx}" cy="${cy}" rx="${w}" ry="${w * 0.36}" fill="${P.white}" opacity="0.55"/>`
+   ).join("")}
+   <path d="M 720 900 Q 800 560 900 460 Q 1000 560 1020 900 Z" fill="${P.ivoryDeep}" opacity="0.4"/>
+   ${[0, 1, 2, 3, 4, 5].map((i) => `<rect x="${770 + i * 30}" y="${560 + i % 2 * 10}" width="10" height="${330 - i * 30}" fill="${P.ivoryDeep}" opacity="0.5"/>`).join("")}`,
+  "0 0 1600 900"
+);
+
 const emptyPlot = () => svg(
   `${ground(50, 78, 22)}
    <rect x="30" y="46" width="40" height="28" rx="5" fill="none" stroke="${P.ink}" stroke-width="3" stroke-dasharray="6 5" opacity="0.55"/>
@@ -300,4 +527,9 @@ writeFileSync(path.join(OUT_BUILDINGS, "empty.svg"), emptyPlot()); count++;
 writeFileSync(path.join(OUT_BOARD, "floor.svg"), floorTile()); count++;
 writeFileSync(path.join(OUT_BOARD, "wall-strip.svg"), wallStrip()); count++;
 
-console.log(`생성 완료: ${count}개 SVG (assets/buildings, assets/board)`);
+Object.entries(monsterBuilders).forEach(([key, fn]) => { writeFileSync(path.join(OUT_MONSTERS, `${key}.svg`), fn()); count++; });
+Object.entries(worldmapBuilders).forEach(([key, fn]) => { writeFileSync(path.join(OUT_WORLDMAP, `castle_${key}.svg`), fn()); count++; });
+writeFileSync(path.join(OUT_WORLDMAP, "background.svg"), worldmapBg()); count++;
+writeFileSync(path.join(OUT_TITLE, "background.svg"), titleBg()); count++;
+
+console.log(`생성 완료: ${count}개 SVG (assets/buildings, assets/board, assets/monsters, assets/worldmap, assets/title)`);

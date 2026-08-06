@@ -124,6 +124,9 @@
   ];
   const MONSTER_SLOT_COUNT = 6;
   const ELITE_CHANCE = 0.08;
+  function monsterIconHTML(key) {
+    return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
+  }
 
   function rollMonsterLevel() {
     return 1 + Math.floor(Math.pow(Math.random(), 1.5) * 30);
@@ -175,6 +178,16 @@
     "폭풍우를 견딘 항구 성채", "티탄의 흔적이 남은 폐허 도시", "불사조 문양의 왕성", "올림포스를 가장 가까이서 섬기는 대도시",
   ];
   const WORLD_CASTLE_ICONS = ["🏘️", "🏯", "🏛️", "🏰"];
+  function worldCastleSpriteSrc(level) {
+    const tier = Math.min(4, Math.floor((level - 1) / 6) + 1);
+    return `assets/worldmap/castle_t${tier}.svg`;
+  }
+  function worldCastleIconHTML(level) {
+    return `<img src="${worldCastleSpriteSrc(level)}" alt="성채" />`;
+  }
+  function enemyIconHTML(kind, enemy) {
+    return kind === "castle" ? worldCastleIconHTML(enemy.level) : monsterIconHTML(enemy.key);
+  }
   function castleStats(level) {
     return {
       hp: Math.round(300 * Math.pow(1.35, level - 1)),
@@ -1211,7 +1224,7 @@
         const mission = state.armies[attackingIdx].mission;
         const phaseLabel = mission.phase === "march" ? "진군 중" : "전투 중";
         card.innerHTML = `
-          <div class="icon">${slot.monster.icon}</div>
+          <div class="icon">${monsterIconHTML(slot.monster.key)}</div>
           <div class="mname">${slot.monster.name}${slot.monster.elite ? " 👑" : ""}</div>
           <div class="mlevel">Lv.${slot.monster.level}</div>
           <div class="mstatus ${mission.phase}">부대${attackingIdx + 1} ${phaseLabel}… ${mission.timeLeft}s</div>
@@ -1220,7 +1233,7 @@
         const m = slot.monster;
         const revealed = monsterInfoRevealed(m.level);
         card.innerHTML = `
-          <div class="icon">${m.icon}</div>
+          <div class="icon">${monsterIconHTML(m.key)}</div>
           <div class="mname">${m.name}${m.elite ? " 👑" : ""}</div>
           <div class="mlevel">${revealed ? `Lv.${m.level}` : "Lv.?"}</div>
           <div class="mstats">${revealed ? `⚔️${m.atk} 🛡️${m.def} ❤️${m.hp}` : `감시탑 Lv.${requiredWatchLevelFor(m.level)}+ 필요`}</div>
@@ -1257,7 +1270,7 @@
     body.innerHTML = `
       <div class="modal-cols">
         <div class="col narrow">
-          <h2>${enemy.icon} ${enemy.name} ${enemy.elite ? "👑 엘리트" : ""}</h2>
+          <h2><span class="modal-icon">${enemyIconHTML(kind, enemy)}</span>${enemy.name} ${enemy.elite ? "👑 엘리트" : ""}</h2>
           <p>레벨 ${revealed ? enemy.level : "?"}</p>
           <p>${revealed ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : `감시탑 Lv.${requiredWatchLevelFor(enemy.level)}+ 필요 (야생 몬스터만 해당)`}</p>
           ${kind === "castle" ? `<p>승리 시 이 성이 그동안 모은 자원을 전부 획득합니다: ${costText(enemy.bank && Object.fromEntries(Object.entries(enemy.bank).filter(([, v]) => v >= 1).map(([k, v]) => [k, Math.round(v)])))}</p>` : ""}
@@ -1569,7 +1582,7 @@
     my.className = "wm-castle wm-mine";
     my.style.left = "6%";
     my.style.top = "6%";
-    my.innerHTML = `<div class="icon">🏰</div><div class="wm-name">내 도시</div>`;
+    my.innerHTML = `<div class="icon"><img src="assets/worldmap/castle_mine.svg" alt="내 도시" /></div><div class="wm-name">내 도시</div>`;
     field.appendChild(my);
     state.worldCastles.forEach((c) => {
       const pos = castlePosition(c.level);
@@ -1580,7 +1593,7 @@
       node.style.top = pos.top + "%";
       const bankTotal = Math.round(Object.values(c.bank).reduce((s, v) => s + v, 0));
       node.innerHTML = `
-        <div class="icon">${c.icon}</div>
+        <div class="icon">${worldCastleIconHTML(c.level)}</div>
         <div class="wm-name">Lv.${c.level} ${c.name}</div>
         <div class="wm-bank">💰 ${bankTotal}</div>
         ${attackingIdx >= 0
