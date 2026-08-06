@@ -176,13 +176,13 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wall-frame {
   position: relative;
   z-index: 2;
-  border: 2px solid #8a7a63;
+  border: 10px solid #8a7a63;
   border-image-source: url("assets/board/wall-strip.svg");
-  border-image-slice: 15 55 fill;
-  border-image-width: 2px;
+  border-image-slice: 15 55;
+  border-image-width: 10px;
   border-image-repeat: round;
-  border-radius: 10px;
-  padding: 2px;
+  border-radius: 14px;
+  padding: 4px;
   cursor: pointer;
   background: rgba(138,122,99,0.06);
   transform: rotateX(14deg);
