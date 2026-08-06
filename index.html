@@ -32,13 +32,15 @@
     </div>
   </header>
 
-  <div class="kingdom-stage" id="kingdom-stage">
-    <div class="wall-frame" id="wall-frame">
-      <span class="wall-badge" id="wall-badge"></span>
-      <div class="board-wrap"><main id="board"></main></div>
+  <div class="city-viewport" id="city-viewport">
+    <div class="kingdom-stage" id="kingdom-stage">
+      <div class="wall-frame" id="wall-frame">
+        <span class="wall-badge" id="wall-badge"></span>
+        <div class="board-wrap"><main id="board"></main></div>
+      </div>
+      <div class="kingdom-label" id="kingdom-label">🗺️ 왕국을 둘러싼 야생 지역</div>
+      <div class="monster-grid" id="monster-grid"></div>
     </div>
-    <div class="kingdom-label" id="kingdom-label">🗺️ 왕국을 둘러싼 야생 지역</div>
-    <div class="monster-grid" id="monster-grid"></div>
   </div>
 
   <!-- 월드맵 화면(모달이 아닌 화면 전체 전환) -->
@@ -47,7 +49,9 @@
       <h2>🗺️ 월드맵 — 레벨 1~20 성채</h2>
       <button id="btn-back-city">🏠 도시로 돌아가기</button>
     </div>
-    <div class="worldmap-field" id="worldmap-field"></div>
+    <div class="worldmap-viewport" id="worldmap-viewport">
+      <div class="worldmap-field" id="worldmap-field"></div>
+    </div>
   </div>
 
   <!-- 타이틀 화면 -->

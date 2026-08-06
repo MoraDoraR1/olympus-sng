@@ -588,6 +588,13 @@
   }
 
   // ---------- 건설/배치 ----------
+  // 건설 완료 순간에만 재생하는 1회성 팝 이펙트용 — renderBoard()가 이 타일이면
+  // .just-built을 붙였다가 애니메이션 길이만큼 지나면 스스로 지운다(무한 반복 아님)
+  let justBuiltTileId = null;
+  function flashJustBuilt(tileId) {
+    justBuiltTileId = tileId;
+    setTimeout(() => { if (justBuiltTileId === tileId) justBuiltTileId = null; }, 800);
+  }
   function build(tileId) {
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
@@ -599,6 +606,7 @@
     tile.level = 1;
     toast(`🏗️ ${tile.type} 건설 완료!`);
     closeModal("modal-building");
+    flashJustBuilt(tileId);
     renderBoard();
     renderTopbar();
     renderWallFrame();
@@ -615,6 +623,7 @@
     tile.level = 1;
     toast(`🏗️ ${type} 건설 완료!`);
     closeModal("modal-building");
+    flashJustBuilt(tileId);
     renderBoard();
     renderTopbar();
     save();
@@ -805,6 +814,17 @@
   }
 
   // ---------- 연구(아카데미) ----------
+  // 아카데미에 배치된 영웅의 특성(building:"아카데미")이 실제로 아무 효과가 없던 문제를
+  // 수정 — bonusPercentFor는 원래 자원 생산 건물의 base 생산량에만 곱해지는데, 아카데미는
+  // base가 비어있어(생산 건물이 아님) 곱해질 대상이 없어 무의미했다. 대신 아카데미 고유
+  // 보너스인 "연구 비용 할인"에 연결한다.
+  function researchCostFor(def) {
+    const discount = Math.min(60, bonusPercentFor("academy"));
+    const mult = 1 - discount / 100;
+    const cost = {};
+    Object.entries(def.cost).forEach(([res, amt]) => { cost[res] = Math.max(1, Math.round(amt * mult)); });
+    return cost;
+  }
   function canResearch(def) {
     if (state.research[def.id]) return false;
     if (state.tiles.academy.level < def.reqAcademy) return false;
@@ -816,8 +836,9 @@
     if (!def) return;
     if (state.research[def.id]) { toast("이미 연구했습니다"); return; }
     if (!canResearch(def)) { toast("해금 조건을 만족하지 않습니다"); return; }
-    if (!canAfford(def.cost)) { toast("자원이 부족합니다"); return; }
-    pay(def.cost);
+    const cost = researchCostFor(def);
+    if (!canAfford(cost)) { toast("자원이 부족합니다"); return; }
+    pay(cost);
     state.research[def.id] = true;
     toast(`📜 연구 완료: ${def.name}`);
     openBuildingModal("academy");
@@ -847,12 +868,14 @@
           .map((d) => {
             const done = !!state.research[d.id];
             const unlockable = canResearch(d);
+            const discount = bonusPercentFor("academy");
+            const cost = researchCostFor(d);
             return `
             <div class="research-item ${done ? "done" : ""}">
               <div class="ri-name">${d.name} ${done ? "✅" : ""}</div>
               <div class="ri-req">조건: 아카데미 Lv.${d.reqAcademy}${d.reqBuilding ? ` · ${d.reqBuilding.type} Lv.${d.reqBuilding.level}` : ""}</div>
               <div class="ri-effect">${describeEffect(d.effect)}</div>
-              ${!done ? `<div class="ri-cost">필요: ${costText(d.cost)}</div><button class="do-research" data-id="${d.id}" ${unlockable ? "" : "disabled"}>연구하기</button>` : ""}
+              ${!done ? `<div class="ri-cost">필요: ${costText(cost)}${discount > 0 ? ` <span class="enhance-badge">배치 영웅 효과 -${discount.toFixed(1)}%</span>` : ""}</div><button class="do-research" data-id="${d.id}" ${unlockable ? "" : "disabled"}>연구하기</button>` : ""}
             </div>`;
           })
           .join("")}
@@ -949,7 +972,7 @@
         rateLine = parts.filter(Boolean).join(" ");
       }
 
-      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "");
+      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "");
       plot.innerHTML = `
         <div class="icon">${buildingIconHTML(tile.type, tile.level)}</div>
         <div class="name">${tile.type}</div>
@@ -1621,11 +1644,38 @@
       field.appendChild(marcher);
     });
   }
+  // ---------- 화면 꽉 채우기(스케일-투-핏) ----------
+  // 도시맵/월드맵은 내부 요소를 고정 px로 설계하고(뷰포트 단위 사용 안 함), 여기서
+  // transform:scale()로 통째로 늘리거나 줄여 뷰포트 안에 스크롤 없이 꽉 차게 맞춘다.
+  // 컨테이너만 커지는 게 아니라 아이콘/배경/텍스트가 전부 같은 비율로 커지는 이유.
+  function fitStageToViewport(stageEl, viewportEl) {
+    if (!stageEl || !viewportEl || stageEl.hidden || viewportEl.hidden) return;
+    stageEl.style.transform = "none";
+    const naturalW = stageEl.offsetWidth;
+    const naturalH = stageEl.offsetHeight;
+    if (!naturalW || !naturalH) return;
+    const availW = viewportEl.clientWidth;
+    const availH = viewportEl.clientHeight;
+    if (!availW || !availH) return;
+    const scale = Math.min(availW / naturalW, availH / naturalH);
+    stageEl.style.transform = `scale(${scale})`;
+  }
+  function fitActiveScreen() {
+    fitStageToViewport(document.getElementById("kingdom-stage"), document.getElementById("city-viewport"));
+    fitStageToViewport(document.getElementById("worldmap-field"), document.getElementById("worldmap-viewport"));
+  }
+  let fitRaf = null;
+  window.addEventListener("resize", () => {
+    if (fitRaf) cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(fitActiveScreen);
+  });
+
   function showScreen(name) {
-    document.getElementById("kingdom-stage").hidden = name !== "city";
+    document.getElementById("city-viewport").hidden = name !== "city";
     document.getElementById("kingdom-label").hidden = name !== "city";
     document.getElementById("screen-worldmap").hidden = name !== "worldmap";
     if (name === "worldmap") renderWorldMap();
+    fitActiveScreen();
   }
   document.getElementById("btn-worldmap").addEventListener("click", () => showScreen("worldmap"));
   document.getElementById("btn-back-city").addEventListener("click", () => showScreen("city"));
@@ -1634,12 +1684,12 @@
   let tickHandle = null;
   function startGame() {
     document.getElementById("screen-title").hidden = true;
-    showScreen("city");
     renderTopbar();
     renderBoard();
     renderMonsterArea();
     renderWorldMap();
     renderWallFrame();
+    showScreen("city");
     if (!tickHandle) tickHandle = setInterval(tick, 1000);
   }
   document.getElementById("btn-start-game").addEventListener("click", startGame);
