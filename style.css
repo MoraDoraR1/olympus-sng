@@ -124,8 +124,21 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   padding: 8px 16px 16px;
 }
 .screen[hidden] { display: none; }
-.worldmap-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
-.worldmap-header h2 { font-family: var(--font-display); }
+/* 월드맵은 헤더가 레이아웃 공간을 차지하지 않고 지도 위에 떠 있는 오버레이가
+   되도록 별도 취급 — 지도가 화면 전체(패딩 없이)를 차지하고, 제목/버튼은
+   그 위에 절대배치로 얹는다(버튼을 가릴 정도로 지도가 꽉 차 보이게). */
+#screen-worldmap { position: relative; padding: 0; }
+.worldmap-header {
+  position: absolute; top: 14px; left: 20px; right: 20px; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  pointer-events: none;
+}
+.worldmap-header h2 {
+  font-family: var(--font-display); pointer-events: auto;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-radius: 999px; padding: 6px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.worldmap-header button { pointer-events: auto; }
 /* city-viewport와 동일한 스케일-투-핏 구조 — worldmap-field는 고정 픽셀 캔버스로 두고
    JS가 worldmap-viewport 크기에 맞춰 통째로 늘리거나 줄인다 */
 .worldmap-viewport {
@@ -139,7 +152,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .worldmap-field {
   position: relative;
   width: 1600px;
-  height: 780px;
+  height: 852px;
   flex: 0 0 auto;
   border: 3px dashed var(--line); border-radius: 20px;
   background-image: linear-gradient(160deg, rgba(231,162,107,0.08), transparent), url("assets/worldmap/background.svg");
