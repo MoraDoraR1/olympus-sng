@@ -615,6 +615,13 @@
     justBuiltTileId = tileId;
     setTimeout(() => { if (justBuiltTileId === tileId) justBuiltTileId = null; }, 800);
   }
+  // 레벨업 완료 순간에만 재생하는 이펙트 — 건설(.just-built)과 같은 방식이지만
+  // 신축과 구분되도록 별도 클래스(.just-upgraded)로 다른 애니메이션을 재생한다
+  let justUpgradedTileId = null;
+  function flashJustUpgraded(tileId) {
+    justUpgradedTileId = tileId;
+    setTimeout(() => { if (justUpgradedTileId === tileId) justUpgradedTileId = null; }, 900);
+  }
   function build(tileId) {
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
@@ -698,6 +705,7 @@
       renderTavernCards();
     }
     toast(`⬆️ ${tile.type} 레벨 ${tile.level}!`);
+    flashJustUpgraded(tileId);
     renderWallFrame();
   }
   function assignHero(tileId, heroId) {
@@ -983,7 +991,7 @@
     const badge = document.getElementById("wall-badge");
     if (!frame || !badge) return;
     const wall = state.tiles.wall;
-    frame.className = "wall-frame" + (wall.built ? "" : " unbuilt");
+    frame.className = "wall-frame" + (wall.built ? "" : " unbuilt") + (justUpgradedTileId === "wall" ? " just-upgraded" : "");
     if (wall.built) {
       badge.textContent = `🧱 성벽 Lv.${wall.level}/${MAX_LEVEL} · 수비력 ${wallScore()}`;
     } else {
@@ -1033,7 +1041,7 @@
         statusLine = statusParts.filter(Boolean).join(" · ");
       }
 
-      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.upgrading ? " upgrading" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "");
+      plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.upgrading ? " upgrading" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "") + (justUpgradedTileId === def.id ? " just-upgraded" : "");
       plot.innerHTML = `
         <div class="icon">${buildingIconHTML(tile.type, tile.level)}</div>
         <div class="name">${tile.type}</div>
@@ -1361,12 +1369,18 @@
     state.monsters.forEach((slot, idx) => {
       const card = document.createElement("div");
       const attackingIdx = squadAttackingSlot(slot.id);
+      const isLeftCol = idx < MONSTER_SLOT_COUNT / 2;
       card.className = "monster-card" + (slot.monster && slot.monster.elite ? " elite" : "");
       if (attackingIdx >= 0) {
         const mission = state.armies[attackingIdx].mission;
         const phaseLabel = mission.phase === "march" ? "진군 중" : "전투 중";
+        if (mission.phase === "battle") card.classList.add("in-battle");
+        const marchProgress = mission.phase === "march" ? 1 - mission.timeLeft / mission.marchTime : 1;
+        const startLeft = isLeftCol ? 132 : -32;
+        const marcherLeft = startLeft + (50 - startLeft) * marchProgress;
         card.innerHTML = `
           <div class="icon">${monsterIconHTML(slot.monster.key)}</div>
+          ${mission.phase === "march" ? `<div class="unit-marcher" style="left:${marcherLeft}%">🪖</div>` : `<div class="battle-clash">⚔️</div>`}
           <div class="mname">${slot.monster.name}${slot.monster.elite ? " 👑" : ""}</div>
           <div class="mlevel">Lv.${slot.monster.level}</div>
           <div class="mstatus ${mission.phase}">부대${attackingIdx + 1} ${phaseLabel}… ${mission.timeLeft}s</div>
@@ -1731,13 +1745,15 @@
     state.worldCastles.forEach((c) => {
       const pos = castlePosition(c.level);
       const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "castle" && a.mission.targetId === c.id);
+      const inBattle = attackingIdx >= 0 && state.armies[attackingIdx].mission.phase === "battle";
       const node = document.createElement("div");
-      node.className = "wm-castle";
+      node.className = "wm-castle" + (inBattle ? " in-battle" : "");
       node.style.left = pos.left + "%";
       node.style.top = pos.top + "%";
       const bankTotal = Math.round(Object.values(c.bank).reduce((s, v) => s + v, 0));
       node.innerHTML = `
         <div class="icon">${worldCastleIconHTML(c.level)}</div>
+        ${inBattle ? `<div class="battle-clash">⚔️</div>` : ""}
         <div class="wm-name">Lv.${c.level} ${c.name}</div>
         <div class="wm-bank">💰 ${bankTotal}</div>
         ${attackingIdx >= 0

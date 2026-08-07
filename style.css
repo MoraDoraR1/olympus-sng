@@ -167,6 +167,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   width: 110px; pointer-events: auto;
 }
 .wm-castle .icon, .wm-mine .icon { font-size: 4.4rem; position: relative; z-index: 1; animation: idle-float 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
+.wm-castle.in-battle .icon { animation: idle-float 2.4s ease-in-out infinite, battle-shake .35s ease-in-out infinite; }
 .wm-mine .icon { font-size: 4.8rem; animation-duration: 3s; }
 .wm-castle .wm-name,
 .wm-castle .wm-bank,
@@ -284,7 +285,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
      정렬된다(여백 열까지 큰 칸이면 폭이 넘쳐 오른쪽 여백만 잘려 성이 오른쪽으로 치우쳐 보인다) */
   grid-template-columns: 20px 20px repeat(6, 240px) 20px 20px;
   /* 행 높이가 콘텐츠에 따라 들쭉날쭉하면 배경(floor.svg)의 도로가 실제 칸과 어긋난다 — 반드시 고정값 유지 */
-  grid-auto-rows: 264px;
+  grid-auto-rows: 276px;
   gap: 22px;
   padding: 16px;
   width: max-content;
@@ -324,23 +325,23 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 24px;
 }
 .monster-card {
-  position: static;
-  width: 190px;
+  position: relative;
+  width: 230px;
   background: transparent; box-shadow: none;
-  padding: 2px; text-align: center; display: flex; flex-direction: column; gap: 1px; align-items: center;
+  padding: 2px; text-align: center; display: flex; flex-direction: column; gap: 3px; align-items: center;
   min-height: 0; justify-content: flex-start;
   pointer-events: auto;
 }
 .monster-card:nth-child(odd) { transform: rotate(-1.5deg); }
 .monster-card:nth-child(even) { transform: rotate(1.5deg); }
 @media (max-width: 900px) {
-  .monster-card { width: 90px; font-size: .85em; }
+  .monster-card { width: 110px; font-size: .85em; }
 }
 .monster-card.elite .icon { filter: drop-shadow(0 0 6px #d64545); }
-.monster-card .icon { font-size: 10.4rem; position: relative; z-index: 1; animation: idle-float 2.2s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
+.monster-card .icon { font-size: 13rem; position: relative; z-index: 1; animation: idle-float 2.2s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.3)); }
 .monster-card .mname,
 .monster-card .mlevel,
 .monster-card .mstats,
@@ -348,16 +349,44 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   position: relative; z-index: 2;
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   border-radius: 999px;
-  padding: 0 6px;
+  padding: 1px 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
   text-shadow: none;
 }
-.monster-card .mname { font-family: var(--font-display); font-size: .8rem; margin-top: -52px; font-weight: 700; }
-.monster-card .mlevel { font-size: .68rem; font-weight: 700; color: var(--ink-soft); }
-.monster-card .mstats { font-size: .62rem; font-weight: 600; color: var(--ink-soft); }
-.monster-card .mstatus { font-size: .68rem; font-weight: 800; color: var(--wood); }
+.monster-card .mname { font-family: var(--font-display); font-size: 1.05rem; margin-top: -64px; font-weight: 800; }
+.monster-card .mlevel { font-size: .92rem; font-weight: 700; color: var(--ink-soft); }
+.monster-card .mstats { font-size: .84rem; font-weight: 600; color: var(--ink-soft); }
+.monster-card .mstatus { font-size: .88rem; font-weight: 800; color: var(--wood); }
 .monster-card .mstatus.battle { color: #d64545; }
-.monster-card button.do-attack { margin-top: 2px; font-size: .74rem; padding: 4px 9px; background: #b0463f; color: #fff; }
+.monster-card button.do-attack { margin-top: 2px; font-size: .9rem; padding: 5px 11px; background: #b0463f; color: #fff; }
+
+/* 진군 중: 부대가 카드 안쪽(성 방향 가장자리)에서 몬스터를 향해 실제로 걸어 들어온다 */
+.monster-card .unit-marcher {
+  position: absolute; top: 46%; transform: translate(-50%, -50%);
+  font-size: 3.4rem; z-index: 2; transition: left 1s linear;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+/* 전투 중: 흔들림 + 교전 이펙트로 실제 싸움이 벌어지는 느낌을 준다 */
+.monster-card.in-battle .icon { animation: idle-float 2.2s ease-in-out infinite, battle-shake .35s ease-in-out infinite; }
+.monster-card .battle-clash,
+.wm-castle .battle-clash {
+  position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 3.6rem; z-index: 3; pointer-events: none;
+  animation: clash-pulse .5s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255,255,255,.85));
+}
+.wm-castle .battle-clash { font-size: 2.2rem; top: 38%; }
+@keyframes battle-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-4px, 3px) rotate(-3deg); }
+  40% { transform: translate(4px, -3px) rotate(3deg); }
+  60% { transform: translate(-3px, -3px) rotate(-2deg); }
+  80% { transform: translate(3px, 3px) rotate(2deg); }
+}
+@keyframes clash-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(.82) rotate(-8deg); opacity: .75; }
+  50% { transform: translate(-50%, -50%) scale(1.18) rotate(8deg); opacity: 1; }
+}
 @keyframes idle-float {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-6px) scale(1.03); }
@@ -400,10 +429,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .plot:hover .icon { transform: translateY(-3px) scale(1.06); }
 .plot .icon { font-size: 2.8rem; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); transition: transform .15s cubic-bezier(.34,1.56,.64,1); }
-.plot .name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; text-shadow: 0 1px 4px var(--bg), 0 0 8px var(--bg), 0 0 8px var(--bg); }
-.plot .level { font-size: .95rem; font-weight: 700; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.plot .rate { font-size: .88rem; color: var(--wood); font-weight: 800; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.plot .status-line { font-size: .82rem; color: #3E7C8A; font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .name { font-family: var(--font-display); font-size: 1.22rem; font-weight: 800; text-shadow: 0 1px 4px var(--bg), 0 0 8px var(--bg), 0 0 8px var(--bg); }
+.plot .level { font-size: 1.08rem; font-weight: 700; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .rate { font-size: 1rem; color: var(--wood); font-weight: 800; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .status-line { font-size: .94rem; color: #3E7C8A; font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
 .plot.unbuilt { opacity: .6; }
 .plot.unbuilt .icon { filter: grayscale(1); }
 .plot.tile-empty { border-radius: var(--radius); }
@@ -421,7 +450,20 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   0%, 100% { filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
   50% { filter: drop-shadow(0 0 10px rgba(231,162,107,0.85)); }
 }
-.plot .build-cost { font-size: .92rem; color: var(--ink-soft); font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+/* 레벨업 완료 이펙트 — 신축(build-pop, 주황)과 구분되도록 금색 반짝임+흔들림으로 차별화 */
+.plot.just-upgraded .icon { animation: upgrade-flash .9s ease; }
+@keyframes upgrade-flash {
+  0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
+  30% { transform: scale(1.22) rotate(-4deg); filter: drop-shadow(0 0 18px rgba(255,217,61,.95)) drop-shadow(0 0 30px rgba(255,217,61,.6)); }
+  60% { transform: scale(1.1) rotate(3deg); filter: drop-shadow(0 0 14px rgba(255,217,61,.85)); }
+  100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
+}
+.wall-frame.just-upgraded { animation: wall-upgrade-flash .9s ease; }
+@keyframes wall-upgrade-flash {
+  0%, 100% { box-shadow: none; }
+  35% { box-shadow: 0 0 0 6px rgba(255,217,61,.55), 0 0 26px 10px rgba(255,217,61,.5); }
+}
+.plot .build-cost { font-size: 1.05rem; color: var(--ink-soft); font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
 
 .floater {
   position: absolute; font-family: var(--font-display); font-size: .85rem;
