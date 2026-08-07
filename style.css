@@ -543,13 +543,23 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
 .hero-slot-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; max-height: 320px; overflow-y: auto; }
 .hero-row {
-  display: flex; align-items: center; gap: 10px; background: var(--bg);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 10px; padding: 8px 10px; cursor: pointer;
 }
 .hero-row:hover { outline: 2px solid var(--roof); }
 .hero-row span:not(.hr-note) { font-weight: 700; }
 .hero-row .hr-note { margin-left: auto; color: var(--ink-soft); font-weight: 700; font-size: .74rem; }
+/* 다른 곳(부대/건물)에 이미 배치된 영웅임을 목록에서 미리 보여줘, 실수로 눌러
+   그 배치를 조용히 풀어버리는 일이 없도록 한다 — 항상 줄 전체를 차지해 눈에 띄게 */
+.hero-elsewhere-badge {
+  flex-basis: 100%; width: fit-content; margin-top: 2px;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--roof) 22%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--roof) 55%, transparent);
+  color: var(--wood); font-size: .68rem; font-weight: 800;
+}
 .star-badge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 32px; height: 23px; border-radius: 6px; color: #fff; font-size: .78rem; font-weight: 800;

@@ -850,6 +850,16 @@
     flashJustUpgraded(tileId);
     renderWallFrame();
   }
+  // 영웅이 현재 배치된 곳(부대 또는 건물)을 사람이 읽을 수 있는 이름으로 돌려준다(없으면 null).
+  // 건물/부대 어느 한쪽에 배치하면 다른 모든 곳에서 자동으로 해제되는 상호배타 규칙이라,
+  // 배치 후보 목록에 뜬 영웅을 유저가 "지금 비어있는 줄" 착각하고 눌러 다른 곳의 배치를
+  // 조용히 풀어버리는 일이 없도록, 목록에서 미리 위치를 보여주는 데 쓴다.
+  function heroPlacementLocation(heroId) {
+    const armyIdx = state.armies.findIndex((a) => a.heroIds.includes(heroId));
+    if (armyIdx !== -1) return `부대 ${armyIdx + 1}`;
+    const tile = Object.values(state.tiles).find((t) => Array.isArray(t.heroIds) && t.heroIds.includes(heroId));
+    return tile ? tile.type : null;
+  }
   function assignHero(tileId, heroId) {
     if (state.armies.some((a) => a.mission && a.heroIds.includes(heroId))) {
       toast("출정 중인 영웅은 배치를 바꿀 수 없습니다");
@@ -861,10 +871,13 @@
       toast(`한 건물에는 최대 ${MAX_HEROES_PER_BUILDING}명까지 배치할 수 있습니다`);
       return;
     }
+    const prevLocation = heroPlacementLocation(heroId);
     state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
     Object.values(state.tiles).forEach((t) => { t.heroIds = t.heroIds.filter((h) => h !== heroId); });
     tile.heroIds.push(heroId);
-    toast(`${HERO_BY_ID[heroId].name} 배치 완료`);
+    toast(prevLocation
+      ? `${HERO_BY_ID[heroId].name}의 ${prevLocation} 배치가 해제되고 ${tile.type}에 배치되었습니다`
+      : `${HERO_BY_ID[heroId].name} 배치 완료`);
     openBuildingModal(tileId);
     renderBoard();
     save();
@@ -1396,12 +1409,16 @@
           ${assignedFull
             ? `<p><small>이미 최대 인원(${MAX_HEROES_PER_BUILDING}명)이 배치되었습니다.</small></p>`
             : eligibleList.length
-              ? eligibleList.map((h) => `
+              ? eligibleList.map((h) => {
+                const loc = heroPlacementLocation(h.id);
+                return `
                 <div class="hero-row" data-hero="${h.id}">
                   ${heroBadgeHTML(h.id)}
                   <span>${h.name}</span>
                   <span class="hr-note">+${heroBuildingBonusFor(h, tile.type).toFixed(1)}%</span>
-                </div>`).join("")
+                  ${loc ? `<span class="hero-elsewhere-badge">📍 ${loc}에 배치됨</span>` : ""}
+                </div>`;
+              }).join("")
               : `<p><small>${ownedList.length ? `${tile.type}에 특화된 영웅이 아직 없습니다.` : "아직 보유한 영웅이 없습니다."} 여관에서 뽑아보세요.</small></p>`}
         </div>
       </div>` : "";
@@ -1767,7 +1784,7 @@
             <div class="hero-slot-list">
               ${ownedList.length ? "" : "<p><small>보유한 영웅이 없습니다.</small></p>"}
               ${ownedList.map((h) => {
-                const inAnySquad = state.armies.some((a) => a.heroIds.includes(h.id));
+                const loc = heroPlacementLocation(h.id);
                 const combatTraits = heroCombatTraits(h);
                 const traitSummary = combatTraits.length
                   ? combatTraits.map((t) => `⚔️${t.statKey} +${heroTraitPercent(h, t).toFixed(1)}%`).join(" · ")
@@ -1776,7 +1793,7 @@
                   ${heroBadgeHTML(h.id)}
                   <span>${h.name}</span>
                   <span class="hr-note">${traitSummary}</span>
-                  ${inAnySquad ? '<span class="hr-note">편성됨</span>' : ""}
+                  ${loc ? `<span class="hero-elsewhere-badge">📍 ${loc}에 배치됨</span>` : ""}
                 </div>`;
               }).join("")}
             </div>
