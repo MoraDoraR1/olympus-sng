@@ -12,10 +12,10 @@
   --r1: #9AA0A6;
   --r2: #63B36A;
   --r3: #4C8FE0;
-  --r4: #9B59D0;
+  --r4: #4FC3E8;
   --r5: #E08A2E;
   --r6: #E0483D;
-  --r7: #2AB6A6;
+  --r7: #9B59D0;
   --r8: conic-gradient(from 0deg, #ff6b6b, #ffd93d, #6bffb0, #6bd4ff, #b76bff, #ff6b6b);
   --easy: #4a9d5c;
   --moderate: #d99a2b;
@@ -527,7 +527,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   padding: 0 4px;
 }
 .r1 { background: var(--r1); } .r2 { background: var(--r2); } .r3 { background: var(--r3); }
-.r4 { background: var(--r4); } .r5 { background: var(--r5); } .r6 { background: var(--r6); }
+.r4 { background: var(--r4); color: #241c12; } .r5 { background: var(--r5); } .r6 { background: var(--r6); }
 .r7 { background: var(--r7); color: #fff; } .r8 { background: var(--r8); color: #222; }
 
 .tavern-panel { margin: 14px 0 18px; }
@@ -578,7 +578,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .hero-card.hc-r1 { background: var(--r1); color: #fff; }
 .hero-card.hc-r2 { background: var(--r2); color: #fff; }
 .hero-card.hc-r3 { background: var(--r3); color: #fff; }
-.hero-card.hc-r4 { background: var(--r4); color: #fff; }
+.hero-card.hc-r4 { background: var(--r4); color: #241c12; }
 .hero-card.hc-r5 { background: var(--r5); color: #2b1c00; }
 .hero-card.hc-r6 { background: var(--r6); color: #fff; }
 .hero-card.hc-r7 { background: var(--r7); color: #fff; }
@@ -629,7 +629,16 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .squad-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .squad-tabs button.active { background: var(--ink); color: var(--bg); }
 .squad-tabs button.busy { position: relative; }
+.squad-tabs .squad-power { display: block; font-size: .68rem; font-weight: 700; opacity: .8; }
+.army-power-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 14px; margin: 10px 0; font-family: var(--font-display); font-size: 1rem;
+}
+.army-power-bar .power-num { color: var(--roof); font-size: 1.2rem; font-weight: 800; }
+.army-power-bar .hr-note { font-family: var(--font-body); font-size: .8rem; color: var(--ink-soft); font-weight: 700; }
 .army-slots { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.army-comp-list { margin: 10px 0; }
 .army-slot {
   display: flex; align-items: center; gap: 8px; background: var(--bg);
   border: 1px solid var(--line);
@@ -650,6 +659,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .verdict-badge.easy { background: var(--easy); }
 .verdict-badge.moderate { background: var(--moderate); }
 .verdict-badge.hard { background: var(--hard); }
+.saved-comp-banner {
+  background: color-mix(in srgb, var(--roof) 18%, var(--bg)); border: 1px solid var(--roof);
+  border-radius: 10px; padding: 7px 12px; margin-bottom: 8px; font-size: .8rem; font-weight: 700;
+}
 .engage-comp-row {
   display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin-bottom: 6px;
 }
@@ -688,3 +701,27 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 @keyframes toast-in { 0% { opacity: 0; transform: translate(-50%, 20px); } 100% { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes toast-out { to { opacity: 0; } }
 #toast-layer { position: fixed; inset: 0; pointer-events: none; z-index: 300; }
+
+/* 우측 상단 활동 로그 — 화면을 가리지 않도록 폭을 제한하고, 오래된 항목은
+   JS 쪽에서 최대 개수를 넘으면 잘라낸다(FIFO). 토스트(#toast-layer)와 달리
+   새 이벤트가 쌓일 때까지 화면에 남아있는 "기록" 성격이라 별도로 둔다 */
+#activity-log {
+  position: fixed; top: 74px; right: 16px; z-index: 250;
+  display: flex; flex-direction: column; gap: 6px;
+  width: 280px; max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+.log-entry {
+  background: color-mix(in srgb, var(--ink) 90%, transparent); color: var(--bg);
+  border-left: 4px solid var(--roof); border-radius: 8px;
+  padding: 8px 12px; font-size: .82rem; font-weight: 700; line-height: 1.35;
+  box-shadow: var(--shadow);
+  animation: log-in .3s cubic-bezier(.34,1.56,.64,1);
+}
+.log-entry.log-levelup { border-left-color: var(--gold); }
+.log-entry.log-build { border-left-color: var(--roof); }
+.log-entry.log-train { border-left-color: #5b7a8f; }
+.log-entry.log-battle-win { border-left-color: var(--easy); }
+.log-entry.log-battle-lose { border-left-color: var(--hard); }
+@keyframes log-in { 0% { opacity: 0; transform: translateX(24px); } 100% { opacity: 1; transform: translateX(0); } }
+@media (max-width: 700px) { #activity-log { width: 220px; top: 64px; } }

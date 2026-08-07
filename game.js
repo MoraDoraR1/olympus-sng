@@ -232,7 +232,7 @@
   const BASE_CAP = 10000000; // 1000만
   const TAVERN_CYCLE = 300; // 5분
   const MAX_LEVEL = 20; // 건물 레벨 상한
-  const LEVEL_COST_GROWTH = 1.3;
+  const LEVEL_COST_GROWTH = 1.42; // 레벨업 비용 증가율 — 레벨이 오를수록 기하급수적으로 가팔라지도록 상향(기존 1.3)
   const MAX_ENHANCE = 5; // 영웅 강화 상한(0~5강)
   const MAX_HEROES_PER_BUILDING = 3; // 건물 하나에 배치 가능한 영웅 수 상한
   const SQUAD_COUNT = 3;
@@ -314,6 +314,27 @@
     el.textContent = msg;
     layer.appendChild(el);
     setTimeout(() => el.remove(), 2600);
+  }
+  // 우측 상단 활동 로그 — 레벨업/전투/건설/훈련 같은 "결과"만 남기는 기록용.
+  // 토스트처럼 시간이 지나 사라지지 않고, 최신이 맨 위에 쌓이다 개수 상한을
+  // 넘으면 가장 오래된 항목부터 잘라낸다(화면을 계속 가리지 않도록).
+  const MAX_LOG_ENTRIES = 6;
+  // 한글 단어 뒤에 붙는 주격 조사(이/가)를 받침 유무로 골라준다 ("여관이" vs "아카데미가")
+  function withSubjectParticle(word) {
+    const last = word.charCodeAt(word.length - 1);
+    if (last >= 0xac00 && last <= 0xd7a3) {
+      return word + ((last - 0xac00) % 28 !== 0 ? "이" : "가");
+    }
+    return word + "가";
+  }
+  function logEvent(msg, kind) {
+    const layer = document.getElementById("activity-log");
+    if (!layer) return;
+    const el = document.createElement("div");
+    el.className = "log-entry" + (kind ? ` log-${kind}` : "");
+    el.textContent = msg;
+    layer.prepend(el);
+    while (layer.children.length > MAX_LOG_ENTRIES) layer.removeChild(layer.lastElementChild);
   }
   function pulseRes(res) {
     const el = document.querySelector(`.res[data-res="${res}"]`);
@@ -467,6 +488,7 @@
           const t = TROOP_TYPES_BY_KEY[tile.training.type];
           state.troopsByType[tile.training.type] = (state.troopsByType[tile.training.type] || 0) + tile.training.count;
           toast(`✅ ${t.name} ${tile.training.count}명 훈련 완료!`);
+          logEvent(`🪖 ${t.name} ${tile.training.count}명 훈련 완료!`, "train");
           tile.training = null;
         }
       }
@@ -632,6 +654,7 @@
     tile.built = true;
     tile.level = 1;
     toast(`🏗️ ${tile.type} 건설 완료!`);
+    logEvent(`🏗️ ${tile.type} 건설 완료!`, "build");
     closeModal("modal-building");
     flashJustBuilt(tileId);
     renderBoard();
@@ -649,6 +672,7 @@
     tile.built = true;
     tile.level = 1;
     toast(`🏗️ ${type} 건설 완료!`);
+    logEvent(`🏗️ ${type} 건설 완료!`, "build");
     closeModal("modal-building");
     flashJustBuilt(tileId);
     renderBoard();
@@ -705,6 +729,7 @@
       renderTavernCards();
     }
     toast(`⬆️ ${tile.type} 레벨 ${tile.level}!`);
+    logEvent(`⬆️ ${withSubjectParticle(tile.type)} ${tile.level}레벨 달성!`, "levelup");
     flashJustUpgraded(tileId);
     renderWallFrame();
   }
@@ -781,6 +806,11 @@
     troopHp *= (1 + bonus.hp / 100) * researchTroop;
     const expedition = 1 + expeditionBonusPercent() / 100;
     return { atk: heroAtk + troopAtk, def: (heroDef + troopDef) * expedition, hp: heroHp + troopHp };
+  }
+  // 부대 편성 화면에서 한눈에 비교할 수 있는 종합 전투력 수치(공격+방어+체력 합산)
+  function armyPowerScore(heroIds, comp) {
+    const s = armyStats(heroIds, comp);
+    return Math.round(s.atk + s.def + s.hp);
   }
   function totalDeployedTroops(comp) {
     return Object.values(comp || {}).reduce((s, v) => s + (v || 0), 0);
@@ -865,12 +895,14 @@
       }
       Object.entries(reward).forEach(([r, v]) => addRes(r, v));
       toast(`⚔️ 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level}) 처치!${totalLost > 0 ? ` 병사 ${totalLost}명 손실.` : ""} 보상: ${costText(reward)}`);
+      logEvent(`⚔️ 부대 ${squadIdx + 1} 승리! ${enemy.name}(Lv.${enemy.level}) 처치, 보상 ${costText(reward)}`, "battle-win");
       if (mission.kind === "monster") {
         const slot = state.monsters.find((s) => s.id === mission.targetId);
         if (slot) { slot.monster = null; slot.respawnTimer = 8 + Math.floor(Math.random() * 8); }
       }
     } else {
       toast(`💀 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level})에게 패배했습니다. 병사 ${totalLost}명 손실, 전과 없음.`);
+      logEvent(`💀 부대 ${squadIdx + 1} 패배… ${enemy.name}(Lv.${enemy.level})에게 패배`, "battle-lose");
     }
     army.mission = null;
     renderMonsterArea();
@@ -1473,17 +1505,21 @@
     const body = document.getElementById("monster-modal-body");
     const wrap = body.querySelector("#engage-comp");
     const lastComp = state.armies[engageSquadIdx].lastComp || {};
-    wrap.innerHTML = TROOP_TYPES.map((t) => {
-      const avail = state.troopsByType[t.key] || 0;
-      const startVal = Math.min(avail, lastComp[t.key] || 0);
-      return `
-      <div class="engage-comp-row">
-        <span class="ec-name">${t.name}</span>
-        <span class="ec-avail">보유 ${avail}</span>
-        <input type="range" class="ec-input" data-key="${t.key}" min="0" max="${avail}" value="${startVal}" ${avail === 0 ? "disabled" : ""} />
-        <span class="ec-value" data-key-val="${t.key}">${startVal}</span>
-      </div>`;
-    }).join("");
+    const hasSavedComp = Object.values(lastComp).some((v) => v > 0);
+    wrap.innerHTML = `
+      ${hasSavedComp ? `<div class="saved-comp-banner">💾 부대 ${engageSquadIdx + 1}의 저장된 편성이 자동으로 적용되었습니다 (군대 편성 화면에서 미리 설정 가능)</div>` : ""}
+      ${TROOP_TYPES.map((t) => {
+        const avail = state.troopsByType[t.key] || 0;
+        const startVal = Math.min(avail, lastComp[t.key] || 0);
+        return `
+        <div class="engage-comp-row">
+          <span class="ec-name">${t.name}</span>
+          <span class="ec-avail">보유 ${avail}</span>
+          <input type="range" class="ec-input" data-key="${t.key}" min="0" max="${avail}" value="${startVal}" ${avail === 0 ? "disabled" : ""} />
+          <span class="ec-value" data-key-val="${t.key}">${startVal}</span>
+        </div>`;
+      }).join("")}
+    `;
     const updateVerdict = () => {
       const comp = readEngageComp(body);
       wrap.querySelectorAll(".ec-input").forEach((inp) => {
@@ -1506,16 +1542,20 @@
     function render() {
       const ownedList = Object.keys(state.owned).map((id) => HERO_BY_ID[id]).filter(Boolean).sort((a, c) => c.rarity - a.rarity || heroEnhance(c.id) - heroEnhance(a.id));
       const army = state.armies[activeSquad];
+      if (!army.lastComp) army.lastComp = {};
       let selectedSlot = army.heroIds.findIndex((h) => !h);
       const totalTroops = Object.entries(state.troopsByType).map(([k, v]) => `${TROOP_TYPES_BY_KEY[k].name} ${v}`).join(" · ");
+      const power = armyPowerScore(army.heroIds, army.lastComp);
       body.innerHTML = `
         <h2>⚔️ 군대 편성 (부대 ${SQUAD_COUNT}개, 각 영웅 최대 3명)</h2>
         <p>보유 병사: ${totalTroops}</p>
         <div class="squad-tabs">
-          ${state.armies.map((a, i) => `<button class="squad-tab ${i === activeSquad ? "active" : ""} ${a.mission ? "busy" : ""}" data-idx="${i}">부대 ${i + 1}${a.mission ? " 🪖" : ""}</button>`).join("")}
+          ${state.armies.map((a, i) => `<button class="squad-tab ${i === activeSquad ? "active" : ""} ${a.mission ? "busy" : ""}" data-idx="${i}">부대 ${i + 1}${a.mission ? " 🪖" : ""} <span class="squad-power">⚔️${armyPowerScore(a.heroIds, a.lastComp || {}).toLocaleString()}</span></button>`).join("")}
         </div>
+        <div class="army-power-bar">🏆 이 부대의 전투력 <span class="power-num">${power.toLocaleString()}</span>${army.mission ? `<span class="hr-note">현재 출정 중 — 배치를 바꿔도 진행 중인 원정에는 영향이 없습니다</span>` : ""}</div>
         <div class="modal-cols">
           <div class="col narrow">
+            <h3>영웅 배치</h3>
             <div class="army-slots">
               ${[0, 1, 2].map((i) => {
                 const heroId = army.heroIds[i];
@@ -1523,6 +1563,21 @@
                 return `<div class="army-slot ${i === selectedSlot ? "selected" : ""}" data-idx="${i}">
                   ${hero ? `${heroBadgeHTML(hero.id)}<span>${hero.name}</span><button class="do-unassign-army" data-idx="${i}">해제</button>`
                          : `<span class="empty">영웅 배치 ${i + 1}</span>`}
+                </div>`;
+              }).join("")}
+            </div>
+            <h3>병사 배치</h3>
+            <p><small>부대에 함께 보낼 병사 수를 미리 정해두면, 다음 출격 시 이 값이 자동 적용됩니다.</small></p>
+            <div class="army-comp-list" id="army-comp-list">
+              ${TROOP_TYPES.map((t) => {
+                const avail = state.troopsByType[t.key] || 0;
+                const val = Math.min(avail, army.lastComp[t.key] || 0);
+                return `
+                <div class="engage-comp-row">
+                  <span class="ec-name">${t.name}</span>
+                  <span class="ec-avail">보유 ${avail}</span>
+                  <input type="range" class="ac-input" data-key="${t.key}" min="0" max="${avail}" value="${val}" ${avail === 0 ? "disabled" : ""} />
+                  <span class="ec-value" data-key-val="${t.key}">${val}</span>
                 </div>`;
               }).join("")}
             </div>
@@ -1568,6 +1623,25 @@
           render();
           if (unassignedFromBuilding) toast(`${HERO_BY_ID[heroId].name}의 건물 배치가 해제되고 부대에 편성되었습니다`);
         });
+      });
+      // 드래그 도중 body.innerHTML을 통째로 다시 그리면 슬라이더 조작이 끊기므로,
+      // input 중에는 표시 텍스트만 갱신하고 실제 저장(save)은 change(드래그 종료) 시점에 한다
+      body.querySelectorAll(".ac-input").forEach((input) => {
+        const updateDisplays = () => {
+          const val = Number(input.value);
+          body.querySelector(`#army-comp-list .ec-value[data-key-val="${input.dataset.key}"]`).textContent = val;
+          const p = armyPowerScore(army.heroIds, army.lastComp);
+          body.querySelector(".power-num").textContent = p.toLocaleString();
+          const tabPower = body.querySelector(`.squad-tab[data-idx="${activeSquad}"] .squad-power`);
+          if (tabPower) tabPower.textContent = `⚔️${p.toLocaleString()}`;
+        };
+        input.addEventListener("input", () => {
+          const val = Number(input.value);
+          if (val > 0) army.lastComp[input.dataset.key] = val;
+          else delete army.lastComp[input.dataset.key];
+          updateDisplays();
+        });
+        input.addEventListener("change", () => save());
       });
     }
     render();
