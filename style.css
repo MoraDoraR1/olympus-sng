@@ -139,7 +139,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .worldmap-field {
   position: relative;
   width: 1600px;
-  height: 900px;
+  height: 780px;
   flex: 0 0 auto;
   border: 3px dashed var(--line); border-radius: 20px;
   background-image: linear-gradient(160deg, rgba(231,162,107,0.08), transparent), url("assets/worldmap/background.svg");
