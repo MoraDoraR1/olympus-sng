@@ -74,12 +74,18 @@
   ];
 
   // ---------- 병영 병사 종류 (그리스 신화 테마, 훈련 대기열) ----------
+  // 병종별 자원 대비 전투력 효율(공격+방어+체력 합 ÷ 총 자원비용)이 등급이
+  // 오를수록 매끄럽게 좋아지도록 설계했다 — 예전엔 민병대가 오히려 가장
+  // 효율적이라 "효율 때문에 하급 병사만 훈련"하는 유인이 있었다. 이제는
+  // 민병대(1.06) < 호플리테스(1.31) < 스파르타(1.61) < 미르미돈(2.08) <
+  // 아레스의 대전사(2.59)로 상위 등급일수록 확실히 이득이면서, 절대 비용도
+  // 함께 올라 경제 규모가 못 따라가면 못 뽑는다(특히 상위 두 등급은 금 비중 확대).
   const TROOP_TYPES = [
-    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 5 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6 },
-    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 8, wood: 4 }, trainSeconds: 6, atk: 4, def: 3.5, hp: 11 },
-    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 12, stone: 6 }, trainSeconds: 10, atk: 7, def: 6, hp: 19 },
-    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 18, gold: 10 }, trainSeconds: 16, atk: 12, def: 9, hp: 29 },
-    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 25, gold: 20, stone: 10 }, trainSeconds: 24, atk: 20, def: 15, hp: 46 },
+    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6 },
+    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5 },
+    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21 },
+    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31 },
+    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50 },
   ];
   const TROOP_TYPES_BY_KEY = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, t]));
 
@@ -93,44 +99,58 @@
 
   // ---------- 아카데미 연구 트리 ----------
   // 세부 연구마다 Lv.1~5까지 반복 연구 가능(레벨당 효과가 쌓이고, 비용은 레벨마다
-  // RESEARCH_LEVEL_GROWTH배씩 증가). 같은 카테고리 안에서는 배열 순서가 곧 선행 체인 —
+  // researchLevelGrowthForTier배씩 증가하며 티어가 높을수록 그 배율도 커진다).
+  // 같은 카테고리 안에서는 배열 순서가 곧 선행 체인 —
   // 이전 연구를 Lv.3 이상 올려야 다음 연구가 해금된다(canResearch에서 검사).
   const RESEARCH_MAX_LEVEL = 5;
-  const RESEARCH_LEVEL_GROWTH = 3;
+  // 연구 id 끝의 숫자(combat7 -> 7)를 카테고리 내 티어(1~10)로 사용한다.
+  function researchTier(id) { return parseInt(id.match(/\d+$/)[0], 10); }
+  // 레벨업(Lv->Lv+1) 비용 배율 — 티어가 높을수록 레벨 하나 올리는 데도 더 가팔라진다.
+  function researchLevelGrowthForTier(tier) {
+    if (tier <= 3) return 2.0;
+    if (tier <= 6) return 2.6;
+    if (tier <= 8) return 3.0;
+    return 3.3;
+  }
+  // 연구 비용은 카테고리 내 순번(티어 1~10)이 커질수록 기본 비용 자체가 훨씬
+  // 가파르게 뛰도록 재설계했다 — 티어1을 Lv5까지 다 올리는 누적 비용(약 3,100)보다
+  // 티어10의 Lv1 한 칸(약 32,363)이 이미 10배 이상 비싸서, "초반 연구는 5레벨도
+  // 무리 없지만 후반 연구는 1레벨도 힘들다"는 체감을 분명하게 만든다.
+  // 레벨업 배율(researchLevelGrowthForTier)도 티어가 높을수록 함께 가팔라진다.
   const RESEARCH_DEFS = [
     // ---- ⚔️ 전투연구 (10) ----
-    { id: "combat1", cat: "combat", name: "청동 무기", reqAcademy: 2, reqBuilding: { type: "병영", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { defensePercent: 3, troopPercent: 3 } },
-    { id: "combat2", cat: "combat", name: "철제 갑주", reqAcademy: 6, reqBuilding: { type: "방어탑", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { defensePercent: 5 } },
-    { id: "combat3", cat: "combat", name: "영웅의 전술", reqAcademy: 11, reqBuilding: { type: "병영", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { troopPercent: 6 } },
-    { id: "combat4", cat: "combat", name: "최정예 군단", reqAcademy: 16, reqBuilding: { type: "방어탑", level: 14 }, cost: { wood: 1600, stone: 1600, food: 1600, gold: 1400 }, effect: { troopPercent: 5, defensePercent: 5 } },
-    { id: "combat5", cat: "combat", name: "강철 방벽", reqAcademy: 17, reqBuilding: { type: "성벽", level: 12 }, cost: { wood: 2000, stone: 2000, gold: 1700 }, effect: { defensePercent: 6 } },
-    { id: "combat6", cat: "combat", name: "아레스의 가호", reqAcademy: 17, reqBuilding: { type: "병영", level: 16 }, cost: { wood: 2300, food: 2300, gold: 1900 }, effect: { troopPercent: 7 } },
-    { id: "combat7", cat: "combat", name: "스파르타의 군율", reqAcademy: 18, reqBuilding: { type: "방어탑", level: 17 }, cost: { stone: 2600, food: 2000, gold: 2200 }, effect: { defensePercent: 7, troopPercent: 3 } },
-    { id: "combat8", cat: "combat", name: "아킬레우스의 갑주", reqAcademy: 19, reqBuilding: { type: "성벽", level: 16 }, cost: { wood: 2900, stone: 2900, gold: 2500 }, effect: { troopPercent: 8 } },
-    { id: "combat9", cat: "combat", name: "아테나의 병법", reqAcademy: 19, reqBuilding: { type: "병영", level: 19 }, cost: { wood: 3300, stone: 3300, food: 3300, gold: 2900 }, effect: { defensePercent: 8, troopPercent: 4 } },
-    { id: "combat10", cat: "combat", name: "올림포스 전쟁 신의 가호", reqAcademy: 20, reqBuilding: { type: "성벽", level: 20 }, cost: { wood: 4200, stone: 4200, food: 4200, gold: 3800 }, effect: { troopPercent: 10, defensePercent: 10 } },
+    { id: "combat1", cat: "combat", name: "청동 무기", reqAcademy: 2, reqBuilding: { type: "병영", level: 3 }, cost: { wood: 38, food: 38, gold: 24 }, effect: { defensePercent: 3, troopPercent: 3 } },
+    { id: "combat2", cat: "combat", name: "철제 갑주", reqAcademy: 6, reqBuilding: { type: "방어탑", level: 5 }, cost: { wood: 56, stone: 56, gold: 43 }, effect: { defensePercent: 5 } },
+    { id: "combat3", cat: "combat", name: "영웅의 전술", reqAcademy: 11, reqBuilding: { type: "병영", level: 10 }, cost: { wood: 62, stone: 62, food: 62, gold: 54 }, effect: { troopPercent: 6 } },
+    { id: "combat4", cat: "combat", name: "최정예 군단", reqAcademy: 16, reqBuilding: { type: "방어탑", level: 14 }, cost: { wood: 115, stone: 115, food: 115, gold: 99 }, effect: { troopPercent: 5, defensePercent: 5 } },
+    { id: "combat5", cat: "combat", name: "강철 방벽", reqAcademy: 17, reqBuilding: { type: "성벽", level: 12 }, cost: { wood: 288, stone: 288, gold: 246 }, effect: { defensePercent: 6 } },
+    { id: "combat6", cat: "combat", name: "아레스의 가호", reqAcademy: 17, reqBuilding: { type: "병영", level: 16 }, cost: { wood: 538, food: 538, gold: 445 }, effect: { troopPercent: 7 } },
+    { id: "combat7", cat: "combat", name: "스파르타의 군율", reqAcademy: 18, reqBuilding: { type: "방어탑", level: 17 }, cost: { stone: 1192, food: 917, gold: 1009 }, effect: { defensePercent: 7, troopPercent: 3 } },
+    { id: "combat8", cat: "combat", name: "아킬레우스의 갑주", reqAcademy: 19, reqBuilding: { type: "성벽", level: 16 }, cost: { wood: 2234, stone: 2234, gold: 1925 }, effect: { troopPercent: 8 } },
+    { id: "combat9", cat: "combat", name: "아테나의 병법", reqAcademy: 19, reqBuilding: { type: "병영", level: 19 }, cost: { wood: 3708, stone: 3708, food: 3708, gold: 3260 }, effect: { defensePercent: 8, troopPercent: 4 } },
+    { id: "combat10", cat: "combat", name: "올림포스 전쟁 신의 가호", reqAcademy: 20, reqBuilding: { type: "성벽", level: 20 }, cost: { wood: 8288, stone: 8288, food: 8288, gold: 7499 }, effect: { troopPercent: 10, defensePercent: 10 } },
     // ---- 💰 경영연구 (10) ----
-    { id: "econ1", cat: "econ", name: "관개 기술", reqAcademy: 2, reqBuilding: { type: "농장", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { productionPercent: 3 } },
-    { id: "econ2", cat: "econ", name: "무역로 확장", reqAcademy: 6, reqBuilding: { type: "자원보호소", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { goldPercent: 4 } },
-    { id: "econ3", cat: "econ", name: "황금시대", reqAcademy: 12, reqBuilding: { type: "성", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { productionPercent: 5, goldPercent: 5 } },
-    { id: "econ4", cat: "econ", name: "계단식 농법", reqAcademy: 13, reqBuilding: { type: "농장", level: 12 }, cost: { wood: 2000, food: 2000, gold: 1700 }, effect: { productionPercent: 6 } },
-    { id: "econ5", cat: "econ", name: "청동 화폐 주조", reqAcademy: 14, reqBuilding: { type: "채석장", level: 12 }, cost: { stone: 2300, wood: 2000, gold: 1900 }, effect: { goldPercent: 6 } },
-    { id: "econ6", cat: "econ", name: "지중해 교역망", reqAcademy: 15, reqBuilding: { type: "자원보호소", level: 14 }, cost: { wood: 2600, stone: 2600, gold: 2200 }, effect: { goldPercent: 7 } },
-    { id: "econ7", cat: "econ", name: "데메테르의 축복", reqAcademy: 16, reqBuilding: { type: "벌목장", level: 16 }, cost: { wood: 2900, food: 2900, gold: 2500 }, effect: { productionPercent: 7 } },
-    { id: "econ8", cat: "econ", name: "헤파이스토스의 공방", reqAcademy: 17, reqBuilding: { type: "성", level: 15 }, cost: { stone: 3200, wood: 3200, gold: 2800 }, effect: { productionPercent: 5, goldPercent: 5 } },
-    { id: "econ9", cat: "econ", name: "플루토스의 축복", reqAcademy: 18, reqBuilding: { type: "농장", level: 18 }, cost: { wood: 3600, food: 3600, stone: 3600, gold: 3200 }, effect: { goldPercent: 9 } },
-    { id: "econ10", cat: "econ", name: "풍요의 황금기", reqAcademy: 20, reqBuilding: { type: "성", level: 20 }, cost: { wood: 4500, stone: 4500, food: 4500, gold: 4000 }, effect: { productionPercent: 10, goldPercent: 10 } },
+    { id: "econ1", cat: "econ", name: "관개 기술", reqAcademy: 2, reqBuilding: { type: "농장", level: 3 }, cost: { wood: 38, food: 38, gold: 24 }, effect: { productionPercent: 3 } },
+    { id: "econ2", cat: "econ", name: "무역로 확장", reqAcademy: 6, reqBuilding: { type: "자원보호소", level: 5 }, cost: { wood: 56, stone: 56, gold: 43 }, effect: { goldPercent: 4 } },
+    { id: "econ3", cat: "econ", name: "황금시대", reqAcademy: 12, reqBuilding: { type: "성", level: 10 }, cost: { wood: 62, stone: 62, food: 62, gold: 54 }, effect: { productionPercent: 5, goldPercent: 5 } },
+    { id: "econ4", cat: "econ", name: "계단식 농법", reqAcademy: 13, reqBuilding: { type: "농장", level: 12 }, cost: { wood: 156, food: 156, gold: 132 }, effect: { productionPercent: 6 } },
+    { id: "econ5", cat: "econ", name: "청동 화폐 주조", reqAcademy: 14, reqBuilding: { type: "채석장", level: 12 }, cost: { stone: 305, wood: 265, gold: 252 }, effect: { goldPercent: 6 } },
+    { id: "econ6", cat: "econ", name: "지중해 교역망", reqAcademy: 15, reqBuilding: { type: "자원보호소", level: 14 }, cost: { wood: 534, stone: 534, gold: 453 }, effect: { goldPercent: 7 } },
+    { id: "econ7", cat: "econ", name: "데메테르의 축복", reqAcademy: 16, reqBuilding: { type: "벌목장", level: 16 }, cost: { wood: 1089, food: 1089, gold: 940 }, effect: { productionPercent: 7 } },
+    { id: "econ8", cat: "econ", name: "헤파이스토스의 공방", reqAcademy: 17, reqBuilding: { type: "성", level: 15 }, cost: { stone: 2224, wood: 2224, gold: 1945 }, effect: { productionPercent: 5, goldPercent: 5 } },
+    { id: "econ9", cat: "econ", name: "플루토스의 축복", reqAcademy: 18, reqBuilding: { type: "농장", level: 18 }, cost: { wood: 3699, food: 3699, stone: 3699, gold: 3287 }, effect: { goldPercent: 9 } },
+    { id: "econ10", cat: "econ", name: "풍요의 황금기", reqAcademy: 20, reqBuilding: { type: "성", level: 20 }, cost: { wood: 8322, stone: 8322, food: 8322, gold: 7397 }, effect: { productionPercent: 10, goldPercent: 10 } },
     // ---- 🍀 영웅 획득 연구 (10) ----
-    { id: "hero1", cat: "hero", name: "신탁의 속삭임", reqAcademy: 2, reqBuilding: { type: "여관", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { recruitCostPercent: -3 } },
-    { id: "hero2", cat: "hero", name: "축복받은 만남", reqAcademy: 6, reqBuilding: { type: "여관", level: 6 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { rarityBoost: 0.4 } },
-    { id: "hero3", cat: "hero", name: "올림포스의 부름", reqAcademy: 12, reqBuilding: { type: "여관", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { rarityBoost: 0.4, resetCostPercent: -3 } },
-    { id: "hero4", cat: "hero", name: "델포이의 인도", reqAcademy: 13, reqBuilding: { type: "여관", level: 12 }, cost: { wood: 2000, food: 2000, gold: 1700 }, effect: { recruitCostPercent: -4 } },
-    { id: "hero5", cat: "hero", name: "뮤즈의 노래", reqAcademy: 14, reqBuilding: { type: "여관", level: 13 }, cost: { stone: 2300, wood: 2000, gold: 1900 }, effect: { resetCostPercent: -4 } },
-    { id: "hero6", cat: "hero", name: "티케 여신의 미소", reqAcademy: 15, reqBuilding: { type: "여관", level: 14 }, cost: { wood: 2600, food: 2600, gold: 2200 }, effect: { rarityBoost: 0.5 } },
-    { id: "hero7", cat: "hero", name: "영웅들의 전당", reqAcademy: 16, reqBuilding: { type: "여관", level: 15 }, cost: { wood: 2900, stone: 2900, gold: 2500 }, effect: { recruitCostPercent: -4, resetCostPercent: -3 } },
-    { id: "hero8", cat: "hero", name: "아프로디테의 인연", reqAcademy: 17, reqBuilding: { type: "여관", level: 16 }, cost: { wood: 3200, food: 3200, gold: 2900 }, effect: { rarityBoost: 0.5 } },
-    { id: "hero9", cat: "hero", name: "제우스의 초대", reqAcademy: 19, reqBuilding: { type: "여관", level: 18 }, cost: { wood: 3700, stone: 3700, food: 3700, gold: 3300 }, effect: { rarityBoost: 0.6, recruitCostPercent: -3 } },
-    { id: "hero10", cat: "hero", name: "신들의 축제", reqAcademy: 20, reqBuilding: { type: "여관", level: 20 }, cost: { wood: 4500, stone: 4500, food: 4500, gold: 4000 }, effect: { rarityBoost: 0.7, resetCostPercent: -5 } },
+    { id: "hero1", cat: "hero", name: "신탁의 속삭임", reqAcademy: 2, reqBuilding: { type: "여관", level: 3 }, cost: { wood: 38, food: 38, gold: 24 }, effect: { recruitCostPercent: -3 } },
+    { id: "hero2", cat: "hero", name: "축복받은 만남", reqAcademy: 6, reqBuilding: { type: "여관", level: 6 }, cost: { wood: 56, stone: 56, gold: 43 }, effect: { rarityBoost: 0.4 } },
+    { id: "hero3", cat: "hero", name: "올림포스의 부름", reqAcademy: 12, reqBuilding: { type: "여관", level: 10 }, cost: { wood: 62, stone: 62, food: 62, gold: 54 }, effect: { rarityBoost: 0.4, resetCostPercent: -3 } },
+    { id: "hero4", cat: "hero", name: "델포이의 인도", reqAcademy: 13, reqBuilding: { type: "여관", level: 12 }, cost: { wood: 156, food: 156, gold: 132 }, effect: { recruitCostPercent: -4 } },
+    { id: "hero5", cat: "hero", name: "뮤즈의 노래", reqAcademy: 14, reqBuilding: { type: "여관", level: 13 }, cost: { stone: 305, wood: 265, gold: 252 }, effect: { resetCostPercent: -4 } },
+    { id: "hero6", cat: "hero", name: "티케 여신의 미소", reqAcademy: 15, reqBuilding: { type: "여관", level: 14 }, cost: { wood: 534, food: 534, gold: 453 }, effect: { rarityBoost: 0.5 } },
+    { id: "hero7", cat: "hero", name: "영웅들의 전당", reqAcademy: 16, reqBuilding: { type: "여관", level: 15 }, cost: { wood: 1089, stone: 1089, gold: 940 }, effect: { recruitCostPercent: -4, resetCostPercent: -3 } },
+    { id: "hero8", cat: "hero", name: "아프로디테의 인연", reqAcademy: 17, reqBuilding: { type: "여관", level: 16 }, cost: { wood: 2200, food: 2200, gold: 1993 }, effect: { rarityBoost: 0.5 } },
+    { id: "hero9", cat: "hero", name: "제우스의 초대", reqAcademy: 19, reqBuilding: { type: "여관", level: 18 }, cost: { wood: 3696, stone: 3696, food: 3696, gold: 3296 }, effect: { rarityBoost: 0.6, recruitCostPercent: -3 } },
+    { id: "hero10", cat: "hero", name: "신들의 축제", reqAcademy: 20, reqBuilding: { type: "여관", level: 20 }, cost: { wood: 8322, stone: 8322, food: 8322, gold: 7397 }, effect: { rarityBoost: 0.7, resetCostPercent: -5 } },
   ];
   const RESEARCH_CAT_LABEL = { combat: "⚔️ 전투연구", econ: "💰 경영연구", hero: "🍀 영웅 획득 연구" };
   let academyTab = "combat";
@@ -270,7 +290,21 @@
   const TAVERN_RESET_BASE_COST = 250; // 여관 수동 초기화 기본 비용(금화)
   const TAVERN_RESET_GROWTH = 1.25; // 수동 초기화 1회당 비용 증가율 — 자연 초기화 시 기본값으로 복귀
   const MAX_LEVEL = 20; // 건물 레벨 상한
-  const LEVEL_COST_GROWTH = 1.42; // 레벨업 비용 증가율 — 레벨이 오를수록 기하급수적으로 가팔라지도록 상향(기존 1.3)
+  // 건물 레벨업 비용 증가율 — 예전엔 전 구간 균일하게 1.42배라 후반 체감이
+  // 약했다. 구간이 오를수록 배율 자체가 가팔라지게 바꿔 "초반은 완만하게,
+  // 후반은 기하급수적으로 벽에 부딪히는" 곡선 모양을 명확히 했다
+  // (Lv20 도달 비용이 옛 방식 대비 약 3.1배, 1→20 누적 총량은 약 1.35배).
+  function levelCostRateForLevel(targetLevel) {
+    if (targetLevel <= 5) return 1.18;
+    if (targetLevel <= 10) return 1.32;
+    if (targetLevel <= 15) return 1.58;
+    return 2.0;
+  }
+  function levelCostFactor(level) {
+    let f = 1;
+    for (let l = 2; l <= level; l++) f *= levelCostRateForLevel(l);
+    return f;
+  }
   const MAX_ENHANCE = 5; // 영웅 강화 상한(0~5강)
   const MAX_HEROES_PER_BUILDING = 3; // 건물 하나에 배치 가능한 영웅 수 상한
   const SQUAD_COUNT = 3;
@@ -528,7 +562,7 @@
   function upgradeCostFor(type, level) {
     const bdef = BUILDING_TYPES[type];
     if (!bdef.upgradeCost) return null;
-    const factor = Math.pow(LEVEL_COST_GROWTH, level - 1);
+    const factor = levelCostFactor(level);
     const cost = {};
     Object.entries(bdef.upgradeCost).forEach(([r, v]) => { cost[r] = Math.round(v * factor); });
     return cost;
@@ -1092,10 +1126,11 @@
   function researchLevel(defId) {
     return state.research[defId] || 0;
   }
-  // 다음 레벨(현재 레벨+1)을 사는 비용 — 레벨이 오를수록 RESEARCH_LEVEL_GROWTH배씩 비싸진다
+  // 다음 레벨(현재 레벨+1)을 사는 비용 — 레벨이 오를수록, 그리고 티어가 높을수록 비싸진다
   function researchCostFor(def) {
     const discount = Math.min(60, bonusPercentFor("academy"));
-    const mult = (1 - discount / 100) * Math.pow(RESEARCH_LEVEL_GROWTH, researchLevel(def.id));
+    const growth = researchLevelGrowthForTier(researchTier(def.id));
+    const mult = (1 - discount / 100) * Math.pow(growth, researchLevel(def.id));
     const cost = {};
     Object.entries(def.cost).forEach(([res, amt]) => { cost[res] = Math.max(1, Math.round(amt * mult)); });
     return cost;
