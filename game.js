@@ -234,28 +234,29 @@
   const MAX_LEVEL = 20; // 건물 레벨 상한
   const LEVEL_COST_GROWTH = 1.3;
   const MAX_ENHANCE = 5; // 영웅 강화 상한(0~5강)
+  const MAX_HEROES_PER_BUILDING = 3; // 건물 하나에 배치 가능한 영웅 수 상한
   const SQUAD_COUNT = 3;
   const MIN_DEPLOY = 5;
   const SAVE_KEY = "olympusSngSave_v5";
 
   const ROLL_TABLE = [
     { rarity: "kami", p: 0.05 },
-    { rarity: 1, p: 28 },
-    { rarity: 2, p: 24 },
-    { rarity: 3, p: 18 },
-    { rarity: 4, p: 12 },
-    { rarity: 5, p: 9 },
-    { rarity: 6, p: 5 },
-    { rarity: 7, p: 2.7 },
-    { rarity: 8, p: 1.25 },
+    { rarity: 1, p: 32.5 },
+    { rarity: 2, p: 28 },
+    { rarity: 3, p: 21 },
+    { rarity: 4, p: 14 },
+    { rarity: 5, p: 2.5 },
+    { rarity: 6, p: 1.2 },
+    { rarity: 7, p: 0.6 },
+    { rarity: 8, p: 0.15 },
   ];
 
   function freshState() {
     const tiles = {};
     TILE_LAYOUT.forEach((t) => {
-      tiles[t.id] = { type: t.type, built: t.id === "castle", level: t.id === "castle" ? 1 : 0, heroId: null, training: null, upgrading: null };
+      tiles[t.id] = { type: t.type, built: t.id === "castle", level: t.id === "castle" ? 1 : 0, heroIds: [], training: null, upgrading: null };
     });
-    tiles.wall = { type: "성벽", built: false, level: 0, heroId: null };
+    tiles.wall = { type: "성벽", built: false, level: 0, heroIds: [] };
     return {
       res: { food: 80, wood: 80, stone: 60, gold: 150 },
       tiles,
@@ -283,7 +284,11 @@
       const parsed = JSON.parse(raw);
       if (!parsed.tiles || !parsed.tavern) return null;
       if (!parsed.research) parsed.research = {};
-      if (!parsed.tiles.wall) parsed.tiles.wall = { type: "성벽", built: false, level: 0, heroId: null };
+      if (!parsed.tiles.wall) parsed.tiles.wall = { type: "성벽", built: false, level: 0, heroIds: [] };
+      Object.values(parsed.tiles).forEach((t) => {
+        if (!Array.isArray(t.heroIds)) t.heroIds = typeof t.heroId === "number" ? [t.heroId] : [];
+        delete t.heroId;
+      });
       if (!parsed.troopsByType) parsed.troopsByType = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, 0]));
       if (!parsed.armies) parsed.armies = Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} }));
       parsed.armies.forEach((a) => { if (!a.lastComp) a.lastComp = {}; });
@@ -345,12 +350,12 @@
   function bonusPercentFor(tileId) {
     const tile = state.tiles[tileId];
     let total = 0;
-    if (tile.heroId) {
-      const hero = HERO_BY_ID[tile.heroId];
+    tile.heroIds.forEach((heroId) => {
+      const hero = HERO_BY_ID[heroId];
       if (hero && hero.traitType === "building" && hero.traitEffect.building === tile.type) {
         total += heroTraitPercent(hero);
       }
-    }
+    });
     return total;
   }
   function maxLevelOfType(type) {
@@ -679,16 +684,23 @@
       toast("출정 중인 영웅은 배치를 바꿀 수 없습니다");
       return;
     }
+    const tile = state.tiles[tileId];
+    if (tile.heroIds.includes(heroId)) return;
+    if (tile.heroIds.length >= MAX_HEROES_PER_BUILDING) {
+      toast(`한 건물에는 최대 ${MAX_HEROES_PER_BUILDING}명까지 배치할 수 있습니다`);
+      return;
+    }
     state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
-    Object.values(state.tiles).forEach((t) => { if (t.heroId === heroId) t.heroId = null; });
-    state.tiles[tileId].heroId = heroId;
+    Object.values(state.tiles).forEach((t) => { t.heroIds = t.heroIds.filter((h) => h !== heroId); });
+    tile.heroIds.push(heroId);
     toast(`${HERO_BY_ID[heroId].name} 배치 완료`);
     openBuildingModal(tileId);
     renderBoard();
     save();
   }
-  function unassignHero(tileId) {
-    state.tiles[tileId].heroId = null;
+  function unassignHero(tileId, heroId) {
+    const tile = state.tiles[tileId];
+    tile.heroIds = tile.heroIds.filter((h) => h !== heroId);
     openBuildingModal(tileId);
     renderBoard();
     save();
@@ -976,27 +988,28 @@
         return;
       }
 
-      const hero = tile.heroId ? HERO_BY_ID[tile.heroId] : null;
       let rateLine = "";
+      let statusLine = "";
       let isTraining = false;
       if (tile.built) {
-        const parts = [productionLineForLevel(def.id, tile.level)];
+        rateLine = productionLineForLevel(def.id, tile.level);
+        const statusParts = [];
         if (tile.type === "병영") {
           if (tile.training) {
             const t = TROOP_TYPES_BY_KEY[tile.training.type];
-            parts.push(`훈련: ${t.name} ${tile.training.count}명 (${tile.training.timeLeft}s)`);
+            statusParts.push(`훈련: ${t.name} ${tile.training.count}명 (${tile.training.timeLeft}s)`);
             isTraining = true;
           } else {
-            parts.push("훈련 대기 중");
+            statusParts.push("훈련 대기 중");
           }
         }
         if (tile.type === "감시탑") {
-          parts.push(tile.level >= 5 ? "몬스터 정보 전체 공개" : "몬스터 레벨만 공개");
+          statusParts.push(tile.level >= 5 ? "몬스터 정보 전체 공개" : "몬스터 레벨만 공개");
         }
         if (tile.upgrading) {
-          parts.push(`🏗️ Lv.${tile.upgrading.targetLevel} 레벨업 중 (${tile.upgrading.timeLeft}s)`);
+          statusParts.push(`🏗️ Lv.${tile.upgrading.targetLevel} 레벨업 중 (${tile.upgrading.timeLeft}s)`);
         }
-        rateLine = parts.filter(Boolean).join(" ");
+        statusLine = statusParts.filter(Boolean).join(" · ");
       }
 
       plot.className = "plot" + (tile.built ? "" : " unbuilt") + (def.id === "castle" ? " tile-castle" : "") + (isTraining ? " training" : "") + (tile.upgrading ? " upgrading" : "") + (tile.built && !isTraining && Object.keys(bdef.base).length ? " working" : "") + (justBuiltTileId === def.id ? " just-built" : "");
@@ -1005,8 +1018,8 @@
         <div class="name">${tile.type}</div>
         <div class="level">${tile.built ? "Lv." + tile.level + "/" + MAX_LEVEL : "미건설"}</div>
         ${rateLine ? `<div class="rate">${rateLine}</div>` : ""}
+        ${statusLine ? `<div class="status-line">${statusLine}</div>` : ""}
         ${!tile.built ? `<div class="build-cost">🪙${bdef.buildCostGold}</div>` : ""}
-        ${hero && tile.type !== "감시탑" ? `<div class="hero-chip star-badge r${hero.rarity}">★${hero.rarity}</div>` : ""}
       `;
       plot.addEventListener("click", () => {
         if (!tile.built) { openBuildModal(def.id); return; }
@@ -1104,7 +1117,6 @@
   function openBuildingModal(tileId) {
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
-    const hero = tile.heroId ? HERO_BY_ID[tile.heroId] : null;
     const body = document.getElementById("building-modal-body");
     const ownedList = Object.keys(state.owned)
       .map((id) => HERO_BY_ID[id])
@@ -1133,22 +1145,32 @@
           : ""}
       </div>
     `;
-    const eligibleList = ownedList.filter((h) => h.traitType === "building" && h.traitEffect.building === tile.type);
+    const eligibleList = ownedList.filter((h) => h.traitType === "building" && h.traitEffect.building === tile.type && !tile.heroIds.includes(h.id));
+    const assignedFull = tile.heroIds.length >= MAX_HEROES_PER_BUILDING;
     const heroCol = allowsHero ? `
       <div class="modal-section">
-        <h3>영웅 배치</h3>
-        <p>현재 배치: ${hero ? `${hero.name} (★${hero.rarity}${heroEnhance(hero.id) > 0 ? ` +${heroEnhance(hero.id)}강` : ""})` : "없음"}</p>
-        ${hero ? `<button id="do-unassign">배치 해제</button>` : ""}
+        <h3>영웅 배치 (${tile.heroIds.length}/${MAX_HEROES_PER_BUILDING})</h3>
+        ${tile.heroIds.length ? `
+          <div class="assigned-hero-list">
+            ${tile.heroIds.map((heroId) => {
+              const h = HERO_BY_ID[heroId];
+              return `<div class="assigned-hero-row">
+                <span>${h.name} (★${h.rarity}${heroEnhance(h.id) > 0 ? ` +${heroEnhance(h.id)}강` : ""}) <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span></span>
+                <button class="do-unassign" data-hero="${heroId}">해제</button>
+              </div>`;
+            }).join("")}
+          </div>` : `<p>현재 배치: 없음</p>`}
         <div class="hero-slot-list">
-          ${eligibleList.length ? "" : `<p><small>${ownedList.length ? `${tile.type}에 특화된 영웅이 아직 없습니다.` : "아직 보유한 영웅이 없습니다."} 여관에서 뽑아보세요.</small></p>`}
-          ${eligibleList
-            .map((h) => `
-            <div class="hero-row" data-hero="${h.id}">
-              ${heroBadgeHTML(h.id)}
-              <span>${h.name}</span>
-              <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span>
-            </div>`)
-            .join("")}
+          ${assignedFull
+            ? `<p><small>이미 최대 인원(${MAX_HEROES_PER_BUILDING}명)이 배치되었습니다.</small></p>`
+            : eligibleList.length
+              ? eligibleList.map((h) => `
+                <div class="hero-row" data-hero="${h.id}">
+                  ${heroBadgeHTML(h.id)}
+                  <span>${h.name}</span>
+                  <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span>
+                </div>`).join("")
+              : `<p><small>${ownedList.length ? `${tile.type}에 특화된 영웅이 아직 없습니다.` : "아직 보유한 영웅이 없습니다."} 여관에서 뽑아보세요.</small></p>`}
         </div>
       </div>` : "";
     const extraCol = tile.type === "감시탑"
@@ -1157,7 +1179,9 @@
       : tile.type === "아카데미" ? `<div class="modal-section">${renderResearchHTML()}</div>`
       : "";
     body.innerHTML = `<div class="modal-cols modal-cols-3">${infoCol}${heroCol}${extraCol}</div>`;
-    if (hero) { const b = body.querySelector("#do-unassign"); if (b) b.addEventListener("click", () => unassignHero(tileId)); }
+    body.querySelectorAll(".do-unassign").forEach((b) => {
+      b.addEventListener("click", () => unassignHero(tileId, Number(b.dataset.hero)));
+    });
     const upBtn = body.querySelector("#do-upgrade");
     if (upBtn && !upBtn.disabled) upBtn.addEventListener("click", () => upgrade(tileId));
     body.querySelectorAll(".hero-row").forEach((row) => {
@@ -1277,10 +1301,12 @@
     return idx;
   }
   function renderMonsterArea() {
-    const grid = document.getElementById("monster-grid");
-    if (!grid) return;
-    grid.innerHTML = "";
-    state.monsters.forEach((slot) => {
+    const gridLeft = document.getElementById("monster-col-left");
+    const gridRight = document.getElementById("monster-col-right");
+    if (!gridLeft || !gridRight) return;
+    gridLeft.innerHTML = "";
+    gridRight.innerHTML = "";
+    state.monsters.forEach((slot, idx) => {
       const card = document.createElement("div");
       const attackingIdx = squadAttackingSlot(slot.id);
       card.className = "monster-card" + (slot.monster && slot.monster.elite ? " elite" : "");
@@ -1311,7 +1337,7 @@
           <div class="mstatus">${slot.respawnTimer}s</div>
         `;
       }
-      grid.appendChild(card);
+      (idx < MONSTER_SLOT_COUNT / 2 ? gridLeft : gridRight).appendChild(card);
     });
   }
 
@@ -1467,7 +1493,9 @@
           if (idx === -1 || army.heroIds[idx]) idx = army.heroIds.findIndex((h) => !h);
           if (idx === -1) { toast("부대 슬롯이 가득 찼습니다 (최대 3명)"); return; }
           let unassignedFromBuilding = false;
-          Object.values(state.tiles).forEach((t) => { if (t.heroId === heroId) { t.heroId = null; unassignedFromBuilding = true; } });
+          Object.values(state.tiles).forEach((t) => {
+            if (t.heroIds.includes(heroId)) { t.heroIds = t.heroIds.filter((h) => h !== heroId); unassignedFromBuilding = true; }
+          });
           army.heroIds[idx] = heroId;
           save();
           renderBoard();

@@ -204,9 +204,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   position: relative;
   flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 44px;
   perspective: 2600px;
   background-image: url("assets/board/kingdom-bg.svg");
   background-repeat: repeat;
@@ -215,6 +216,13 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   transform-origin: center center;
 }
 .kingdom-stage[hidden] { display: none; }
+/* 성벽+게시판을 감싸는 가운데 열 — 몬스터 두 줄(왼쪽/오른쪽)이 이 열을 사이에 두고 선다 */
+.city-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
 .kingdom-label {
   text-align: center;
   font-size: .88rem;
@@ -275,7 +283,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
      정렬된다(여백 열까지 큰 칸이면 폭이 넘쳐 오른쪽 여백만 잘려 성이 오른쪽으로 치우쳐 보인다) */
   grid-template-columns: 20px 20px repeat(6, 240px) 20px 20px;
   /* 행 높이가 콘텐츠에 따라 들쭉날쭉하면 배경(floor.svg)의 도로가 실제 칸과 어긋난다 — 반드시 고정값 유지 */
-  grid-auto-rows: 240px;
+  grid-auto-rows: 264px;
   gap: 22px;
   padding: 16px;
   width: max-content;
@@ -288,34 +296,34 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   border-radius: 16px;
 }
 #board .plot .icon { font-size: 14rem; position: relative; z-index: 1; }
-#board .plot .name { font-size: .72rem; }
-#board .plot .level { font-size: .64rem; }
-#board .plot .rate { font-size: .58rem; line-height: 1.15; }
-#board .plot .build-cost { font-size: .64rem; }
-#board .plot { padding: 4px 4px; gap: 1px; min-height: 0; }
+/* 타일 텍스트 — 가독성을 위해 아래 .plot 기본값(1.0rem대)을 그대로 쓰고
+   여기서는 크기를 다시 줄이지 않는다(예전에 여기서 .58~.72rem으로 덮어써서
+   실제로는 항상 이 작은 값만 렌더링되던 문제가 있었음) */
+#board .plot { padding: 6px 6px; gap: 6px; min-height: 0; }
 #board .plot .name,
 #board .plot .level,
 #board .plot .rate,
+#board .plot .status-line,
 #board .plot .build-cost {
   position: relative;
   z-index: 2;
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   border-radius: 999px;
-  padding: 0 6px;
+  padding: 1px 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
   text-shadow: none;
 }
-#board .plot .name { margin-top: -72px; font-weight: 700; }
-#board .plot .hero-chip { width: 18px; height: 18px; font-size: .58rem; top: 3px; right: 3px; z-index: 3; }
+#board .plot .name { margin-top: -68px; font-weight: 700; }
 
-/* 왕국을 둘러싼 야생 지역 — 성벽 위에 가로로 흐르는 한 줄(스크롤 없이 화면에 다 들어오도록 절대배치 대신 일반 흐름 사용) */
-.monster-grid {
-  position: static;
+/* 왕국을 둘러싼 야생 지역 — 성벽 좌/우에 각 4마리씩 세로 1열로 선다(가로 한 줄로
+   늘어놓지 않음). 이 세로 배치 덕에 kingdom-stage 전체 폭이 넓어지고, 그만큼
+   스케일-투-핏 배율이 커지면서 배경(kingdom-bg)도 화면 양옆까지 자동으로 채워진다. */
+.monster-col {
   display: flex;
-  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 34px;
-  width: 100%;
+  gap: 18px;
 }
 .monster-card {
   position: static;
@@ -327,11 +335,6 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .monster-card:nth-child(odd) { transform: rotate(-1.5deg); }
 .monster-card:nth-child(even) { transform: rotate(1.5deg); }
-/* 몬스터 8마리를 왼쪽 4/오른쪽 4로 갈라서 화면 양옆 여백까지 채운다 —
-   4번째 카드 뒤에 큰 여백을 둬서 두 무리로 갈라 보이게 하고, 그만큼
-   monster-grid(및 kingdom-stage)의 자연 너비가 넓어져 스케일-투-핏 배율이
-   커지면서 배경(kingdom-bg)도 그 영역까지 자동으로 채워진다. */
-.monster-card:nth-child(4) { margin-right: 760px; }
 @media (max-width: 900px) {
   .monster-card { width: 90px; font-size: .85em; }
 }
@@ -396,9 +399,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .plot:hover .icon { transform: translateY(-3px) scale(1.06); }
 .plot .icon { font-size: 2.8rem; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); transition: transform .15s cubic-bezier(.34,1.56,.64,1); }
-.plot .name { font-family: var(--font-display); text-shadow: 0 1px 4px var(--bg), 0 0 8px var(--bg), 0 0 8px var(--bg); }
-.plot .level { font-size: .78rem; font-weight: 700; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
-.plot .rate { font-size: .78rem; color: var(--wood); font-weight: 800; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; text-shadow: 0 1px 4px var(--bg), 0 0 8px var(--bg), 0 0 8px var(--bg); }
+.plot .level { font-size: .95rem; font-weight: 700; color: var(--ink-soft); text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .rate { font-size: .88rem; color: var(--wood); font-weight: 800; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .status-line { font-size: .82rem; color: #3E7C8A; font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
 .plot.unbuilt { opacity: .6; }
 .plot.unbuilt .icon { filter: grayscale(1); }
 .plot.tile-empty { border-radius: var(--radius); }
@@ -416,14 +420,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   0%, 100% { filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
   50% { filter: drop-shadow(0 0 10px rgba(231,162,107,0.85)); }
 }
-.plot .hero-chip {
-  position: absolute; top: 6px; right: 6px;
-  width: 26px; height: 26px; border-radius: 50%;
-  font-size: .72rem; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow);
-}
-.plot .build-cost { font-size: .74rem; color: var(--ink-soft); font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
+.plot .build-cost { font-size: .92rem; color: var(--ink-soft); font-weight: 700; text-shadow: 0 1px 3px var(--bg), 0 0 6px var(--bg); }
 
 .floater {
   position: absolute; font-family: var(--font-display); font-size: .85rem;
