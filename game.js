@@ -98,16 +98,39 @@
   const RESEARCH_MAX_LEVEL = 5;
   const RESEARCH_LEVEL_GROWTH = 3;
   const RESEARCH_DEFS = [
+    // ---- ⚔️ 전투연구 (10) ----
     { id: "combat1", cat: "combat", name: "청동 무기", reqAcademy: 2, reqBuilding: { type: "병영", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { defensePercent: 3, troopPercent: 3 } },
     { id: "combat2", cat: "combat", name: "철제 갑주", reqAcademy: 6, reqBuilding: { type: "방어탑", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { defensePercent: 5 } },
     { id: "combat3", cat: "combat", name: "영웅의 전술", reqAcademy: 11, reqBuilding: { type: "병영", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { troopPercent: 6 } },
     { id: "combat4", cat: "combat", name: "최정예 군단", reqAcademy: 16, reqBuilding: { type: "방어탑", level: 14 }, cost: { wood: 1600, stone: 1600, food: 1600, gold: 1400 }, effect: { troopPercent: 5, defensePercent: 5 } },
+    { id: "combat5", cat: "combat", name: "강철 방벽", reqAcademy: 17, reqBuilding: { type: "성벽", level: 12 }, cost: { wood: 2000, stone: 2000, gold: 1700 }, effect: { defensePercent: 6 } },
+    { id: "combat6", cat: "combat", name: "아레스의 가호", reqAcademy: 17, reqBuilding: { type: "병영", level: 16 }, cost: { wood: 2300, food: 2300, gold: 1900 }, effect: { troopPercent: 7 } },
+    { id: "combat7", cat: "combat", name: "스파르타의 군율", reqAcademy: 18, reqBuilding: { type: "방어탑", level: 17 }, cost: { stone: 2600, food: 2000, gold: 2200 }, effect: { defensePercent: 7, troopPercent: 3 } },
+    { id: "combat8", cat: "combat", name: "아킬레우스의 갑주", reqAcademy: 19, reqBuilding: { type: "성벽", level: 16 }, cost: { wood: 2900, stone: 2900, gold: 2500 }, effect: { troopPercent: 8 } },
+    { id: "combat9", cat: "combat", name: "아테나의 병법", reqAcademy: 19, reqBuilding: { type: "병영", level: 19 }, cost: { wood: 3300, stone: 3300, food: 3300, gold: 2900 }, effect: { defensePercent: 8, troopPercent: 4 } },
+    { id: "combat10", cat: "combat", name: "올림포스 전쟁 신의 가호", reqAcademy: 20, reqBuilding: { type: "성벽", level: 20 }, cost: { wood: 4200, stone: 4200, food: 4200, gold: 3800 }, effect: { troopPercent: 10, defensePercent: 10 } },
+    // ---- 💰 경영연구 (10) ----
     { id: "econ1", cat: "econ", name: "관개 기술", reqAcademy: 2, reqBuilding: { type: "농장", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { productionPercent: 3 } },
     { id: "econ2", cat: "econ", name: "무역로 확장", reqAcademy: 6, reqBuilding: { type: "자원보호소", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { goldPercent: 4 } },
     { id: "econ3", cat: "econ", name: "황금시대", reqAcademy: 12, reqBuilding: { type: "성", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { productionPercent: 5, goldPercent: 5 } },
+    { id: "econ4", cat: "econ", name: "계단식 농법", reqAcademy: 13, reqBuilding: { type: "농장", level: 12 }, cost: { wood: 2000, food: 2000, gold: 1700 }, effect: { productionPercent: 6 } },
+    { id: "econ5", cat: "econ", name: "청동 화폐 주조", reqAcademy: 14, reqBuilding: { type: "채석장", level: 12 }, cost: { stone: 2300, wood: 2000, gold: 1900 }, effect: { goldPercent: 6 } },
+    { id: "econ6", cat: "econ", name: "지중해 교역망", reqAcademy: 15, reqBuilding: { type: "자원보호소", level: 14 }, cost: { wood: 2600, stone: 2600, gold: 2200 }, effect: { goldPercent: 7 } },
+    { id: "econ7", cat: "econ", name: "데메테르의 축복", reqAcademy: 16, reqBuilding: { type: "벌목장", level: 16 }, cost: { wood: 2900, food: 2900, gold: 2500 }, effect: { productionPercent: 7 } },
+    { id: "econ8", cat: "econ", name: "헤파이스토스의 공방", reqAcademy: 17, reqBuilding: { type: "성", level: 15 }, cost: { stone: 3200, wood: 3200, gold: 2800 }, effect: { productionPercent: 5, goldPercent: 5 } },
+    { id: "econ9", cat: "econ", name: "플루토스의 축복", reqAcademy: 18, reqBuilding: { type: "농장", level: 18 }, cost: { wood: 3600, food: 3600, stone: 3600, gold: 3200 }, effect: { goldPercent: 9 } },
+    { id: "econ10", cat: "econ", name: "풍요의 황금기", reqAcademy: 20, reqBuilding: { type: "성", level: 20 }, cost: { wood: 4500, stone: 4500, food: 4500, gold: 4000 }, effect: { productionPercent: 10, goldPercent: 10 } },
+    // ---- 🍀 영웅 획득 연구 (10) ----
     { id: "hero1", cat: "hero", name: "신탁의 속삭임", reqAcademy: 2, reqBuilding: { type: "여관", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { recruitCostPercent: -3 } },
     { id: "hero2", cat: "hero", name: "축복받은 만남", reqAcademy: 6, reqBuilding: { type: "여관", level: 6 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { rarityBoost: 0.4 } },
     { id: "hero3", cat: "hero", name: "올림포스의 부름", reqAcademy: 12, reqBuilding: { type: "여관", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { rarityBoost: 0.4, resetCostPercent: -3 } },
+    { id: "hero4", cat: "hero", name: "델포이의 인도", reqAcademy: 13, reqBuilding: { type: "여관", level: 12 }, cost: { wood: 2000, food: 2000, gold: 1700 }, effect: { recruitCostPercent: -4 } },
+    { id: "hero5", cat: "hero", name: "뮤즈의 노래", reqAcademy: 14, reqBuilding: { type: "여관", level: 13 }, cost: { stone: 2300, wood: 2000, gold: 1900 }, effect: { resetCostPercent: -4 } },
+    { id: "hero6", cat: "hero", name: "티케 여신의 미소", reqAcademy: 15, reqBuilding: { type: "여관", level: 14 }, cost: { wood: 2600, food: 2600, gold: 2200 }, effect: { rarityBoost: 0.5 } },
+    { id: "hero7", cat: "hero", name: "영웅들의 전당", reqAcademy: 16, reqBuilding: { type: "여관", level: 15 }, cost: { wood: 2900, stone: 2900, gold: 2500 }, effect: { recruitCostPercent: -4, resetCostPercent: -3 } },
+    { id: "hero8", cat: "hero", name: "아프로디테의 인연", reqAcademy: 17, reqBuilding: { type: "여관", level: 16 }, cost: { wood: 3200, food: 3200, gold: 2900 }, effect: { rarityBoost: 0.5 } },
+    { id: "hero9", cat: "hero", name: "제우스의 초대", reqAcademy: 19, reqBuilding: { type: "여관", level: 18 }, cost: { wood: 3700, stone: 3700, food: 3700, gold: 3300 }, effect: { rarityBoost: 0.6, recruitCostPercent: -3 } },
+    { id: "hero10", cat: "hero", name: "신들의 축제", reqAcademy: 20, reqBuilding: { type: "여관", level: 20 }, cost: { wood: 4500, stone: 4500, food: 4500, gold: 4000 }, effect: { rarityBoost: 0.7, resetCostPercent: -5 } },
   ];
   const RESEARCH_CAT_LABEL = { combat: "⚔️ 전투연구", econ: "💰 경영연구", hero: "🍀 영웅 획득 연구" };
   let academyTab = "combat";
