@@ -1542,6 +1542,11 @@
     const idx = state.armies.findIndex((a) => a.mission && a.mission.targetId === slotId);
     return idx;
   }
+  // 진군 중인 부대를 이모지 한 글자가 아니라 CSS로 그린 병사 3인 대형으로 표시한다
+  // (각 병사가 엇박자로 제자리 걸음 애니메이션을 타면서 대형 전체가 left/top로 이동)
+  function marchingSquadHTML() {
+    return `<span class="squad-unit"></span><span class="squad-unit"></span><span class="squad-unit"></span>`;
+  }
   function renderMonsterArea() {
     const gridLeft = document.getElementById("monster-col-left");
     const gridRight = document.getElementById("monster-col-right");
@@ -1562,7 +1567,7 @@
         const marcherLeft = startLeft + (50 - startLeft) * marchProgress;
         card.innerHTML = `
           <div class="icon">${monsterIconHTML(slot.monster.key)}</div>
-          ${mission.phase === "march" ? `<div class="unit-marcher" style="left:${marcherLeft}%">🪖</div>` : `<div class="battle-clash">⚔️</div>`}
+          ${mission.phase === "march" ? `<div class="unit-marcher" style="left:${marcherLeft}%">${marchingSquadHTML()}</div>` : `<div class="battle-clash">⚔️</div>`}
           <div class="mname">${slot.monster.name}${slot.monster.elite ? " 👑" : ""}</div>
           <div class="mlevel">Lv.${slot.monster.level}</div>
           <div class="mstatus ${mission.phase}">부대${attackingIdx + 1} ${phaseLabel}… ${mission.timeLeft}s</div>
@@ -2004,7 +2009,7 @@
       marcher.className = "wm-marcher";
       marcher.style.left = (6 + (pos.left - 6) * progress) + "%";
       marcher.style.top = (6 + (pos.top - 6) * progress) + "%";
-      marcher.textContent = "🪖";
+      marcher.innerHTML = marchingSquadHTML();
       field.appendChild(marcher);
     });
   }

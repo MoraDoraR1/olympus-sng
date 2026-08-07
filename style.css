@@ -185,7 +185,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wm-castle .wm-status { font-size: .68rem; font-weight: 800; color: var(--wood); }
 .wm-castle button.do-attack-castle { font-size: .74rem; padding: 4px 10px; background: #b0463f; color: #fff; }
 .wm-marcher {
-  position: absolute; transform: translate(-50%, -50%); font-size: 1.4rem;
+  position: absolute; transform: translate(-50%, -50%); font-size: 1.7rem;
+  display: flex; align-items: flex-end; gap: .14em;
   transition: left 1s linear, top 1s linear; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3));
 }
 
@@ -364,7 +365,35 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .monster-card .unit-marcher {
   position: absolute; top: 46%; transform: translate(-50%, -50%);
   font-size: 3.4rem; z-index: 2; transition: left 1s linear;
+  display: flex; align-items: flex-end; gap: .12em;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+/* 병사 부대 대형 — 이모지 한 글자 대신 CSS로 그린 3인 대형이 제자리 걸음(bob)
+   애니메이션을 엇박자로 타면서, 대형 전체는 부모(.unit-marcher/.wm-marcher)의
+   left/top 트랜지션을 따라 실제로 걸어 이동하는 것처럼 보이게 한다 */
+.squad-unit {
+  position: relative; width: .3em; height: .48em;
+  background: linear-gradient(180deg, #d1483d, #8a281f);
+  border-radius: .09em .09em .03em .03em;
+  box-shadow: 0 .05em .07em rgba(0,0,0,.4);
+  animation: squad-march-bob .34s ease-in-out infinite;
+}
+.squad-unit::before {
+  content: ""; position: absolute; left: 50%; top: -.24em; transform: translateX(-50%);
+  width: .22em; height: .22em; border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #f0c896, #b9895c);
+}
+.squad-unit::after {
+  content: ""; position: absolute; left: 50%; top: -.42em; transform: translateX(-50%);
+  width: .06em; height: .46em; border-radius: .03em;
+  background: linear-gradient(180deg, #e2e8ec, #8fa0a8);
+}
+.squad-unit:nth-child(1) { animation-delay: 0s; }
+.squad-unit:nth-child(2) { height: .56em; animation-delay: .11s; }
+.squad-unit:nth-child(3) { animation-delay: .22s; }
+@keyframes squad-march-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-.14em); }
 }
 /* 전투 중: 흔들림 + 교전 이펙트로 실제 싸움이 벌어지는 느낌을 준다 */
 .monster-card.in-battle .icon { animation: idle-float 2.2s ease-in-out infinite, battle-shake .35s ease-in-out infinite; }
