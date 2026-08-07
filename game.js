@@ -278,16 +278,21 @@
   const SAVE_KEY = "olympusSngSave_v5";
   const OFFLINE_CAP_SECONDS = 12 * 3600; // 오프라인 진행은 최대 12시간분까지만 한 번에 재생
 
+  // 6성 이상(6/7/8/카미)이 연구로 부스트됐을 때 지나치게 자주 등장하던 문제 —
+  // 기본 확률 자체를 낮추고(6+7+8 합계 1.95%→0.5%), 그만큼 1성 쪽으로 되돌려
+  // 전체 합은 100%를 유지한다. 연구 부스트 공식(currentRollTable)도 함께
+  // 하향 조정해서, 연구를 전부 최대로 올려도 옛 기본 확률(2.0%)을 살짝 밑도는
+  // 수준(약 1.8%)에서 막히도록 설계했다.
   const ROLL_TABLE = [
     { rarity: "kami", p: 0.05 },
-    { rarity: 1, p: 32.5 },
+    { rarity: 1, p: 33.95 },
     { rarity: 2, p: 28 },
     { rarity: 3, p: 21 },
     { rarity: 4, p: 14 },
     { rarity: 5, p: 2.5 },
-    { rarity: 6, p: 1.2 },
-    { rarity: 7, p: 0.6 },
-    { rarity: 8, p: 0.15 },
+    { rarity: 6, p: 0.3 },
+    { rarity: 7, p: 0.15 },
+    { rarity: 8, p: 0.05 },
   ];
 
   function freshState() {
@@ -690,7 +695,7 @@
     const t6 = table.find((r) => r.rarity === 6);
     const t7 = table.find((r) => r.rarity === 7);
     const t8 = table.find((r) => r.rarity === 8);
-    const take = Math.min(t1.p - 5, boost * 4);
+    const take = Math.min(t1.p - 5, boost * 0.08);
     if (take > 0) {
       t1.p -= take;
       t6.p += take * 0.4;
@@ -885,6 +890,15 @@
     const tile = Object.values(state.tiles).find((t) => Array.isArray(t.heroIds) && t.heroIds.includes(heroId));
     return tile ? tile.type : null;
   }
+  // 영웅을 모든 부대·모든 건물에서 제거한다 — 건물 배치(assignHero)와 군대
+  // 편성(hero-row 클릭) 두 경로가 각자 따로 "다른 곳 정리" 로직을 구현하다
+  // 한쪽만 놓치는 일이 없도록, 재배치 직전에 반드시 이 함수 하나만 거치게 한다.
+  function clearHeroEverywhere(heroId) {
+    state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
+    Object.values(state.tiles).forEach((t) => {
+      if (Array.isArray(t.heroIds)) t.heroIds = t.heroIds.filter((h) => h !== heroId);
+    });
+  }
   function assignHero(tileId, heroId) {
     if (state.armies.some((a) => a.mission && a.heroIds.includes(heroId))) {
       toast("출정 중인 영웅은 배치를 바꿀 수 없습니다");
@@ -897,8 +911,7 @@
       return;
     }
     const prevLocation = heroPlacementLocation(heroId);
-    state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
-    Object.values(state.tiles).forEach((t) => { t.heroIds = t.heroIds.filter((h) => h !== heroId); });
+    clearHeroEverywhere(heroId);
     tile.heroIds.push(heroId);
     toast(prevLocation
       ? `${HERO_BY_ID[heroId].name}의 ${prevLocation} 배치가 해제되고 ${tile.type}에 배치되었습니다`
@@ -1579,7 +1592,7 @@
             <span class="odds-label">
               <span class="star-badge ${row.rarity === "kami" ? "r8" : `r${row.rarity}`}">${row.rarity === "kami" ? "🐱 카미" : `★${row.rarity}`}</span>
             </span>
-            <span class="odds-percent">${row.p}%</span>
+            <span class="odds-percent">${Math.round(row.p * 1000) / 1000}%</span>
           </div>
         `).join("")}
       </div>
@@ -1854,15 +1867,13 @@
           let idx = selectedSlot;
           if (idx === -1 || army.heroIds[idx]) idx = army.heroIds.findIndex((h) => !h);
           if (idx === -1) { toast("부대 슬롯이 가득 찼습니다 (최대 3명)"); return; }
-          let unassignedFromBuilding = false;
-          Object.values(state.tiles).forEach((t) => {
-            if (t.heroIds.includes(heroId)) { t.heroIds = t.heroIds.filter((h) => h !== heroId); unassignedFromBuilding = true; }
-          });
+          const prevLocation = heroPlacementLocation(heroId);
+          clearHeroEverywhere(heroId);
           army.heroIds[idx] = heroId;
           save();
           renderBoard();
           render();
-          if (unassignedFromBuilding) toast(`${HERO_BY_ID[heroId].name}의 건물 배치가 해제되고 부대에 편성되었습니다`);
+          if (prevLocation) toast(`${HERO_BY_ID[heroId].name}의 ${prevLocation} 배치가 해제되고 부대에 편성되었습니다`);
         });
       });
       // 드래그 도중 body.innerHTML을 통째로 다시 그리면 슬라이더 조작이 끊기므로,
