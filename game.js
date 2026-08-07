@@ -648,6 +648,27 @@
     renderTopbar();
     save();
   }
+  // 성/아카데미/여관/방어탑/감시탑/자원보호소/성벽 등 고정 건물(selectable=false)은 철거 대상에서 제외
+  function demolish(tileId) {
+    const tile = state.tiles[tileId];
+    const bdef = BUILDING_TYPES[tile.type];
+    if (!bdef || !bdef.selectable) return;
+    if (tile.upgrading) { toast("⚠️ 레벨업 진행 중에는 철거할 수 없습니다"); return; }
+    if (tile.training) { toast("⚠️ 훈련 진행 중에는 철거할 수 없습니다"); return; }
+    if (!confirm(`${tile.type}을 철거 하시겠습니까?`)) return;
+    const name = tile.type;
+    tile.type = null;
+    tile.built = false;
+    tile.level = 0;
+    tile.heroIds = [];
+    tile.training = null;
+    tile.upgrading = null;
+    toast(`🧨 ${name} 철거 완료`);
+    closeModal("modal-building");
+    renderBoard();
+    renderTopbar();
+    save();
+  }
   function upgrade(tileId) {
     const tile = state.tiles[tileId];
     if (tile.level >= MAX_LEVEL) { toast(`이미 최대 레벨(${MAX_LEVEL})입니다`); return; }
@@ -1143,6 +1164,7 @@
               : `${renderReqChecklistHTML(tileId)}<button id="do-upgrade" ${missing.length ? "disabled" : ""}>레벨업 (${costText(upCost)})</button>`
             : `<p><small>최대 레벨입니다</small></p>`
           : ""}
+        ${bdef.selectable ? `<button id="do-demolish" class="btn-danger">🧨 철거</button>` : ""}
       </div>
     `;
     const eligibleList = ownedList.filter((h) => h.traitType === "building" && h.traitEffect.building === tile.type && !tile.heroIds.includes(h.id));
@@ -1184,6 +1206,8 @@
     });
     const upBtn = body.querySelector("#do-upgrade");
     if (upBtn && !upBtn.disabled) upBtn.addEventListener("click", () => upgrade(tileId));
+    const demolishBtn = body.querySelector("#do-demolish");
+    if (demolishBtn) demolishBtn.addEventListener("click", () => demolish(tileId));
     body.querySelectorAll(".hero-row").forEach((row) => {
       row.addEventListener("click", () => assignHero(tileId, Number(row.dataset.hero)));
     });
