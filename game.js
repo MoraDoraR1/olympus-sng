@@ -266,7 +266,9 @@
   const KAMI = HEROES.find((h) => h.secret) || null;
   const HERO_BY_ID = Object.fromEntries(HEROES.map((h) => [h.id, h]));
   const BASE_CAP = 10000000; // 1000만
-  const TAVERN_CYCLE = 300; // 5분
+  const TAVERN_CYCLE = 600; // 10분
+  const TAVERN_RESET_BASE_COST = 250; // 여관 수동 초기화 기본 비용(금화)
+  const TAVERN_RESET_GROWTH = 1.25; // 수동 초기화 1회당 비용 증가율 — 자연 초기화 시 기본값으로 복귀
   const MAX_LEVEL = 20; // 건물 레벨 상한
   const LEVEL_COST_GROWTH = 1.42; // 레벨업 비용 증가율 — 레벨이 오를수록 기하급수적으로 가팔라지도록 상향(기존 1.3)
   const MAX_ENHANCE = 5; // 영웅 강화 상한(0~5강)
@@ -300,7 +302,7 @@
       troopsByType: Object.fromEntries(TROOP_TYPES.map((t) => [t.key, 0])),
       owned: {}, // heroId -> {enhance, shards, count}
       research: {},
-      tavern: { timer: TAVERN_CYCLE, candidates: new Array(tavernSlotsForLevel(1)).fill(null) },
+      tavern: { timer: TAVERN_CYCLE, candidates: new Array(tavernSlotsForLevel(1)).fill(null), resetCost: TAVERN_RESET_BASE_COST },
       armies: Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} })),
       monsters: freshMonsterSlots(),
       worldCastles: freshWorldCastles(),
@@ -326,6 +328,7 @@
       Object.keys(parsed.research).forEach((id) => {
         if (parsed.research[id] === true) parsed.research[id] = 1;
       });
+      if (typeof parsed.tavern.resetCost !== "number") parsed.tavern.resetCost = TAVERN_RESET_BASE_COST;
       if (!parsed.tiles.wall) parsed.tiles.wall = { type: "성벽", built: false, level: 0, heroIds: [] };
       Object.values(parsed.tiles).forEach((t) => {
         if (!Array.isArray(t.heroIds)) t.heroIds = typeof t.heroId === "number" ? [t.heroId] : [];
@@ -482,9 +485,9 @@
     Object.entries(bdef.upgradeCost).forEach(([r, v]) => { cost[r] = Math.round(v * factor); });
     return cost;
   }
-  // 레벨업 소요 시간(초) — 레벨이 높을수록 오래 걸리되 여관 주기(5분)를 넘지 않게 상한
+  // 레벨업 소요 시간(초) — 레벨이 높을수록 오래 걸리되 여관 주기를 넘지 않게 상한
   function upgradeSecondsFor(level) {
-    return Math.min(300, 15 + level * 10);
+    return Math.min(TAVERN_CYCLE, 15 + level * 10);
   }
   // 레벨업 선행조건: 성이 항상 상한선 + 건물별 기본 연관 건물 레벨
   function levelUpMissing(tileId) {
@@ -537,6 +540,7 @@
     let tavernRerolled = false;
     if (state.tavern.timer <= 0) {
       rerollTavern();
+      state.tavern.resetCost = TAVERN_RESET_BASE_COST;
       tavernRerolled = true;
       toast("🍺 여관이 초기화됐습니다 — 새 영웅들!");
     }
@@ -678,10 +682,7 @@
     state.tavern.timer = TAVERN_CYCLE;
   }
   function tavernResetCost() {
-    const elapsed = TAVERN_CYCLE - state.tavern.timer;
-    const elapsedMin = Math.floor(elapsed / 60);
-    let cost = 50 * Math.max(1, 5 - elapsedMin);
-    cost *= 1 + researchPercent("resetCostPercent") / 100;
+    const cost = state.tavern.resetCost * (1 + researchPercent("resetCostPercent") / 100);
     return Math.max(0, Math.round(cost));
   }
   function recruitCost(hero) {
@@ -1506,6 +1507,7 @@
     const cost = tavernResetCost();
     if (state.res.gold < cost) { toast("🪙 금화가 부족합니다"); return; }
     state.res.gold -= cost;
+    state.tavern.resetCost *= TAVERN_RESET_GROWTH;
     rerollTavern();
     renderTavernModal();
     renderTavernCards();
