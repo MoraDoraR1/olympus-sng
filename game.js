@@ -1496,7 +1496,7 @@
     list.forEach((hero) => {
       const owned = !!state.owned[hero.id];
       const cell = document.createElement("div");
-      cell.className = "codex-cell" + (owned ? "" : " locked");
+      cell.className = `codex-cell hc-r${hero.rarity}` + (owned ? "" : " locked");
       cell.innerHTML = `
         <div class="portrait">${owned ? heroPortraitHTML(hero) : "❔"}</div>
         <div>${owned ? hero.name : "???"}</div>
@@ -1551,7 +1551,7 @@
     }
     ownedList.forEach((hero) => {
       const cell = document.createElement("div");
-      cell.className = "codex-cell";
+      cell.className = `codex-cell hc-r${hero.rarity}`;
       cell.innerHTML = `
         <div class="portrait">${heroPortraitHTML(hero)}</div>
         <div>${hero.name}</div>

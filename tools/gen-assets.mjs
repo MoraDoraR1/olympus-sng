@@ -933,10 +933,121 @@ const GOD_SYMBOL = {
   297: (c) => `<path d="M 0 -7 Q 5 -3 3 4 Q 0 8 -3 4 Q -5 -3 0 -7 Z" fill="#9B59D0" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><circle cx="50" cy="45" r="1.4" fill="${P.gold}"/>`, // 헤라: 공작깃털
   298: (c) => `<path d="M -5 8 L -5 -8 M 0 8 L 0 -10 M 5 8 L 5 -8 M -5 -8 Q 0 -12 5 -8" fill="none" stroke="#4A3A5C" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/>`, // 하데스: 두갈래창(빈덴트)
   299: (c) => `<ellipse cx="-5" cy="-2" rx="4" ry="2" fill="${P.food}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(-20)"/><ellipse cx="0" cy="-6" rx="4" ry="2" fill="${P.food}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(10)"/><ellipse cx="5" cy="-2" rx="4" ry="2" fill="${P.foodDeep}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50) rotate(35)"/>`, // 가이아: 이파리
+  // ★7 17명
+  275: (c) => `<path d="M 0 -8 Q 7 0 0 8" fill="none" stroke="${P.woodDeep}" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/><line x1="0" y1="-8" x2="0" y2="8" stroke="${P.ink}" stroke-width="0.8" transform="translate(50 50)"/>`, // 오디세우스: 활
+  276: (c) => `<path d="M -1 8 L 1 -2 L -3 -2 L 2 -9" fill="none" stroke="${P.roofDeep}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" transform="translate(50 50)"/>`, // 프로메테우스: 불꽃 횃불
+  277: (c) => `<rect x="-3" y="-8" width="6" height="14" rx="2" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><line x1="0" y1="-8" x2="0" y2="6" stroke="${P.stoneDeep}" stroke-width="1" transform="translate(50 50)"/>`, // 헥토르: 방패
+  278: (c) => `<circle r="7" fill="none" stroke="${P.stoneDeep}" stroke-width="1.4" transform="translate(50 50)"/><path d="M -7 0 Q 0 -3 7 0 M -5 -5 Q 0 0 -5 5" fill="none" stroke="${P.stoneDeep}" stroke-width="0.8" transform="translate(50 50)"/>`, // 아틀라스: 천구
+  279: (c) => `<circle r="5" fill="${P.gold}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>` + Array.from({ length: 6 }).map((_, i) => { const a = i * Math.PI / 3; return `<line x1="${50 + Math.cos(a) * 6}" y1="${50 + Math.sin(a) * 6}" x2="${50 + Math.cos(a) * 9}" y2="${50 + Math.sin(a) * 9}" stroke="${P.roof}" stroke-width="1.3" stroke-linecap="round"/>`; }).join(""), // 헬리오스: 태양 수레바퀴
+  280: (c) => `<path d="M -4 8 L 4 8 L 3 -2 Q 0 -8 -3 -2 Z" fill="${P.roof}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/>`, // 헤스티아: 화로 불꽃
+  281: (c) => `<path d="M 0 -8 L 0 6 M -4 6 Q 0 10 4 6" fill="none" stroke="${P.gold}" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/><path d="M -3 -8 L 0 -4 L 3 -8" fill="none" stroke="${P.gold}" stroke-width="1.2" transform="translate(50 50)"/>`, // 데메테르: 밀 이삭
+  282: (c) => `<line x1="0" y1="-8" x2="0" y2="8" stroke="${P.stoneDeep}" stroke-width="1.4" transform="translate(50 50)"/><path d="M -4 -4 Q 0 -8 4 -4 Q 0 -1 -4 -4 Z M -4 0 Q 0 -4 4 0 Q 0 3 -4 0 Z" fill="none" stroke="${P.gold}" stroke-width="1" transform="translate(50 50)"/>`, // 헤르메스: 카두케우스
+  283: (c) => `<circle cx="-2" cy="-2" r="2.6" fill="#9B59D0" stroke="${P.ink}" stroke-width="0.8" transform="translate(50 50)"/><circle cx="2" cy="1" r="2.6" fill="#9B59D0" stroke="${P.ink}" stroke-width="0.8" transform="translate(50 50)"/><circle cx="-1" cy="4" r="2.6" fill="#9B59D0" stroke="${P.ink}" stroke-width="0.8" transform="translate(50 50)"/>`, // 디오니소스: 포도송이
+  284: (c) => `<rect x="-1" y="-8" width="2" height="12" fill="${P.stoneDeep}" transform="translate(50 50)"/><path d="M -6 -8 L 6 -8 L 6 -5 L -6 -5 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 헤파이스토스: 망치
+  285: (c) => `<line x1="0" y1="-9" x2="0" y2="9" stroke="${P.stoneDeep}" stroke-width="1.6" transform="translate(50 50)"/><path d="M -3 -9 L 0 -13 L 3 -9 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 아킬레우스: 창
+  286: (c) => `<path d="M -7 3 Q -7 -6 0 -8 Q 7 -6 7 3 Q 0 8 -7 3 Z" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="1.3" stroke-linejoin="round" transform="translate(50 50)"/>`, // 헤라클레스: 사자 가죽
+  287: (c) => `<circle r="4.5" fill="${P.ivory}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/><path d="M -2 -1 L -2 2 M 2 -1 L 2 2" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/><path d="M -4.5 -3 L -6 -6 L -2 -4 Z M 4.5 -3 L 6 -6 L 2 -4 Z" fill="${P.stoneDeep}" transform="translate(50 50)"/>`, // 아테나: 부엉이
+  288: (c) => `<path d="M -6 0 Q 0 -8 6 0" fill="none" stroke="${P.stoneDeep}" stroke-width="1.4" transform="translate(50 50)"/><path d="M 3 -6 A 6 6 0 1 0 3 6 A 5 5 0 1 1 3 -6 Z" fill="${P.ivory}" stroke="${P.ink}" stroke-width="0.8" transform="translate(48 47)"/>`, // 아르테미스: 활+초승달
+  289: (c) => `<path d="M -1 8 L 1 8 L 1 -6 L 4 -6 L 0 -12 L -4 -6 L -1 -6 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 아레스: 검
+  290: (c) => `<circle r="5.5" fill="${P.red}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><path d="M -5 -1 L 5 -1 M -3 -1 L 0 3 L 3 -1" fill="none" stroke="${P.ink}" stroke-width="0.7" transform="translate(50 50)"/>`, // 페르세포네: 석류
+  291: (c) => `<circle cx="-4" cy="-3" r="1" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="2" cy="-6" r="1.3" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="5" cy="0" r="0.9" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="-2" cy="5" r="1.1" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="4" cy="5" r="0.8" fill="${P.ivory}" transform="translate(50 50)"/>`, // 우라노스: 별
+  // ★6 32명
+  243: (c) => `<path d="M -6 4 L 6 4 L 4 -6 Q 0 -10 -4 -6 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 아가멤논: 왕관
+  244: (c) => `<circle r="5" fill="none" stroke="${P.gold}" stroke-width="1.4" transform="translate(50 50)"/><rect x="-1" y="4" width="2" height="5" fill="${P.gold}" transform="translate(50 50)"/>`, // 헬레네: 손거울
+  245: (c) => `<path d="M 0 -7 Q 5 -6 6 -1 Q 6 4 0 6 Q -6 4 -6 -1 Q -5 -6 0 -7 Z" fill="#3A2A4C" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/><path d="M -2 -1 L 2 2 M 2 -1 L -1 3" stroke="${P.ivory}" stroke-width="0.7" transform="translate(50 50)"/>`, // 카산드라: 까마귀
+  246: (c) => `<circle r="7" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.3" transform="translate(50 50)"/><path d="M -7 3 Q 0 -8 7 3" fill="none" stroke="${P.ink}" stroke-width="1" opacity="0.4" transform="translate(50 50)"/>`, // 시시포스: 바위
+  247: (c) => `<circle r="5.5" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><path d="M -8 -6 L -5 -8 M -3 -9 L -1 -10" stroke="${P.gold}" stroke-width="1" stroke-linecap="round" transform="translate(50 50)"/>`, // 미다스: 황금
+  248: (c) => `<path d="M -6 -6 L 6 -6 L 5 6 Q 0 9 -5 6 Z" fill="${P.roof}" stroke="${P.ink}" stroke-width="1.2" stroke-linejoin="round" transform="translate(50 50)"/><line x1="-6" y1="-6" x2="6" y2="-6" stroke="${P.ink}" stroke-width="1.4" transform="translate(50 50)"/>`, // 판도라: 상자
+  249: (c) => `<path d="M -6 6 Q -6 -6 0 -8 Q 6 -6 6 6" fill="none" stroke="${P.stoneDeep}" stroke-width="1.3" transform="translate(50 50)"/><circle cx="-2" cy="-1" r="0.9" fill="${P.ink}" transform="translate(50 50)"/><circle cx="2" cy="-1" r="0.9" fill="${P.ink}" transform="translate(50 50)"/>`, // 오이디푸스: 스핑크스
+  250: (c) => `<path d="M 0 0 Q -8 -4 -9 2 Q -3 3 0 0 Z M 0 0 Q 8 -4 9 2 Q 3 3 0 0 Z" fill="${P.ivory}" stroke="${P.ink}" stroke-width="1" transform="translate(50 47)"/>`, // 이카로스: 밀랍 날개
+  251: (c) => `<path d="M -6 4 Q -7 -4 0 -6 Q 7 -4 6 4 Q 3 1 0 3 Q -3 1 -6 4 Z" fill="#8C8378" stroke="${P.ink}" stroke-width="1.1" stroke-linejoin="round" transform="translate(50 50)"/><path d="M -3 -5 L -4 -8 M 3 -5 L 4 -8" stroke="${P.ink}" stroke-width="0.9" transform="translate(50 50)"/>`, // 로물루스: 늑대
+  252: (c) => `<line x1="-6" y1="0" x2="6" y2="0" stroke="${P.stoneDeep}" stroke-width="1.6" transform="translate(50 50)"/><circle cx="-4" cy="0" r="1" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="0" cy="0" r="1" fill="${P.ivory}" transform="translate(50 50)"/><circle cx="4" cy="0" r="1" fill="${P.ivory}" transform="translate(50 50)"/>`, // 오리온: 삼태성 벨트
+  253: (c) => `<path d="M -5 6 Q -6 -6 3 -8 Q 8 -6 4 -2 Q 0 0 -2 4 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.1" stroke-linejoin="round" transform="translate(50 50)"/>`, // 페르세우스: 낫검
+  254: (c) => `<circle r="3" fill="none" stroke="${P.red}" stroke-width="1.4" transform="translate(50 46)"/><path d="M 0 -3 Q 6 0 4 9" fill="none" stroke="${P.red}" stroke-width="1.1" transform="translate(50 50)"/>`, // 테세우스: 실타래
+  255: (c) => `<path d="M -6 2 Q -7 -6 0 -7 Q 7 -6 6 2 Q 0 6 -6 2 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.2" stroke-linejoin="round" transform="translate(50 50)"/><path d="M -3 -3 Q 0 -1 3 -3" stroke="${P.goldDeep}" stroke-width="0.8" fill="none" transform="translate(50 50)"/>`, // 이아손: 황금 양털
+  256: (c) => `<path d="M -7 4 L 7 4 L 4 -2 L -4 -2 Z" fill="${P.ivory}" stroke="${P.ink}" stroke-width="1.1" stroke-linejoin="round" transform="translate(50 50)"/><line x1="0" y1="-8" x2="0" y2="-2" stroke="${P.woodDeep}" stroke-width="1.2" transform="translate(50 50)"/>`, // 아이네아스: 배
+  257: (c) => `<circle r="4.5" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.1" transform="translate(50 50)"/><path d="M 0 -4.5 Q -2 -7 -4 -6" stroke="${P.food}" stroke-width="1" fill="none" transform="translate(50 50)"/>`, // 아탈란테: 황금 사과
+  258: (c) => `<path d="M -6 8 L -6 -6 Q -6 -9 -2 -9 L 2 -9 Q 6 -9 6 -5 L 6 8" fill="none" stroke="${P.woodDeep}" stroke-width="1.4" stroke-linejoin="round" transform="translate(50 50)"/><line x1="-3" y1="8" x2="-3" y2="-4" stroke="${P.gold}" stroke-width="0.6" transform="translate(50 50)"/><line x1="0" y1="8" x2="0" y2="-6" stroke="${P.gold}" stroke-width="0.6" transform="translate(50 50)"/><line x1="3" y1="8" x2="3" y2="-4" stroke="${P.gold}" stroke-width="0.6" transform="translate(50 50)"/>`, // 오르페우스: 리라
+  259: (c) => `<path d="M -8 2 Q -9 -3 -4 -3 Q -2 -7 2 -5 Q 6 -6 7 -1 Q 8 3 3 4" fill="${P.ivory}" stroke="${P.ink}" stroke-width="1" stroke-linejoin="round" transform="translate(50 50)"/>`, // 벨레로폰: 페가수스 날개
+  260: (c) => `<ellipse rx="6" ry="7" fill="#5B7A8F" stroke="${P.ink}" stroke-width="1.1" transform="translate(50 51)"/><path d="M -6 -2 L 6 -2 M -5 1 L 5 1" stroke="${P.ink}" stroke-width="0.6" opacity="0.5" transform="translate(50 50)"/>`, // 레아: 포대기
+  261: (c) => `<rect x="-5" y="-8" width="10" height="15" rx="2" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.3" transform="translate(50 50)"/><line x1="0" y1="-8" x2="0" y2="7" stroke="${P.stoneDeep}" stroke-width="0.8" transform="translate(50 50)"/>`, // 아이아스: 탑방패
+  262: (c) => `<path d="M -6 4 Q -6 -4 0 -6 Q 6 -4 6 4" fill="none" stroke="${P.wood}" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/><path d="M -3 -6 L -4 -9 M 3 -6 L 4 -9" stroke="${P.wood}" stroke-width="1.2" transform="translate(50 50)"/>`, // 카스토르: 말
+  263: (c) => `<circle cx="-3" cy="0" r="4" fill="none" stroke="${P.woodDeep}" stroke-width="1.6" transform="translate(50 50)"/><circle cx="3" cy="0" r="4" fill="none" stroke="${P.woodDeep}" stroke-width="1.6" transform="translate(50 50)"/>`, // 폴룩스: 권투 글러브
+  264: (c) => `<line x1="-7" y1="-4" x2="7" y2="-4" stroke="${P.stoneDeep}" stroke-width="1.2" transform="translate(50 50)"/><path d="M -7 -4 L -9 2 L -5 2 Z M 7 -4 L 5 2 L 9 2 Z" fill="none" stroke="${P.stoneDeep}" stroke-width="1" transform="translate(50 50)"/><line x1="0" y1="-9" x2="0" y2="-4" stroke="${P.stoneDeep}" stroke-width="1.2" transform="translate(50 50)"/>`, // 테미스: 저울
+  265: (c) => `<path d="M 0 8 L 0 -4 M 0 -4 Q -6 -6 -7 -9 M 0 -4 Q 6 -6 7 -9 M 0 -1 Q -5 -3 -6 -6 M 0 -1 Q 5 -3 6 -6" fill="none" stroke="${P.food}" stroke-width="1.1" stroke-linecap="round" transform="translate(50 50)"/>`, // 레토: 야자수
+  266: (c) => `<circle r="6" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.2" transform="translate(50 50)"/><circle r="8.5" fill="none" stroke="${P.gold}" stroke-width="0.8" opacity="0.6" transform="translate(50 50)"/>`, // 히페리온: 광륜
+  267: (c) => `<path d="M -8 2 Q -4 -2 0 2 Q 4 -2 8 2" fill="none" stroke="#3E7C8A" stroke-width="1.6" stroke-linecap="round" transform="translate(50 50)"/><path d="M -8 6 Q -4 2 0 6 Q 4 2 8 6" fill="none" stroke="#3E7C8A" stroke-width="1.2" opacity="0.6" stroke-linecap="round" transform="translate(50 50)"/>`, // 오케아노스: 파도
+  268: (c) => `<path d="M 0 0 Q -8 -4 -9 2 Q -3 3 0 0 Z M 0 0 Q 8 -4 9 2 Q 3 3 0 0 Z" fill="${P.wood}" stroke="${P.ink}" stroke-width="1" transform="translate(50 47)"/>`, // 다이달로스: 날개
+  269: (c) => `<path d="M -6 -6 L 6 -6 L 5 4 Q 0 7 -5 4 Z" fill="none" stroke="${P.stoneDeep}" stroke-width="1.3" stroke-linejoin="round" transform="translate(50 50)"/><circle cx="0" cy="-2" r="1.6" fill="#4E8F5B" transform="translate(50 50)"/>`, // 메데이아: 솥
+  270: (c) => `<rect x="-1" y="-9" width="2" height="10" fill="${P.gold}" transform="translate(50 50)"/><circle cx="0" cy="-9" r="1.6" fill="${P.gold}" transform="translate(50 50)"/><ellipse cx="4" cy="4" rx="4" ry="2.4" fill="none" stroke="#9B59D0" stroke-width="1.1" transform="translate(50 50)"/>`, // 키르케: 마법 지팡이
+  271: (c) => `<path d="M -6 -3 Q 0 -9 6 -3 Q 3 0 0 -2 Q -3 0 -6 -3 Z" fill="${P.red}" stroke="${P.ink}" stroke-width="1" transform="translate(50 46)"/><line x1="0" y1="-3" x2="0" y2="9" stroke="${P.gold}" stroke-width="1" transform="translate(50 47)"/>`, // 에로스: 화살+하트
+  272: (c) => `<path d="M 0 0 Q -8 -4 -9 2 Q -3 3 0 0 Z M 0 0 Q 8 -4 9 2 Q 3 3 0 0 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1" transform="translate(50 47)"/>`, // 니케: 황금 날개
+  273: (c) => `<path d="M 4 -6 A 6 6 0 1 0 4 6 A 5 5 0 1 1 4 -6 Z" fill="#B8C4D9" stroke="${P.ink}" stroke-width="1" transform="translate(50 50)"/>`, // 셀레네: 초승달
+  274: (c) => `<path d="M -1 8 L -1 -6 L -4 -6 L 0 -11 L 4 -6 L 1 -6 L 1 8" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="0.9" transform="translate(44 50)"/><path d="M -1 8 L -1 -6 L -4 -6 L 0 -11 L 4 -6 L 1 -6 L 1 8" fill="${P.roofDeep}" stroke="${P.ink}" stroke-width="0.9" transform="translate(56 50)"/>`, // 헤카테: 쌍횃불
 };
-const GOD_AURA = { 292: "#9C9C9C", 293: "#4C8FE0", 294: "#E8B93B", 295: "#E091B0", 296: "#3B5BA6", 297: "#9B59D0", 298: "#4A3A5C", 299: "#7FB069" };
+const GOD_AURA = {
+  292: "#9C9C9C", 293: "#4C8FE0", 294: "#E8B93B", 295: "#E091B0", 296: "#3B5BA6", 297: "#9B59D0", 298: "#4A3A5C", 299: "#7FB069",
+  275: "#8F4E17", 276: "#D6864C", 277: "#B5651D", 278: "#5B7A8F", 279: "#E7A26B", 280: "#C0433A", 281: "#E8B93B", 282: "#B8AA95",
+  283: "#9B59D0", 284: "#8F897C", 285: "#8F4E17", 286: "#B5651D", 287: "#5B7A8F", 288: "#B9B4A8", 289: "#C0433A", 290: "#8F4E17", 291: "#3A2A4C",
+  243: "#E8B93B", 244: "#E091B0", 245: "#3A2A4C", 246: "#8F897C", 247: "#E8B93B", 248: "#D6864C", 249: "#B9B4A8", 250: "#EADFC7",
+  251: "#8C8378", 252: "#3B5BA6", 253: "#8F897C", 254: "#C0433A", 255: "#E8B93B", 256: "#EADFC7", 257: "#E8B93B", 258: "#8F4E17",
+  259: "#EADFC7", 260: "#5B7A8F", 261: "#8F897C", 262: "#B5651D", 263: "#8F4E17", 264: "#8F897C", 265: "#5E8B4C", 266: "#E8B93B",
+  267: "#3E7C8A", 268: "#B5651D", 269: "#5E8B4C", 270: "#9B59D0", 271: "#C0433A", 272: "#E8B93B", 273: "#B8C4D9", 274: "#D6864C",
+};
+
+// 사람 형태 초상의 공용 뼈대(옷/목/얼굴/눈/입) — 신화 인물·일반 영웅 공용으로 재사용
+function portraitBase(skin, cloth, hairColor, hairStyle, hasBeard) {
+  let s = `<path d="M 18 96 Q 50 72 82 96 L 82 100 L 18 100 Z" fill="${cloth}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `<rect x="43" y="68" width="14" height="16" fill="${skin}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  s += `<circle cx="50" cy="54" r="22" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  if (hasBeard) s += beardShape(hairColor);
+  s += hairShape(hairStyle, hairColor);
+  s += `<circle cx="43" cy="55" r="2" fill="${P.ink}"/><circle cx="57" cy="55" r="2" fill="${P.ink}"/>`;
+  s += `<path d="M 45 64 Q 50 67 55 64" stroke="${P.ink}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+  return s;
+}
+
+// 실제 그리스·로마 신화에 없는 "가상(이름 없는) 영웅" 판정 — ★1~3 전원 + ★4 중 아래 6명
+// (병영 취사병/궁수 견습생 등 이름 없는 필러 캐릭터). 나머지는 전부 실존 신화 인물.
+const GENERIC_R4_IDS = new Set([197, 198, 199, 200, 201, 202]);
+function isGenericHero(hero) {
+  if (hero.secret) return false; // 까미(고양이)는 별도 처리
+  if (hero.rarity <= 3) return true;
+  if (hero.rarity === 4) return GENERIC_R4_IDS.has(hero.id);
+  return false;
+}
+
+// ---------- 가상 영웅 전용 — 딱 10종 고정 템플릿을 그대로 복제해서 재사용 ----------
+// (신화 속 실존 인물이 아닌) 151명의 "이름 없는" 영웅 전원이 이 10개 중 하나를
+// hero.id % 10 으로 결정적으로 배정받아 그대로 복제한다 — 매번 새로 그리지 않는다.
+const GENERIC_TEMPLATES = [
+  () => svg(portraitBase("#E8B98A", "#8F897C", "#3A2A1C", 0, false) + // 0: 방패병(남)
+    `<path d="M 20 60 Q 14 50 20 40 Q 30 36 30 50 Q 30 62 20 60 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/><line x1="20" y1="46" x2="20" y2="54" stroke="${P.stoneDeep}" stroke-width="1.4"/>`),
+  () => svg(portraitBase("#D6A26B", "#C0433A", "#2B2118", 2, false) + // 1: 여전사(창)
+    `<line x1="76" y1="20" x2="66" y2="70" stroke="${P.woodDeep}" stroke-width="2.4" stroke-linecap="round"/><path d="M 76 20 L 71 12 L 81 15 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`),
+  () => svg(portraitBase("#F0C9A0", "#FFF8EC", "#B8AA95", 2, false) + // 2: 무녀/사제(여)
+    `<circle cx="26" cy="70" r="4.4" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/><path d="M 26 74 L 26 82" stroke="${P.ink}" stroke-width="1.6"/><path d="M 22 66 Q 26 60 30 66" fill="none" stroke="${P.red}" stroke-width="1.6" stroke-linecap="round"/>`),
+  () => svg(portraitBase("#C98B5C", "#B9B4A8", "#5B3A29", 0, true) + // 3: 석공/장인(남)
+    `<rect x="70" y="60" width="4" height="16" rx="1.5" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.3"/><path d="M 66 58 L 78 58 L 74 50 L 70 50 Z" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`),
+  () => svg(portraitBase("#E8B98A", "#5E8B4C", "#6B4423", 0, true) + // 4: 목동/농부(남)
+    `<path d="M 22 78 Q 20 50 26 34 Q 30 30 32 34 Q 26 48 28 78 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`),
+  () => svg(portraitBase("#D6A26B", "#9B59D0", "#3A2A1C", 1, false) + // 5: 약초꾼/치료사(여)
+    leaf(72, 68, 20, P.food) + leaf(76, 74, -10, P.foodDeep) + leaf(70, 76, 50, P.food)),
+  () => svg(portraitBase("#C98B5C", "#4E8F5B", "#2B2118", 0, false) + // 6: 궁수/정찰병(남)
+    `<path d="M 74 30 Q 84 50 74 70" fill="none" stroke="${P.woodDeep}" stroke-width="2.2" stroke-linecap="round"/><line x1="74" y1="30" x2="74" y2="70" stroke="${P.ink}" stroke-width="0.9" opacity="0.6"/>`),
+  () => svg(portraitBase("#F0C9A0", "#E7A26B", "#8C6A46", 0, false) + // 7: 상인(남)
+    `<path d="M 22 72 Q 18 62 24 58 Q 32 58 30 68 Q 30 76 22 72 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/><line x1="26" y1="58" x2="26" y2="54" stroke="${P.ink}" stroke-width="1.4"/>`),
+  () => svg(portraitBase("#8C5A3C", "#3E7C8A", "#3A3A3A", 0, true) + // 8: 뱃사공/어부(남)
+    `<path d="M 74 24 L 74 66 M 74 24 Q 66 30 74 36 Q 82 42 74 48" fill="none" stroke="${P.stoneDeep}" stroke-width="2" stroke-linecap="round"/>`),
+  () => svg(portraitBase("#E8B98A", "#DCE8C6", "#7FB069", 2, false) + // 9: 숲의 정령(여)
+    leaf(38, 30, -30, P.food) + leaf(50, 26, 0, P.foodDeep) + leaf(62, 30, 30, P.food)),
+];
 
 function heroPortrait(hero) {
+  if (isGenericHero(hero)) return GENERIC_TEMPLATES[hero.id % GENERIC_TEMPLATES.length]();
+
+  // 실존 신화 인물 — 인물별로 고유한 얼굴 시드는 유지하되, ★6 이상은 후광·월계관 등급을
+  // 한 단계 더 올리고(품질 차등), GOD_SYMBOL이 등록된 인물은 그 인물만의 상징 배지를 추가로 얹는다.
   const rng = mulberry32(hero.id * 2654435761);
   const skin = pick(rng, SKIN_TONES);
   const hairColor = pick(rng, HAIR_COLORS);
@@ -946,19 +1057,14 @@ function heroPortrait(hero) {
   const r = hero.rarity;
 
   let s = "";
-  if (r >= 7 || GOD_AURA[hero.id]) {
+  if (r >= 6 || GOD_AURA[hero.id]) {
     s += `<circle cx="50" cy="54" r="29" fill="none" stroke="${GOD_AURA[hero.id] || P.gold}" stroke-width="2" opacity="0.5"/>`;
   }
-  s += `<path d="M 18 96 Q 50 72 82 96 L 82 100 L 18 100 Z" fill="${cloth}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
-  s += `<rect x="43" y="68" width="14" height="16" fill="${skin}" stroke="${P.ink}" stroke-width="1.6"/>`;
-  s += `<circle cx="50" cy="54" r="22" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  if (hasBeard) s += beardShape(hairColor);
-  s += hairShape(hairStyle, hairColor);
-  s += `<circle cx="43" cy="55" r="2" fill="${P.ink}"/><circle cx="57" cy="55" r="2" fill="${P.ink}"/>`;
-  s += `<path d="M 45 64 Q 50 67 55 64" stroke="${P.ink}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+  s += portraitBase(skin, cloth, hairColor, hairStyle, hasBeard);
 
-  if (r >= 3 && r <= 4) s += `<path d="M 28 48 Q 50 40 72 48" stroke="${pick(rng, [P.gold, cloth, P.stoneDeep])}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
-  else if (r >= 5 && r <= 6) s += laurel(false, P.food);
+  if (r === 4) s += `<path d="M 28 48 Q 50 40 72 48" stroke="${pick(rng, [P.gold, cloth, P.stoneDeep])}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+  else if (r === 5) s += laurel(false, P.food);
+  else if (r === 6) s += laurel(false, P.gold);
   else if (r === 7) s += laurel(true, P.gold);
   else if (r >= 8) {
     s += laurel(true, P.gold);

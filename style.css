@@ -494,6 +494,9 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .hero-card.kami { animation: kami-shimmer 1.4s ease-in-out infinite; }
 @keyframes kami-shimmer { 0%,100% { box-shadow: 0 0 6px 2px #ffd93d; } 50% { box-shadow: 0 0 16px 6px #ff6b6b; } }
 .hero-card .portrait { font-size: 2.4rem; }
+/* ★6 이상은 신화 속 실존 인물 중에서도 상급 — 초상 크기를 한 단계 더 키워 체감 등급차를 준다 */
+.hero-card.hc-r6 .portrait, .hero-card.hc-r7 .portrait, .hero-card.hc-r8 .portrait { font-size: 3.1rem; }
+.codex-cell.hc-r6 .portrait, .codex-cell.hc-r7 .portrait, .codex-cell.hc-r8 .portrait { font-size: 2.3rem; }
 .hero-card .hname { font-family: var(--font-display); font-size: .9rem; }
 .hero-card .hdomain { font-size: .7rem; font-weight: 600; opacity: .82; min-height: 2em; }
 .hero-card .empty-slot { opacity: .55; font-size: .8rem; padding: 20px 0; color: var(--ink); }
