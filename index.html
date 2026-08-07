@@ -116,9 +116,18 @@
           <span id="tavern-timer-text">5:00</span>
         </div>
         <button id="btn-tavern-reset">🔄 즉시 초기화 (<span id="tavern-reset-cost">0</span>🪙)</button>
+        <button id="btn-tavern-odds">📊 확률표</button>
       </div>
       <div class="tavern-meta-extra" id="tavern-meta-extra"></div>
       <div class="tavern-grid" id="tavern-grid"></div>
+    </div>
+  </div>
+
+  <!-- 여관 확률표 모달 -->
+  <div class="modal-overlay" id="modal-tavern-odds" hidden>
+    <div class="modal modal-narrow">
+      <button class="modal-close" data-close>✕</button>
+      <div id="tavern-odds-body"></div>
     </div>
   </div>
 

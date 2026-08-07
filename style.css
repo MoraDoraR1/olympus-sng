@@ -447,6 +447,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .modal h2 { font-family: var(--font-display); }
 .modal-wide { max-width: 960px; }
+.modal-narrow { max-width: 420px; }
 .modal-xwide { max-width: 1140px; }
 .modal-cols-3 { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
 .modal-cols-3 > .modal-section { flex: 1 1 300px; min-width: 260px; }
@@ -534,6 +535,16 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   font-size: .87rem; font-weight: 600; flex-wrap: wrap;
 }
 .tavern-meta-extra button { font-size: .8rem; padding: 6px 10px; }
+
+.odds-note { font-size: .82rem; color: var(--ink-soft); font-weight: 600; margin: 2px 0 14px; }
+.odds-table { display: flex; flex-direction: column; gap: 8px; }
+.odds-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+}
+.odds-row.kami { animation: kami-shimmer 1.4s ease-in-out infinite; }
+.odds-row .odds-label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.odds-percent { font-weight: 800; font-size: .95rem; font-variant-numeric: tabular-nums; }
 
 .research-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .research-tabs button.active { background: var(--ink); color: var(--bg); }

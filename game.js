@@ -1271,6 +1271,31 @@
     renderTavernCards();
     openModal("modal-tavern");
   }
+  const ODDS_ORDER = ["kami", 8, 7, 6, 5, 4, 3, 2, 1];
+  function renderTavernOddsModal() {
+    const table = currentRollTable();
+    const boost = researchPercent("rarityBoost");
+    const rows = ODDS_ORDER.map((r) => table.find((row) => row.rarity === r)).filter(Boolean);
+    const body = document.getElementById("tavern-odds-body");
+    body.innerHTML = `
+      <h2>📊 여관 등장 확률</h2>
+      <p class="odds-note">${boost ? "🍀 영웅 획득 연구 효과가 적용된 현재 확률입니다." : "높은 등급일수록 등장 확률이 낮습니다."}</p>
+      <div class="odds-table">
+        ${rows.map((row) => `
+          <div class="odds-row ${row.rarity === "kami" ? "kami" : ""}">
+            <span class="odds-label">
+              <span class="star-badge ${row.rarity === "kami" ? "r8" : `r${row.rarity}`}">${row.rarity === "kami" ? "🐱 카미" : `★${row.rarity}`}</span>
+            </span>
+            <span class="odds-percent">${row.p}%</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+  document.getElementById("btn-tavern-odds").addEventListener("click", () => {
+    renderTavernOddsModal();
+    openModal("modal-tavern-odds");
+  });
   document.getElementById("btn-tavern-reset").addEventListener("click", () => {
     const cost = tavernResetCost();
     if (state.res.gold < cost) { toast("🪙 금화가 부족합니다"); return; }
