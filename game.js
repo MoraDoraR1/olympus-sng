@@ -1311,11 +1311,16 @@
     return parts.join(" · ");
   }
   let openBuildingTileId = null;
+  // 매 틱마다 진행상황(타이머·자원 등)을 반영하려 body.innerHTML을 통째로 다시 그리는데,
+  // 그 안의 스크롤 가능한 목록(연구/영웅 배치)은 그대로 두면 스크롤 위치가 매초 0으로
+  // 리셋돼 버린다 — 다시 그리기 전후로 스크롤 위치를 붙잡아서 복원한다.
+  const SCROLLABLE_SELECTORS_IN_BUILDING_MODAL = [".research-list", ".hero-slot-list"];
   function openBuildingModal(tileId) {
     openBuildingTileId = tileId;
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
     const body = document.getElementById("building-modal-body");
+    const savedScroll = SCROLLABLE_SELECTORS_IN_BUILDING_MODAL.map((sel) => body.querySelector(sel)?.scrollTop || 0);
     const ownedList = Object.keys(state.owned)
       .map((id) => HERO_BY_ID[id])
       .filter(Boolean)
@@ -1378,6 +1383,10 @@
       : tile.type === "아카데미" ? `<div class="modal-section">${renderResearchHTML()}</div>`
       : "";
     body.innerHTML = `<div class="modal-cols modal-cols-3">${infoCol}${heroCol}${extraCol}</div>`;
+    SCROLLABLE_SELECTORS_IN_BUILDING_MODAL.forEach((sel, i) => {
+      const el = body.querySelector(sel);
+      if (el) el.scrollTop = savedScroll[i];
+    });
     body.querySelectorAll(".do-unassign").forEach((b) => {
       b.addEventListener("click", () => unassignHero(tileId, Number(b.dataset.hero)));
     });
