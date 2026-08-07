@@ -92,16 +92,22 @@
   }
 
   // ---------- 아카데미 연구 트리 ----------
+  // 세부 연구마다 Lv.1~5까지 반복 연구 가능(레벨당 효과가 쌓이고, 비용은 레벨마다
+  // RESEARCH_LEVEL_GROWTH배씩 증가). 같은 카테고리 안에서는 배열 순서가 곧 선행 체인 —
+  // 이전 연구를 Lv.3 이상 올려야 다음 연구가 해금된다(canResearch에서 검사).
+  const RESEARCH_MAX_LEVEL = 5;
+  const RESEARCH_LEVEL_GROWTH = 3;
   const RESEARCH_DEFS = [
-    { id: "combat1", cat: "combat", name: "청동 무기", reqAcademy: 2, reqBuilding: { type: "병영", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { defensePercent: 10, troopPercent: 10 } },
-    { id: "combat2", cat: "combat", name: "철제 갑주", reqAcademy: 6, reqBuilding: { type: "방어탑", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { defensePercent: 20 } },
-    { id: "combat3", cat: "combat", name: "영웅의 전술", reqAcademy: 12, reqBuilding: { type: "병영", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { troopPercent: 25 } },
-    { id: "econ1", cat: "econ", name: "관개 기술", reqAcademy: 2, reqBuilding: { type: "농장", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { productionPercent: 10 } },
-    { id: "econ2", cat: "econ", name: "무역로 확장", reqAcademy: 6, reqBuilding: { type: "자원보호소", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { goldPercent: 15 } },
-    { id: "econ3", cat: "econ", name: "황금시대", reqAcademy: 12, reqBuilding: { type: "성", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { productionPercent: 20, goldPercent: 20 } },
-    { id: "hero1", cat: "hero", name: "신탁의 속삭임", reqAcademy: 2, reqBuilding: { type: "여관", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { recruitCostPercent: -10 } },
-    { id: "hero2", cat: "hero", name: "축복받은 만남", reqAcademy: 6, reqBuilding: { type: "여관", level: 6 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { rarityBoost: 1 } },
-    { id: "hero3", cat: "hero", name: "올림포스의 부름", reqAcademy: 12, reqBuilding: { type: "여관", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { rarityBoost: 2, resetCostPercent: -10 } },
+    { id: "combat1", cat: "combat", name: "청동 무기", reqAcademy: 2, reqBuilding: { type: "병영", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { defensePercent: 3, troopPercent: 3 } },
+    { id: "combat2", cat: "combat", name: "철제 갑주", reqAcademy: 6, reqBuilding: { type: "방어탑", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { defensePercent: 5 } },
+    { id: "combat3", cat: "combat", name: "영웅의 전술", reqAcademy: 11, reqBuilding: { type: "병영", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { troopPercent: 6 } },
+    { id: "combat4", cat: "combat", name: "최정예 군단", reqAcademy: 16, reqBuilding: { type: "방어탑", level: 14 }, cost: { wood: 1600, stone: 1600, food: 1600, gold: 1400 }, effect: { troopPercent: 5, defensePercent: 5 } },
+    { id: "econ1", cat: "econ", name: "관개 기술", reqAcademy: 2, reqBuilding: { type: "농장", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { productionPercent: 3 } },
+    { id: "econ2", cat: "econ", name: "무역로 확장", reqAcademy: 6, reqBuilding: { type: "자원보호소", level: 5 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { goldPercent: 4 } },
+    { id: "econ3", cat: "econ", name: "황금시대", reqAcademy: 12, reqBuilding: { type: "성", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { productionPercent: 5, goldPercent: 5 } },
+    { id: "hero1", cat: "hero", name: "신탁의 속삭임", reqAcademy: 2, reqBuilding: { type: "여관", level: 3 }, cost: { wood: 150, food: 150, gold: 100 }, effect: { recruitCostPercent: -3 } },
+    { id: "hero2", cat: "hero", name: "축복받은 만남", reqAcademy: 6, reqBuilding: { type: "여관", level: 6 }, cost: { wood: 400, stone: 400, gold: 300 }, effect: { rarityBoost: 0.4 } },
+    { id: "hero3", cat: "hero", name: "올림포스의 부름", reqAcademy: 12, reqBuilding: { type: "여관", level: 10 }, cost: { wood: 900, stone: 900, food: 900, gold: 800 }, effect: { rarityBoost: 0.4, resetCostPercent: -3 } },
   ];
   const RESEARCH_CAT_LABEL = { combat: "⚔️ 전투연구", econ: "💰 경영연구", hero: "🍀 영웅 획득 연구" };
   let academyTab = "combat";
@@ -141,9 +147,13 @@
       def: Math.round(5 * Math.pow(1.18, level - 1) * m),
     };
   }
-  function monsterReward(level, elite) {
+  // 승리 시 실제로 얻는 자원량(레벨/엘리트로 결정, 결정론적) — 종류만 처치 시점에 무작위로 고른다
+  function monsterRewardAmount(level, elite) {
     const base = 20 * Math.pow(1.25, level - 1);
-    const amount = Math.round(base * (elite ? 3.5 : 1));
+    return Math.round(base * (elite ? 3.5 : 1));
+  }
+  function monsterReward(level, elite) {
+    const amount = monsterRewardAmount(level, elite);
     const types = ["food", "wood", "stone", "gold"];
     const type = types[Math.floor(Math.random() * types.length)];
     const reward = {};
@@ -215,12 +225,15 @@
     return castles;
   }
 
-  // 방어탑/자원보호소는 영웅 배치 대상이 아니므로, 해당 건물을 노리던 영웅은 전투 특성으로 전환한다.
+  // 방어탑/자원보호소는 영웅 배치 대상이 아니므로, 해당 건물을 노리던 특성은 전투 특성으로 전환한다.
   HEROES.forEach((h) => {
-    if (h.traitType === "building" && (h.traitEffect.building === "방어탑" || h.traitEffect.building === "자원보호소")) {
-      h.traitType = "combat";
-      h.traitEffect = { statKey: h.id % 2 === 0 ? "atk" : "def", percent: h.traitEffect.percent };
-    }
+    h.traits.forEach((t) => {
+      if (t.type === "building" && (t.building === "방어탑" || t.building === "자원보호소")) {
+        t.type = "combat";
+        t.statKey = h.id % 2 === 0 ? "atk" : "def";
+        delete t.building;
+      }
+    });
   });
 
   const RES_LABEL = { food: "🌾", wood: "🪵", stone: "🪨", gold: "🪙" };
@@ -238,6 +251,7 @@
   const SQUAD_COUNT = 3;
   const MIN_DEPLOY = 5;
   const SAVE_KEY = "olympusSngSave_v5";
+  const OFFLINE_CAP_SECONDS = 12 * 3600; // 오프라인 진행은 최대 12시간분까지만 한 번에 재생
 
   const ROLL_TABLE = [
     { rarity: "kami", p: 0.05 },
@@ -267,6 +281,7 @@
       armies: Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} })),
       monsters: freshMonsterSlots(),
       worldCastles: freshWorldCastles(),
+      lastActiveAt: Date.now(),
     };
   }
 
@@ -284,6 +299,10 @@
       const parsed = JSON.parse(raw);
       if (!parsed.tiles || !parsed.tavern) return null;
       if (!parsed.research) parsed.research = {};
+      // 예전 세이브의 연구는 완료 여부(boolean)만 저장했다 — 레벨 시스템으로 바뀌며 Lv.1로 이관
+      Object.keys(parsed.research).forEach((id) => {
+        if (parsed.research[id] === true) parsed.research[id] = 1;
+      });
       if (!parsed.tiles.wall) parsed.tiles.wall = { type: "성벽", built: false, level: 0, heroIds: [] };
       Object.values(parsed.tiles).forEach((t) => {
         if (!Array.isArray(t.heroIds)) t.heroIds = typeof t.heroId === "number" ? [t.heroId] : [];
@@ -302,12 +321,18 @@
       Object.values(parsed.owned || {}).forEach((o) => {
         if (typeof o.enhance !== "number") { o.enhance = 0; delete o.star; }
       });
+      // 이 필드가 없던 기존 세이브는 "방금 저장됨"으로 간주해 오프라인 진행을 건너뛴다
+      if (!parsed.lastActiveAt) parsed.lastActiveAt = Date.now();
       return parsed;
     } catch (e) { return null; }
   }
 
   // ---------- 유틸 ----------
+  // 오프라인 진행분을 tick()을 여러 번 빠르게 재생해서 따라잡는 동안 true —
+  // 그 사이에는 토스트/로그가 수천 번 쌓이지 않도록 조용히 무시한다
+  let simulating = false;
   function toast(msg) {
+    if (simulating) return;
     const layer = document.getElementById("toast-layer");
     const el = document.createElement("div");
     el.className = "toast";
@@ -328,6 +353,7 @@
     return word + "가";
   }
   function logEvent(msg, kind) {
+    if (simulating) return;
     const layer = document.getElementById("activity-log");
     if (!layer) return;
     const el = document.createElement("div");
@@ -337,6 +363,7 @@
     while (layer.children.length > MAX_LOG_ENTRIES) layer.removeChild(layer.lastElementChild);
   }
   function pulseRes(res) {
+    if (simulating) return;
     const el = document.querySelector(`.res[data-res="${res}"]`);
     if (!el) return;
     el.classList.add("pulse");
@@ -358,9 +385,29 @@
     const o = state.owned[heroId];
     return o ? o.enhance : 0;
   }
-  function heroTraitPercent(hero) {
+  // 영웅 하나가 특성을 여러 개(★5+ 2개, ★7+ 3개) 가질 수 있어 특성 하나를 지정해서 계산한다
+  function heroTraitPercent(hero, trait) {
     const enh = heroEnhance(hero.id);
-    return hero.traitEffect.percent * (1 + 0.15 * enh);
+    return trait.percent * (1 + 0.15 * enh);
+  }
+  function heroCombatTraits(hero) {
+    return hero.traits.filter((t) => t.type === "combat");
+  }
+  function heroBuildingTraitsFor(hero, buildingType) {
+    return hero.traits.filter((t) => t.type === "building" && t.building === buildingType);
+  }
+  // 이 영웅이 특정 건물 타입에 배치됐을 때 실제로 적용되는 합산 % (강화 반영, 특성이 여러 개면 합산)
+  function heroBuildingBonusFor(hero, buildingType) {
+    return heroBuildingTraitsFor(hero, buildingType).reduce((sum, t) => sum + heroTraitPercent(hero, t), 0);
+  }
+  // 특성 한 줄(⚔️/🏛️ + 이름 + 수치)을 그려주는 공용 HTML — 카드/목록/상세 어디서나 재사용
+  function traitLineHTML(hero, trait) {
+    const pct = heroTraitPercent(hero, trait).toFixed(1);
+    if (trait.type === "combat") {
+      const label = trait.statKey === "atk" ? "공격력" : trait.statKey === "def" ? "방어력" : "체력";
+      return `⚔️ ${trait.name}${trait.signature ? " ✨" : ""}: 부대 ${label} +${pct}%`;
+    }
+    return `🏛️ ${trait.name}${trait.signature ? " ✨" : ""}: ${trait.building} +${pct}%`;
   }
   // 별 배지("★N") + 강화 배지("+N강", 있을 때만)를 함께 그려주는 공용 헬퍼
   function heroBadgeHTML(heroId) {
@@ -373,9 +420,7 @@
     let total = 0;
     tile.heroIds.forEach((heroId) => {
       const hero = HERO_BY_ID[heroId];
-      if (hero && hero.traitType === "building" && hero.traitEffect.building === tile.type) {
-        total += heroTraitPercent(hero);
-      }
+      if (hero) total += heroBuildingBonusFor(hero, tile.type);
     });
     return total;
   }
@@ -383,7 +428,7 @@
     return Object.values(state.tiles).reduce((m, t) => (t.type === type && t.built ? Math.max(m, t.level) : m), 0);
   }
   function researchPercent(kind) {
-    return RESEARCH_DEFS.filter((d) => state.research[d.id]).reduce((sum, d) => sum + (d.effect[kind] || 0), 0);
+    return RESEARCH_DEFS.reduce((sum, d) => sum + (d.effect[kind] || 0) * (state.research[d.id] || 0), 0);
   }
   function capFor(res) {
     const storage = state.tiles.storage;
@@ -464,6 +509,7 @@
 
   // ---------- 자원/훈련/전투 틱 ----------
   function tick() {
+    state.lastActiveAt = Date.now();
     state.tavern.timer -= 1;
     let tavernRerolled = false;
     if (state.tavern.timer <= 0) {
@@ -518,6 +564,7 @@
         else resolveBattle(idx);
       }
     });
+    if (simulating) return;
     renderTopbar();
     renderBoard();
     renderMonsterArea();
@@ -527,7 +574,35 @@
       renderTavernModal();
       if (tavernRerolled) renderTavernCards();
     }
+    if (!document.getElementById("modal-building").hidden && openBuildingTileId) {
+      openBuildingModal(openBuildingTileId);
+    }
     save();
+  }
+  // 탭이 백그라운드에 있거나 브라우저가 완전히 꺼져있던 동안에도 자원/훈련/
+  // 레벨업/전투가 계속 진행된 것처럼 만들어준다. tick()을 그대로 여러 번 빠르게
+  // 재생해 실제 초 단위 로직과 항상 같은 결과가 나오도록 하고(로직 중복 없음),
+  // 그 사이 toast/logEvent/렌더는 simulating 플래그로 조용히 건너뛴다.
+  function applyOfflineProgress() {
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - (state.lastActiveAt || now)) / 1000);
+    if (elapsedSeconds < 2) { state.lastActiveAt = now; return; }
+    const seconds = Math.min(OFFLINE_CAP_SECONDS, elapsedSeconds);
+    simulating = true;
+    for (let i = 0; i < seconds; i++) tick();
+    simulating = false;
+    state.lastActiveAt = now;
+    renderTopbar();
+    renderBoard();
+    renderMonsterArea();
+    renderWorldMap();
+    renderWallFrame();
+    save();
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const away = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+    toast(`🕐 자리를 비운 ${away} 동안 도시가 계속 운영되었습니다`);
+    logEvent(`🕐 ${away} 동안의 오프라인 진행을 반영했습니다`, "build");
   }
   function addRes(res, amount) {
     const cap = capFor(res);
@@ -798,7 +873,7 @@
       heroAtk += hero.atk * scale;
       heroDef += hero.def * scale;
       heroHp += hero.hp * scale;
-      if (hero.traitType === "combat") bonus[hero.traitEffect.statKey] += heroTraitPercent(hero);
+      heroCombatTraits(hero).forEach((t) => { bonus[t.statKey] += heroTraitPercent(hero, t); });
     });
     const researchTroop = 1 + researchPercent("troopPercent") / 100;
     troopAtk *= (1 + bonus.atk / 100) * researchTroop;
@@ -915,42 +990,55 @@
   // 수정 — bonusPercentFor는 원래 자원 생산 건물의 base 생산량에만 곱해지는데, 아카데미는
   // base가 비어있어(생산 건물이 아님) 곱해질 대상이 없어 무의미했다. 대신 아카데미 고유
   // 보너스인 "연구 비용 할인"에 연결한다.
+  // 같은 카테고리 배열에서 def 바로 앞에 있는 연구(체인 선행 조건용) — 첫 항목이면 null
+  function prevResearchInChain(def) {
+    const chain = RESEARCH_DEFS.filter((d) => d.cat === def.cat);
+    const idx = chain.findIndex((d) => d.id === def.id);
+    return idx > 0 ? chain[idx - 1] : null;
+  }
+  function researchLevel(defId) {
+    return state.research[defId] || 0;
+  }
+  // 다음 레벨(현재 레벨+1)을 사는 비용 — 레벨이 오를수록 RESEARCH_LEVEL_GROWTH배씩 비싸진다
   function researchCostFor(def) {
     const discount = Math.min(60, bonusPercentFor("academy"));
-    const mult = 1 - discount / 100;
+    const mult = (1 - discount / 100) * Math.pow(RESEARCH_LEVEL_GROWTH, researchLevel(def.id));
     const cost = {};
     Object.entries(def.cost).forEach(([res, amt]) => { cost[res] = Math.max(1, Math.round(amt * mult)); });
     return cost;
   }
   function canResearch(def) {
-    if (state.research[def.id]) return false;
+    if (researchLevel(def.id) >= RESEARCH_MAX_LEVEL) return false;
     if (state.tiles.academy.level < def.reqAcademy) return false;
     if (def.reqBuilding && maxLevelOfType(def.reqBuilding.type) < def.reqBuilding.level) return false;
+    const prev = prevResearchInChain(def);
+    if (prev && researchLevel(prev.id) < 3) return false;
     return true;
   }
   function doResearch(defId) {
     const def = RESEARCH_DEFS.find((d) => d.id === defId);
     if (!def) return;
-    if (state.research[def.id]) { toast("이미 연구했습니다"); return; }
     if (!canResearch(def)) { toast("해금 조건을 만족하지 않습니다"); return; }
     const cost = researchCostFor(def);
     if (!canAfford(cost)) { toast("자원이 부족합니다"); return; }
     pay(cost);
-    state.research[def.id] = true;
-    toast(`📜 연구 완료: ${def.name}`);
+    state.research[def.id] = researchLevel(def.id) + 1;
+    toast(`📜 ${def.name} Lv.${state.research[def.id]} 연구 완료!`);
+    logEvent(`📜 ${withSubjectParticle(def.name)} 연구 Lv.${state.research[def.id]} 달성!`, "levelup");
     openBuildingModal("academy");
     renderBoard();
     save();
   }
-  function describeEffect(effect) {
+  function describeEffectAtLevel(effect, level) {
     const parts = [];
-    if (effect.productionPercent) parts.push(`자원 생산 +${effect.productionPercent}%`);
-    if (effect.goldPercent) parts.push(`금화 생산 +${effect.goldPercent}%`);
-    if (effect.troopPercent) parts.push(`병사 전투력 +${effect.troopPercent}%`);
-    if (effect.defensePercent) parts.push(`수비력 +${effect.defensePercent}%`);
-    if (effect.recruitCostPercent) parts.push(`영입 비용 ${effect.recruitCostPercent}%`);
-    if (effect.resetCostPercent) parts.push(`초기화 비용 ${effect.resetCostPercent}%`);
-    if (effect.rarityBoost) parts.push(`고등급 영웅 등장률 상승`);
+    const v = (n) => Math.round(n * level * 10) / 10;
+    if (effect.productionPercent) parts.push(`자원 생산 +${v(effect.productionPercent)}%`);
+    if (effect.goldPercent) parts.push(`금화 생산 +${v(effect.goldPercent)}%`);
+    if (effect.troopPercent) parts.push(`병사 전투력 +${v(effect.troopPercent)}%`);
+    if (effect.defensePercent) parts.push(`수비력 +${v(effect.defensePercent)}%`);
+    if (effect.recruitCostPercent) parts.push(`영입 비용 ${v(effect.recruitCostPercent)}%`);
+    if (effect.resetCostPercent) parts.push(`초기화 비용 ${v(effect.resetCostPercent)}%`);
+    if (effect.rarityBoost) parts.push(`고등급 영웅 등장률 상승 (${v(effect.rarityBoost)})`);
     return parts.join(" · ");
   }
   function renderResearchHTML() {
@@ -963,16 +1051,23 @@
       <div class="research-list">
         ${RESEARCH_DEFS.filter((d) => d.cat === academyTab)
           .map((d) => {
-            const done = !!state.research[d.id];
+            const level = researchLevel(d.id);
+            const maxed = level >= RESEARCH_MAX_LEVEL;
             const unlockable = canResearch(d);
             const discount = bonusPercentFor("academy");
             const cost = researchCostFor(d);
+            const prev = prevResearchInChain(d);
+            const chainBlocked = prev && researchLevel(prev.id) < 3;
             return `
-            <div class="research-item ${done ? "done" : ""}">
-              <div class="ri-name">${d.name} ${done ? "✅" : ""}</div>
-              <div class="ri-req">조건: 아카데미 Lv.${d.reqAcademy}${d.reqBuilding ? ` · ${d.reqBuilding.type} Lv.${d.reqBuilding.level}` : ""}</div>
-              <div class="ri-effect">${describeEffect(d.effect)}</div>
-              ${!done ? `<div class="ri-cost">필요: ${costText(cost)}${discount > 0 ? ` <span class="enhance-badge">배치 영웅 효과 -${discount.toFixed(1)}%</span>` : ""}</div><button class="do-research" data-id="${d.id}" ${unlockable ? "" : "disabled"}>연구하기</button>` : ""}
+            <div class="research-item ${maxed ? "done" : ""}">
+              <div class="ri-name">${d.name} <span class="ri-level">Lv.${level}/${RESEARCH_MAX_LEVEL}</span> ${maxed ? "✅" : ""}</div>
+              <div class="ri-req">조건: 아카데미 Lv.${d.reqAcademy}${d.reqBuilding ? ` · ${d.reqBuilding.type} Lv.${d.reqBuilding.level}` : ""}${prev ? ` · ${prev.name} Lv.3+` : ""}</div>
+              <div class="ri-effect">레벨당 ${describeEffectAtLevel(d.effect, 1)}${level > 0 ? `<br><span class="hr-note">현재 총합: ${describeEffectAtLevel(d.effect, level)}</span>` : ""}</div>
+              ${!maxed ? `
+                ${chainBlocked ? `<div class="ri-blocked">🔒 ${prev.name}을(를) 먼저 Lv.3 이상으로 올려야 합니다</div>` : ""}
+                <div class="ri-cost">필요: ${costText(cost)}${discount > 0 ? ` <span class="enhance-badge">배치 영웅 효과 -${discount.toFixed(1)}%</span>` : ""}</div>
+                <button class="do-research" data-id="${d.id}" ${unlockable ? "" : "disabled"}>${level > 0 ? "레벨업" : "연구 시작"}</button>
+              ` : ""}
             </div>`;
           })
           .join("")}
@@ -1125,6 +1220,12 @@
     openModal("modal-building");
   }
 
+  // 자원 보유량 기준으로 실제 훈련 가능한 최대 인원(재료가 여러 개면 그중 가장 적게 만들 수 있는 수)
+  function maxAffordableTrainCount(type) {
+    let max = 999;
+    Object.entries(type.cost).forEach(([r, v]) => { max = Math.min(max, Math.floor((state.res[r] || 0) / v)); });
+    return Math.max(0, max);
+  }
   function renderTroopTrainingHTML(tileId) {
     const tile = state.tiles[tileId];
     if (tile.training) {
@@ -1136,12 +1237,22 @@
       <div class="troop-types">
         ${TROOP_TYPES.map((t) => {
           const locked = t.unlockLevel > tile.level;
+          const maxAfford = locked ? 0 : maxAffordableTrainCount(t);
+          const startVal = Math.min(5, Math.max(1, maxAfford));
           return `
           <div class="troop-type-row ${locked ? "locked" : ""}">
-            <span class="tt-name">${t.name}${locked ? ` (Lv.${t.unlockLevel} 필요)` : ""}</span>
-            <span class="tt-cost">${costText(t.cost)}/명 · ${t.trainSeconds}s/명</span>
-            ${!locked ? `<input type="number" min="1" value="5" class="tt-count" data-key="${t.key}" />
-            <button class="do-train" data-key="${t.key}">훈련</button>` : ""}
+            <div class="tt-head">
+              <span class="tt-name">${t.name}${locked ? ` (Lv.${t.unlockLevel} 필요)` : ""}</span>
+              <span class="tt-cost">${costText(t.cost)}/명 · ${t.trainSeconds}s/명</span>
+            </div>
+            ${!locked ? `
+            <div class="tt-controls">
+              <input type="range" min="1" max="${Math.max(1, maxAfford)}" value="${startVal}" class="tt-count" data-key="${t.key}" ${maxAfford < 1 ? "disabled" : ""} />
+              <span class="tt-count-val" data-key-val="${t.key}">${startVal}</span>
+              <button class="do-train" data-key="${t.key}" ${maxAfford < 1 ? "disabled" : ""}>훈련</button>
+            </div>
+            ${maxAfford < 1 ? `<small class="tt-warn">자원이 부족해 지금은 훈련할 수 없습니다</small>` : ""}
+            ` : ""}
           </div>`;
         }).join("")}
       </div>
@@ -1175,7 +1286,9 @@
     if (bdef.isTavern) parts.push(`슬롯 ${tavernSlotsForLevel(level)}`);
     return parts.join(" · ");
   }
+  let openBuildingTileId = null;
   function openBuildingModal(tileId) {
+    openBuildingTileId = tileId;
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
     const body = document.getElementById("building-modal-body");
@@ -1207,7 +1320,7 @@
         ${bdef.selectable ? `<button id="do-demolish" class="btn-danger">🧨 철거</button>` : ""}
       </div>
     `;
-    const eligibleList = ownedList.filter((h) => h.traitType === "building" && h.traitEffect.building === tile.type && !tile.heroIds.includes(h.id));
+    const eligibleList = ownedList.filter((h) => heroBuildingTraitsFor(h, tile.type).length > 0 && !tile.heroIds.includes(h.id));
     const assignedFull = tile.heroIds.length >= MAX_HEROES_PER_BUILDING;
     const heroCol = allowsHero ? `
       <div class="modal-section">
@@ -1217,7 +1330,7 @@
             ${tile.heroIds.map((heroId) => {
               const h = HERO_BY_ID[heroId];
               return `<div class="assigned-hero-row">
-                <span>${h.name} (★${h.rarity}${heroEnhance(h.id) > 0 ? ` +${heroEnhance(h.id)}강` : ""}) <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span></span>
+                <span>${h.name} (★${h.rarity}${heroEnhance(h.id) > 0 ? ` +${heroEnhance(h.id)}강` : ""}) <span class="hr-note">+${heroBuildingBonusFor(h, tile.type).toFixed(1)}%</span></span>
                 <button class="do-unassign" data-hero="${heroId}">해제</button>
               </div>`;
             }).join("")}
@@ -1230,7 +1343,7 @@
                 <div class="hero-row" data-hero="${h.id}">
                   ${heroBadgeHTML(h.id)}
                   <span>${h.name}</span>
-                  <span class="hr-note">+${heroTraitPercent(h).toFixed(1)}%</span>
+                  <span class="hr-note">+${heroBuildingBonusFor(h, tile.type).toFixed(1)}%</span>
                 </div>`).join("")
               : `<p><small>${ownedList.length ? `${tile.type}에 특화된 영웅이 아직 없습니다.` : "아직 보유한 영웅이 없습니다."} 여관에서 뽑아보세요.</small></p>`}
         </div>
@@ -1256,6 +1369,11 @@
         const key = btn.dataset.key;
         const input = body.querySelector(`.tt-count[data-key="${key}"]`);
         startTraining(tileId, key, Number(input.value) || 1);
+      });
+    });
+    body.querySelectorAll(".tt-count").forEach((input) => {
+      input.addEventListener("input", () => {
+        body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`).textContent = input.value;
       });
     });
     if (tile.type === "아카데미") {
@@ -1313,9 +1431,7 @@
         const hero = HERO_BY_ID[heroId];
         const isKami = hero.secret;
         const already = !!state.owned[heroId];
-        const traitLine = hero.traitType === "combat"
-          ? `⚔️ ${hero.traitEffect.statKey === "atk" ? "공격력" : hero.traitEffect.statKey === "def" ? "방어력" : "체력"} +${hero.traitEffect.percent}%`
-          : `🏛️ ${hero.traitEffect.building} +${hero.traitEffect.percent}%`;
+        const traitLine = hero.traits.map((t) => traitLineHTML(hero, t)).join("<br>");
         cell.className = `hero-card card-fresh hc-r${hero.rarity}` + (isKami ? " kami" : "");
         cell.innerHTML = `
           <span class="star-badge r${hero.rarity}">★${hero.rarity}</span>
@@ -1462,6 +1578,11 @@
           <p>레벨 ${revealed ? enemy.level : "?"}</p>
           <p>${revealed ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : `감시탑 Lv.${requiredWatchLevelFor(enemy.level)}+ 필요 (야생 몬스터만 해당)`}</p>
           ${kind === "castle" ? `<p>승리 시 이 성이 그동안 모은 자원을 전부 획득합니다: ${costText(enemy.bank && Object.fromEntries(Object.entries(enemy.bank).filter(([, v]) => v >= 1).map(([k, v]) => [k, Math.round(v)])))}</p>` : ""}
+          ${kind === "monster"
+            ? revealed
+              ? `<p>승리 시 보상: 🌾🪵🪨🪙 중 1종 <b>${monsterRewardAmount(enemy.level, enemy.elite).toLocaleString()}개</b>(무작위)${enemy.elite ? ` + 🪙${Math.round(monsterRewardAmount(enemy.level, enemy.elite) * 0.6).toLocaleString()}(엘리트 추가)` : ""}</p>`
+              : `<p>승리 시 보상: 감시탑으로 정보를 공개해야 예상 보상을 볼 수 있습니다</p>`
+            : ""}
           <p><span id="verdict-badge" class="verdict-badge">-</span></p>
         </div>
         <div class="col">
@@ -1566,21 +1687,6 @@
                 </div>`;
               }).join("")}
             </div>
-            <h3>병사 배치</h3>
-            <p><small>부대에 함께 보낼 병사 수를 미리 정해두면, 다음 출격 시 이 값이 자동 적용됩니다.</small></p>
-            <div class="army-comp-list" id="army-comp-list">
-              ${TROOP_TYPES.map((t) => {
-                const avail = state.troopsByType[t.key] || 0;
-                const val = Math.min(avail, army.lastComp[t.key] || 0);
-                return `
-                <div class="engage-comp-row">
-                  <span class="ec-name">${t.name}</span>
-                  <span class="ec-avail">보유 ${avail}</span>
-                  <input type="range" class="ac-input" data-key="${t.key}" min="0" max="${avail}" value="${val}" ${avail === 0 ? "disabled" : ""} />
-                  <span class="ec-value" data-key-val="${t.key}">${val}</span>
-                </div>`;
-              }).join("")}
-            </div>
           </div>
           <div class="col">
             <h3>영웅 선택</h3>
@@ -1588,15 +1694,34 @@
               ${ownedList.length ? "" : "<p><small>보유한 영웅이 없습니다.</small></p>"}
               ${ownedList.map((h) => {
                 const inAnySquad = state.armies.some((a) => a.heroIds.includes(h.id));
+                const combatTraits = heroCombatTraits(h);
+                const traitSummary = combatTraits.length
+                  ? combatTraits.map((t) => `⚔️${t.statKey} +${heroTraitPercent(h, t).toFixed(1)}%`).join(" · ")
+                  : "🏛️ 건물 특화";
                 return `<div class="hero-row" data-hero="${h.id}">
                   ${heroBadgeHTML(h.id)}
                   <span>${h.name}</span>
-                  <span class="hr-note">${h.traitType === "combat" ? `⚔️ +${heroTraitPercent(h).toFixed(1)}% ${h.traitEffect.statKey}` : `🏛️ ${h.traitEffect.building} 특화`}</span>
+                  <span class="hr-note">${traitSummary}</span>
                   ${inAnySquad ? '<span class="hr-note">편성됨</span>' : ""}
                 </div>`;
               }).join("")}
             </div>
           </div>
+        </div>
+        <h3>병사 배치</h3>
+        <p><small>부대에 함께 보낼 병사 수를 미리 정해두면, 다음 출격 시 이 값이 자동 적용됩니다.</small></p>
+        <div class="troop-comp-grid" id="army-comp-list">
+          ${TROOP_TYPES.map((t) => {
+            const avail = state.troopsByType[t.key] || 0;
+            const val = Math.min(avail, army.lastComp[t.key] || 0);
+            return `
+            <div class="troop-comp-card">
+              <div class="tc-name">${t.name}</div>
+              <div class="tc-avail">보유 ${avail}</div>
+              <input type="range" class="ac-input" data-key="${t.key}" min="0" max="${avail}" value="${val}" ${avail === 0 ? "disabled" : ""} />
+              <div class="tc-value"><span class="tc-num" data-key-val="${t.key}">${val}</span><span class="tc-unit">명</span></div>
+            </div>`;
+          }).join("")}
         </div>
       `;
       body.querySelectorAll(".squad-tab").forEach((btn) => btn.addEventListener("click", () => { activeSquad = Number(btn.dataset.idx); render(); }));
@@ -1629,7 +1754,7 @@
       body.querySelectorAll(".ac-input").forEach((input) => {
         const updateDisplays = () => {
           const val = Number(input.value);
-          body.querySelector(`#army-comp-list .ec-value[data-key-val="${input.dataset.key}"]`).textContent = val;
+          body.querySelector(`#army-comp-list .tc-num[data-key-val="${input.dataset.key}"]`).textContent = val;
           const p = armyPowerScore(army.heroIds, army.lastComp);
           body.querySelector(".power-num").textContent = p.toLocaleString();
           const tabPower = body.querySelector(`.squad-tab[data-idx="${activeSquad}"] .squad-power`);
@@ -1687,14 +1812,12 @@
     const owned = state.owned[heroId];
     if (!owned) return `<p>아직 만나지 못한 영웅입니다. 여관에서 뽑아보세요.</p>`;
     const needed = owned.enhance < MAX_ENHANCE ? 3 * (owned.enhance + 1) : null;
-    const traitDesc = hero.traitType === "combat"
-      ? `⚔️ 영웅 특성 — 부대 ${hero.traitEffect.statKey === "atk" ? "공격력" : hero.traitEffect.statKey === "def" ? "방어력" : "체력"} +${heroTraitPercent(hero).toFixed(1)}%`
-      : `🏛️ 영웅 특성 — ${hero.traitEffect.building} 생산/효과 +${heroTraitPercent(hero).toFixed(1)}%`;
+    const traitDesc = hero.traits.map((t) => `<p>${traitLineHTML(hero, t)}</p>`).join("");
     return `
       <h3><span class="modal-icon">${heroPortraitHTML(hero)}</span>${hero.name} ${heroBadgeHTML(hero.id)}</h3>
       <p>${hero.domain} · ${hero.culture}</p>
       <p><em>${hero.flavor}</em></p>
-      <p>${traitDesc}</p>
+      ${traitDesc}
       <p>공격 ${hero.atk} · 방어 ${hero.def} · 체력 ${hero.hp}</p>
       <p>누적 영입 ${owned.count}회 · 조각: ${owned.shards}${needed !== null ? ` / 강화 필요 ${needed}` : " (최고 강화 +" + MAX_ENHANCE + "강)"}</p>
       ${needed !== null ? `<button class="do-enhance" data-hero="${heroId}">강화하기 (+1강)</button>` : ""}
@@ -1891,6 +2014,7 @@
   let tickHandle = null;
   function startGame() {
     document.getElementById("screen-title").hidden = true;
+    applyOfflineProgress();
     renderTopbar();
     renderBoard();
     renderMonsterArea();
@@ -1900,6 +2024,11 @@
     if (!tickHandle) tickHandle = setInterval(tick, 1000);
   }
   document.getElementById("btn-start-game").addEventListener("click", startGame);
+  // 탭이 백그라운드에 있는 동안 브라우저가 타이머를 강하게 절전(throttle)시킬 수 있어
+  // 다시 활성화될 때 경과 시간만큼 한 번 더 따라잡는다(게임이 이미 시작된 뒤에만)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && tickHandle) applyOfflineProgress();
+  });
   document.getElementById("btn-end-game").addEventListener("click", () => {
     save();
     if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }

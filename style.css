@@ -600,7 +600,9 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .research-item { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .research-item.done { opacity: .7; }
 .research-item .ri-name { font-family: var(--font-display); }
+.research-item .ri-level { font-family: var(--font-body); font-size: .76rem; color: var(--roof); font-weight: 800; }
 .research-item .ri-req, .research-item .ri-effect { font-size: .8rem; color: var(--ink-soft); font-weight: 600; }
+.research-item .ri-blocked { font-size: .8rem; color: var(--hard); font-weight: 700; margin-top: 4px; }
 .research-item .ri-cost { font-size: .8rem; font-weight: 700; margin-top: 4px; }
 .research-item button { margin-top: 6px; font-size: .8rem; padding: 6px 10px; }
 
@@ -612,15 +614,19 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
 /* ---------- 병영 훈련 ---------- */
 .troop-type-row {
-  display: flex; align-items: center; gap: 8px; background: var(--bg);
+  display: flex; flex-direction: column; gap: 6px; background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
 }
-.troop-type-row .tt-name { font-family: var(--font-display); flex: 1; }
+.troop-type-row .tt-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.troop-type-row .tt-name { font-family: var(--font-display); }
 .troop-type-row .tt-cost { font-size: .74rem; color: var(--ink-soft); font-weight: 700; }
-.troop-type-row input { width: 64px; padding: 5px 6px; border-radius: 8px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-weight: 700; }
+.troop-type-row .tt-controls { display: flex; align-items: center; gap: 8px; }
+.troop-type-row .tt-controls input[type="range"] { flex: 1; accent-color: var(--roof); }
+.troop-type-row .tt-count-val { min-width: 26px; text-align: right; font-weight: 800; font-size: .84rem; }
 .troop-type-row.locked { opacity: .45; }
 .troop-type-row button { font-size: .75rem; padding: 6px 10px; }
+.troop-type-row .tt-warn { color: var(--hard); font-weight: 700; }
 .training-status { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 8px 0; font-size: .87rem; font-weight: 600; }
 .troops-owned-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; font-size: .8rem; font-weight: 700; }
 .troops-owned-list span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
@@ -638,7 +644,19 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .army-power-bar .power-num { color: var(--roof); font-size: 1.2rem; font-weight: 800; }
 .army-power-bar .hr-note { font-family: var(--font-body); font-size: .8rem; color: var(--ink-soft); font-weight: 700; }
 .army-slots { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
-.army-comp-list { margin: 10px 0; }
+.troop-comp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+  margin: 10px 0 4px;
+}
+.troop-comp-card {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center;
+}
+.troop-comp-card .tc-name { font-family: var(--font-display); font-weight: 700; font-size: .88rem; }
+.troop-comp-card .tc-avail { font-size: .72rem; color: var(--ink-soft); font-weight: 700; }
+.troop-comp-card input[type="range"] { width: 100%; accent-color: var(--roof); }
+.troop-comp-card .tc-value { font-weight: 800; font-size: 1.05rem; }
+.troop-comp-card .tc-unit { font-size: .72rem; font-weight: 600; color: var(--ink-soft); margin-left: 2px; }
 .army-slot {
   display: flex; align-items: center; gap: 8px; background: var(--bg);
   border: 1px solid var(--line);
