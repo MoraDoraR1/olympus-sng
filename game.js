@@ -124,7 +124,7 @@
     { key: "hydra", name: "히드라", icon: "🐉" },
     { key: "cerberus", name: "케르베로스", icon: "🐺" },
   ];
-  const MONSTER_SLOT_COUNT = 6;
+  const MONSTER_SLOT_COUNT = 8;
   const ELITE_CHANCE = 0.08;
   function monsterIconHTML(key) {
     return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
@@ -288,6 +288,11 @@
       if (!parsed.armies) parsed.armies = Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} }));
       parsed.armies.forEach((a) => { if (!a.lastComp) a.lastComp = {}; });
       if (!parsed.monsters) parsed.monsters = freshMonsterSlots();
+      while (parsed.monsters.length < MONSTER_SLOT_COUNT) {
+        const slot = { id: "m" + parsed.monsters.length, monster: null, respawnTimer: 0 };
+        spawnMonster(slot);
+        parsed.monsters.push(slot);
+      }
       if (!parsed.worldCastles) parsed.worldCastles = freshWorldCastles();
       Object.values(parsed.owned || {}).forEach((o) => {
         if (typeof o.enhance !== "number") { o.enhance = 0; delete o.star; }

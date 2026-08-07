@@ -225,6 +225,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .wall-frame {
   position: relative;
   z-index: 2;
+  margin-top: 20px; /* wall-badge가 위로 -15px 튀어나오므로 여유 공간을 미리 확보(뷰포트에 잘리는 것 방지) */
   border: 10px solid #8a7a63;
   border-image-source: url("assets/board/wall-strip.svg");
   border-image-slice: 15 55;
@@ -311,7 +312,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .monster-grid {
   position: static;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 34px;
   width: 100%;
@@ -326,6 +327,11 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .monster-card:nth-child(odd) { transform: rotate(-1.5deg); }
 .monster-card:nth-child(even) { transform: rotate(1.5deg); }
+/* 몬스터 8마리를 왼쪽 4/오른쪽 4로 갈라서 화면 양옆 여백까지 채운다 —
+   4번째 카드 뒤에 큰 여백을 둬서 두 무리로 갈라 보이게 하고, 그만큼
+   monster-grid(및 kingdom-stage)의 자연 너비가 넓어져 스케일-투-핏 배율이
+   커지면서 배경(kingdom-bg)도 그 영역까지 자동으로 채워진다. */
+.monster-card:nth-child(4) { margin-right: 760px; }
 @media (max-width: 900px) {
   .monster-card { width: 90px; font-size: .85em; }
 }
