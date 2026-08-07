@@ -488,12 +488,23 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .r4 { background: var(--r4); } .r5 { background: var(--r5); } .r6 { background: var(--r6); }
 .r7 { background: var(--r7); color: #fff; } .r8 { background: var(--r8); color: #222; }
 
-.tavern-meta { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 18px; flex-wrap: wrap; gap: 10px; }
-.tavern-timer { display: flex; align-items: center; gap: 8px; font-weight: 800; }
-.timer-ring { width: 40px; height: 40px; transform: rotate(-90deg); }
+.tavern-panel { margin: 14px 0 18px; }
+.tavern-panel.modal-cols { gap: 14px; }
+.tavern-status-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.tavern-status-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; }
+.tavern-status-sub { font-size: .82rem; color: var(--ink-soft); font-weight: 700; }
+.tavern-refresh-section { display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.tavern-timer { display: flex; align-items: center; gap: 12px; }
+.timer-ring { width: 44px; height: 44px; transform: rotate(-90deg); flex-shrink: 0; }
 .ring-bg { fill: none; stroke: var(--line); stroke-width: 4; }
 .ring-fg { fill: none; stroke: var(--roof); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 119; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear, stroke .3s; }
 .ring-fg.urgent { stroke: var(--gold); }
+.tavern-timer-info { display: flex; flex-direction: column; gap: 2px; }
+.tavern-timer-label { font-size: .72rem; color: var(--ink-soft); font-weight: 700; }
+#tavern-timer-text { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tavern-refresh-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.tavern-refresh-actions button { font-size: .8rem; padding: 7px 12px; }
+.tavern-grid-title { font-family: var(--font-display); font-size: 1rem; margin: 0 0 10px; }
 
 .tavern-grid {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
@@ -530,12 +541,6 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .hero-card.hc-r6 { background: var(--r6); color: #fff; }
 .hero-card.hc-r7 { background: var(--r7); color: #fff; }
 .hero-card.hc-r8 { background: var(--r8); color: #241c12; }
-
-.tavern-meta-extra {
-  display: flex; align-items: center; gap: 10px; margin: -6px 0 14px;
-  font-size: .87rem; font-weight: 600; flex-wrap: wrap;
-}
-.tavern-meta-extra button { font-size: .8rem; padding: 6px 10px; }
 
 .odds-note { font-size: .82rem; color: var(--ink-soft); font-weight: 600; margin: 2px 0 14px; }
 .odds-table { display: flex; flex-direction: column; gap: 8px; }

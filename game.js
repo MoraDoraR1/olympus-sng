@@ -1242,19 +1242,22 @@
     ring.classList.toggle("urgent", timer <= 60);
     document.getElementById("tavern-reset-cost").textContent = tavernResetCost();
 
-    const meta = document.getElementById("tavern-meta-extra");
+    const status = document.getElementById("tavern-status-section");
     const upCost = upgradeCostFor("여관", tile.level);
     const missing = levelUpMissing("tavern");
-    if (meta) {
-      meta.innerHTML = `
-        <span>여관 Lv.${tile.level}/${MAX_LEVEL} · 슬롯 ${tavernSlotsForLevel(tile.level)}명</span>
+    if (status) {
+      status.innerHTML = `
+        <div class="tavern-status-head">
+          <span class="tavern-status-title">🍺 여관 Lv.${tile.level}/${MAX_LEVEL}</span>
+          <span class="tavern-status-sub">슬롯 ${tavernSlotsForLevel(tile.level)}명</span>
+        </div>
         ${tile.level < MAX_LEVEL
           ? tile.upgrading
             ? renderUpgradeStatusHTML("tavern")
             : `${renderReqChecklistHTML("tavern")}<button id="btn-tavern-upgrade" ${missing.length ? "disabled" : ""}>⬆️ 레벨업 (${costText(upCost)})</button>`
-          : "<span> (최대 레벨)</span>"}
+          : `<div class="tavern-status-sub">🏆 최대 레벨입니다</div>`}
       `;
-      const upBtn = meta.querySelector("#btn-tavern-upgrade");
+      const upBtn = status.querySelector("#btn-tavern-upgrade");
       if (upBtn && !upBtn.disabled) upBtn.addEventListener("click", () => upgrade("tavern"));
     }
   }

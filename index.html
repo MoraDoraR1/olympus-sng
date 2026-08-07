@@ -107,18 +107,26 @@
     <div class="modal modal-wide">
       <button class="modal-close" data-close>✕</button>
       <h2>🍺 여관 — 신탁이 보낸 영웅들</h2>
-      <div class="tavern-meta">
-        <div class="tavern-timer">
-          <svg viewBox="0 0 44 44" class="timer-ring">
-            <circle cx="22" cy="22" r="19" class="ring-bg"></circle>
-            <circle cx="22" cy="22" r="19" class="ring-fg" id="tavern-ring"></circle>
-          </svg>
-          <span id="tavern-timer-text">5:00</span>
+      <div class="modal-cols tavern-panel">
+        <div class="modal-section col" id="tavern-status-section"></div>
+        <div class="modal-section col tavern-refresh-section">
+          <div class="tavern-timer">
+            <svg viewBox="0 0 44 44" class="timer-ring">
+              <circle cx="22" cy="22" r="19" class="ring-bg"></circle>
+              <circle cx="22" cy="22" r="19" class="ring-fg" id="tavern-ring"></circle>
+            </svg>
+            <div class="tavern-timer-info">
+              <span class="tavern-timer-label">다음 초기화까지</span>
+              <span id="tavern-timer-text">5:00</span>
+            </div>
+          </div>
+          <div class="tavern-refresh-actions">
+            <button id="btn-tavern-reset">🔄 즉시 초기화 (<span id="tavern-reset-cost">0</span>🪙)</button>
+            <button id="btn-tavern-odds">📊 확률표</button>
+          </div>
         </div>
-        <button id="btn-tavern-reset">🔄 즉시 초기화 (<span id="tavern-reset-cost">0</span>🪙)</button>
-        <button id="btn-tavern-odds">📊 확률표</button>
       </div>
-      <div class="tavern-meta-extra" id="tavern-meta-extra"></div>
+      <h3 class="tavern-grid-title">🎲 영입 가능한 영웅</h3>
       <div class="tavern-grid" id="tavern-grid"></div>
     </div>
   </div>
