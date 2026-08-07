@@ -317,6 +317,30 @@
   function save() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
   }
+  // 예전 상호배타성 버그 등으로 세이브에 이미 남아있을 수 있는 "같은 영웅이
+  // 부대와 건물에 동시에 배치된" 상태를 정리한다. 진행 중인 원정이 있는 부대를
+  // 최우선으로 지키고, 그다음은 먼저 발견되는 배치 하나만 남기고 나머지를 비운다.
+  // 매 로드마다 실행해도 이미 깨끗한 데이터에는 아무 영향이 없다(멱등).
+  function dedupeHeroPlacements(parsed) {
+    const seen = new Set();
+    const claim = (heroId) => {
+      if (heroId == null || seen.has(heroId)) return false;
+      seen.add(heroId);
+      return true;
+    };
+    parsed.armies.forEach((a) => {
+      if (!a.mission) return;
+      a.heroIds = a.heroIds.map((h) => (claim(h) ? h : null));
+    });
+    parsed.armies.forEach((a) => {
+      if (a.mission) return;
+      a.heroIds = a.heroIds.map((h) => (claim(h) ? h : null));
+    });
+    Object.values(parsed.tiles).forEach((t) => {
+      if (!Array.isArray(t.heroIds)) return;
+      t.heroIds = t.heroIds.filter((h) => claim(h));
+    });
+  }
   function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -337,6 +361,7 @@
       if (!parsed.troopsByType) parsed.troopsByType = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, 0]));
       if (!parsed.armies) parsed.armies = Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} }));
       parsed.armies.forEach((a) => { if (!a.lastComp) a.lastComp = {}; });
+      dedupeHeroPlacements(parsed);
       if (!parsed.monsters) parsed.monsters = freshMonsterSlots();
       while (parsed.monsters.length < MONSTER_SLOT_COUNT) {
         const slot = { id: "m" + parsed.monsters.length, monster: null, respawnTimer: 0 };
