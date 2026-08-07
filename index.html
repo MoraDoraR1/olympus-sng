@@ -75,7 +75,18 @@
   </div>
 
   <div id="toast-layer"></div>
-  <div id="activity-log"></div>
+  <div id="log-widget" class="log-widget">
+    <div id="log-panel" class="log-panel" hidden>
+      <div class="log-panel-head">
+        <span>📜 활동 로그</span>
+        <button class="log-panel-close" id="btn-log-close">✕</button>
+      </div>
+      <div id="activity-log" class="log-panel-body"></div>
+    </div>
+    <button id="btn-log-toggle" class="log-toggle" aria-label="활동 로그 열기">
+      📜<span id="log-badge" class="log-badge" hidden>0</span>
+    </button>
+  </div>
 
   <!-- 건물 상세/배치 모달 -->
   <div class="modal-overlay" id="modal-building" hidden>

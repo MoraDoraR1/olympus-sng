@@ -749,26 +749,54 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 @keyframes toast-out { to { opacity: 0; } }
 #toast-layer { position: fixed; inset: 0; pointer-events: none; z-index: 300; }
 
-/* 우측 상단 활동 로그 — 화면을 가리지 않도록 폭을 제한하고, 오래된 항목은
-   JS 쪽에서 최대 개수를 넘으면 잘라낸다(FIFO). 토스트(#toast-layer)와 달리
-   새 이벤트가 쌓일 때까지 화면에 남아있는 "기록" 성격이라 별도로 둔다 */
-#activity-log {
-  position: fixed; top: 74px; right: 16px; z-index: 250;
-  display: flex; flex-direction: column; gap: 6px;
-  width: 280px; max-width: calc(100vw - 32px);
-  pointer-events: none;
+/* 좌측 하단 활동 로그 — 채팅창처럼 평소엔 작은 토글 버튼으로 접혀 있다가
+   클릭하면 그 위로 패널이 펼쳐진다. 다른 창을 가리지 않도록 화면 구석에
+   작게 두고, 새 이벤트가 쌓이면 배지로만 알려준다(패널이 닫혀 있을 때). */
+.log-widget { position: fixed; left: 14px; bottom: 14px; z-index: 250; }
+.log-toggle {
+  position: relative; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--ink); color: var(--bg); border: none;
+  font-size: 1.1rem; line-height: 1; box-shadow: var(--shadow); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.log-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px;
+  padding: 0 3px; border-radius: 999px; background: var(--hard); color: #fff;
+  font-size: .62rem; font-weight: 800; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.log-panel[hidden] { display: none; }
+.log-panel {
+  position: absolute; left: 0; bottom: calc(100% + 8px);
+  width: 220px; max-width: calc(100vw - 28px);
+  background: color-mix(in srgb, var(--ink) 92%, transparent); color: var(--bg);
+  border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: log-panel-in .18s ease-out;
+}
+.log-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px; font-size: .74rem; font-weight: 800;
+  background: color-mix(in srgb, var(--ink) 70%, black 10%);
+}
+.log-panel-close {
+  background: none; border: none; color: var(--bg); opacity: .75;
+  font-size: .78rem; cursor: pointer; padding: 2px 4px;
+}
+.log-panel-close:hover { opacity: 1; }
+.log-panel-body {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 240px; overflow-y: auto; padding: 6px;
 }
 .log-entry {
-  background: color-mix(in srgb, var(--ink) 90%, transparent); color: var(--bg);
-  border-left: 4px solid var(--roof); border-radius: 8px;
-  padding: 8px 12px; font-size: .82rem; font-weight: 700; line-height: 1.35;
-  box-shadow: var(--shadow);
-  animation: log-in .3s cubic-bezier(.34,1.56,.64,1);
+  border-left: 3px solid var(--roof); border-radius: 6px;
+  padding: 5px 8px; font-size: .72rem; font-weight: 700; line-height: 1.3;
+  background: rgba(255,255,255,.06);
 }
 .log-entry.log-levelup { border-left-color: var(--gold); }
 .log-entry.log-build { border-left-color: var(--roof); }
 .log-entry.log-train { border-left-color: #5b7a8f; }
 .log-entry.log-battle-win { border-left-color: var(--easy); }
 .log-entry.log-battle-lose { border-left-color: var(--hard); }
-@keyframes log-in { 0% { opacity: 0; transform: translateX(24px); } 100% { opacity: 1; transform: translateX(0); } }
-@media (max-width: 700px) { #activity-log { width: 220px; top: 64px; } }
+@keyframes log-panel-in { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+@media (max-width: 700px) { .log-panel { width: 190px; } }

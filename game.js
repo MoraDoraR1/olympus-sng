@@ -366,10 +366,12 @@
     layer.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
-  // 우측 상단 활동 로그 — 레벨업/전투/건설/훈련 같은 "결과"만 남기는 기록용.
-  // 토스트처럼 시간이 지나 사라지지 않고, 최신이 맨 위에 쌓이다 개수 상한을
-  // 넘으면 가장 오래된 항목부터 잘라낸다(화면을 계속 가리지 않도록).
-  const MAX_LOG_ENTRIES = 6;
+  // 좌측 하단 활동 로그 — 레벨업/전투/건설/훈련 같은 "결과"만 남기는 기록용.
+  // 채팅창처럼 평소엔 접혀 있다가 토글 버튼으로 열고 닫으므로, 토스트보다
+  // 넉넉하게 쌓아두고 개수 상한을 넘으면 가장 오래된 항목부터 잘라낸다.
+  const MAX_LOG_ENTRIES = 20;
+  let logPanelOpen = false;
+  let logUnread = 0;
   // 한글 단어 뒤에 붙는 주격 조사(이/가)를 받침 유무로 골라준다 ("여관이" vs "아카데미가")
   function withSubjectParticle(word) {
     const last = word.charCodeAt(word.length - 1);
@@ -377,6 +379,21 @@
       return word + ((last - 0xac00) % 28 !== 0 ? "이" : "가");
     }
     return word + "가";
+  }
+  function updateLogBadge() {
+    const badge = document.getElementById("log-badge");
+    if (!badge) return;
+    badge.hidden = logUnread <= 0;
+    badge.textContent = logUnread > 99 ? "99+" : String(logUnread);
+  }
+  function toggleLogPanel(open) {
+    const panel = document.getElementById("log-panel");
+    const toggleBtn = document.getElementById("btn-log-toggle");
+    if (!panel || !toggleBtn) return;
+    logPanelOpen = open != null ? open : panel.hidden;
+    panel.hidden = !logPanelOpen;
+    toggleBtn.setAttribute("aria-label", logPanelOpen ? "활동 로그 닫기" : "활동 로그 열기");
+    if (logPanelOpen) { logUnread = 0; updateLogBadge(); }
   }
   function logEvent(msg, kind) {
     if (simulating) return;
@@ -387,6 +404,7 @@
     el.textContent = msg;
     layer.prepend(el);
     while (layer.children.length > MAX_LOG_ENTRIES) layer.removeChild(layer.lastElementChild);
+    if (!logPanelOpen) { logUnread += 1; updateLogBadge(); }
   }
   function pulseRes(res) {
     if (simulating) return;
@@ -1211,6 +1229,10 @@
   }
 
   function openPlotChooserModal(tileId) {
+    // 이 화면은 openBuildingModal()이 아닌 별도 정적 화면이므로, 매 틱마다 마지막으로
+    // 본 건물 팝업을 다시 그리는 live-refresh 로직(tick() 참고)이 이 내용을 즉시
+    // 덮어쓰지 않도록 openBuildingTileId를 반드시 비워둔다
+    openBuildingTileId = null;
     const body = document.getElementById("building-modal-body");
     body.innerHTML = `
       <h2>➕ 어떤 건물을 지을까요?</h2>
@@ -1232,6 +1254,8 @@
   }
 
   function openBuildModal(tileId) {
+    // openPlotChooserModal과 동일한 이유로 openBuildingTileId를 비운다
+    openBuildingTileId = null;
     const tile = state.tiles[tileId];
     const bdef = BUILDING_TYPES[tile.type];
     const body = document.getElementById("building-modal-body");
@@ -1321,6 +1345,10 @@
     const bdef = BUILDING_TYPES[tile.type];
     const body = document.getElementById("building-modal-body");
     const savedScroll = SCROLLABLE_SELECTORS_IN_BUILDING_MODAL.map((sel) => body.querySelector(sel)?.scrollTop || 0);
+    // 병사 훈련 인원 슬라이더(.tt-count)도 같은 이유로 매초 원래 기본값으로
+    // 되돌아가 버리므로, 병종(data-key)별 현재 값을 붙잡아뒀다가 되돌린다
+    const savedTrainCounts = {};
+    body.querySelectorAll(".tt-count").forEach((input) => { savedTrainCounts[input.dataset.key] = input.value; });
     const ownedList = Object.keys(state.owned)
       .map((id) => HERO_BY_ID[id])
       .filter(Boolean)
@@ -1386,6 +1414,13 @@
     SCROLLABLE_SELECTORS_IN_BUILDING_MODAL.forEach((sel, i) => {
       const el = body.querySelector(sel);
       if (el) el.scrollTop = savedScroll[i];
+    });
+    body.querySelectorAll(".tt-count").forEach((input) => {
+      const saved = savedTrainCounts[input.dataset.key];
+      if (saved == null) return;
+      input.value = saved; // 범위를 벗어나면 브라우저가 자동으로 min/max에 맞춰 클램프한다
+      const label = body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`);
+      if (label) label.textContent = input.value;
     });
     body.querySelectorAll(".do-unassign").forEach((b) => {
       b.addEventListener("click", () => unassignHero(tileId, Number(b.dataset.hero)));
@@ -1938,6 +1973,9 @@
   document.querySelectorAll(".modal-overlay").forEach((ov) => {
     ov.addEventListener("click", (e) => { if (e.target === ov) closeModal(ov.id); });
   });
+
+  document.getElementById("btn-log-toggle").addEventListener("click", () => toggleLogPanel());
+  document.getElementById("btn-log-close").addEventListener("click", () => toggleLogPanel(false));
 
   document.getElementById("btn-reset-game").addEventListener("click", () => {
     if (!confirm("정말로 게임 진행을 초기화할까요?")) return;
