@@ -9,6 +9,8 @@ const ws = require("./ws");
 const conquest = require("./conquest");
 const items = require("./items");
 const pvp = require("./pvp");
+const anticheat = require("./anticheat");
+const { rateLimiter } = require("./rateLimit");
 
 const PORT = process.env.PORT || 8787;
 // 클라이언트가 백엔드와 다른 origin(예: GitHub Pages)에서 서빙되는 걸 전제로 CORS 허용.
@@ -16,6 +18,10 @@ const PORT = process.env.PORT || 8787;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
 const app = express();
+// Render/Railway/Fly 등 대부분의 호스팅은 리버스 프록시 뒤에서 앱을 띄우므로,
+// 접속자의 실제 IP(레이트 리미터가 쓰는 req.ip)를 얻으려면 이 설정이 필요하다.
+// 로컬 실행처럼 프록시가 없을 때는 아무 영향이 없다.
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
@@ -27,14 +33,23 @@ app.use((req, res, next) => {
 
 app.get("/api/health", (req, res) => res.json({ ok: true, time: Date.now() }));
 
-app.post("/api/auth/register", (req, res) => {
+// 닉네임 무차별 대입(비밀번호를 계속 바꿔가며 자동 시도)을 늦추기 위한 최소한의
+// 방어. IP당 15분에 20회로 회원가입/로그인을 합쳐 제한한다 — 정상적인 사용에는
+// 절대 걸리지 않을 만큼 넉넉하다.
+const authLimiter = rateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "로그인/회원가입 시도가 너무 많습니다. 15분 후 다시 시도하세요.",
+});
+
+app.post("/api/auth/register", authLimiter, (req, res) => {
   const { nickname, password } = req.body || {};
   const result = register(nickname, password);
   if (result.error) return res.status(400).json({ error: result.error });
   res.json({ player: result.player, token: result.token });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", authLimiter, (req, res) => {
   const { nickname, password } = req.body || {};
   const result = login(nickname, password);
   if (result.error) return res.status(401).json({ error: result.error });
@@ -50,6 +65,7 @@ const upsertStateStmt = db.prepare(`
   INSERT INTO game_states (player_id, state_json, updated_at) VALUES (?, ?, ?)
   ON CONFLICT(player_id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at
 `);
+const getPlayerCreatedAt = db.prepare("SELECT created_at FROM players WHERE id = ?");
 
 app.get("/api/state", requireAuth, (req, res) => {
   const row = getStateStmt.get(req.player.id);
@@ -63,6 +79,10 @@ app.put("/api/state", requireAuth, (req, res) => {
     return res.status(400).json({ error: "state가 필요합니다." });
   }
   const now = Date.now();
+  const prevRow = getStateStmt.get(req.player.id);
+  const createdAt = prevRow ? null : (getPlayerCreatedAt.get(req.player.id) || {}).created_at;
+  const verdict = anticheat.checkStatePush({ prevRow, createdAt, nextState: state, now });
+  if (!verdict.ok) return res.status(400).json({ error: verdict.error });
   upsertStateStmt.run(req.player.id, JSON.stringify(state), now);
   res.json({ ok: true, updatedAt: now });
 });
