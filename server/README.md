@@ -66,12 +66,41 @@ Render / Railway / Fly.io 같은 Node 호스팅이나 직접 관리하는 VPS �
 - `GET /api/items/me` → `{ items:{shield30,shield60,shield120,teleport}, costs:{...} }`
 - `POST /api/items/buy { item }` → 골드로 구매(game_states.res.gold 차감)
 - `POST /api/items/use-shield { tier: 30|60|120 }` → `world_tiles.protected_until`에 가산(중첩).
-  `pvp_missions`에 나를 향한 march 단계 미션이 있으면 차단(현재는 그 표가 늘 비어있어 항상 통과).
+  나를 향한 outbound 공격 미션이 있으면 차단.
 - `POST /api/items/use-teleport` → 무작위 빈 칸으로 재배치. 보호막 활성 중이거나 내가 origin인
-  진행 중 미션이 있으면 차단(역시 지금은 pvp_missions가 비어있어 후자는 항상 통과).
+  진행 중 미션(출정/주둔/귀환)이 있으면 차단.
 
-## 아직 없는 것
+### 플레이어 간 공격·수성전·지원군 (5단계) — `server/src/pvp.js`, `combat.js`, `troops.js`
+기존 싱글플레이 부대 3슬롯(`armies[0..2]`)을 그대로 재사용 — 대상 스쿼드의 `heroIds`가 그
+출정에 자동으로 딸려간다(부대가 PvE 임무 중이면 정복 임무로 못 보냄, 반대도 서버가 막는다).
+전투력 계산은 game.js의 armyStats()를 그대로 이식했지만 **연구 보너스·방어탑 보정은 포함하지
+않는다**(RESEARCH_DEFS 30개 항목 전체를 서버로 옮기는 건 범위 밖으로 판단 — 영웅+병사 기본
+스탯만으로 계산해 양쪽에 공평하게 적용). 전투 길이는 몬스터처럼 "레벨"이 없어 고정
+10초(`PVP_BATTLE_DURATION_SECONDS`)로 둠.
 
-플레이어 간 공격/수성전·지원군(도착 순서 기반 합산 전투, 늦은 지원군 자동 철수)은 구현 전이다.
-`pvp_missions` 테이블(스키마만 존재)이 그 자리인데, 이게 실제로 채워지기 시작하면 위 아이템
-차단 조건들이 손댈 필요 없이 그대로 올바르게 동작하도록 미리 그 표를 조회하게 해뒀다.
+- `POST /api/conquest/attack { targetPlayerId, squadIndex, comp }` → `{ missionId, arriveAt, travelSeconds, distance }`.
+  보호 중인 상대는 공격 불가. 즉시 병사를 `troopsByType`에서 차감(귀환해야 돌려받음).
+- `POST /api/conquest/reinforce { targetPlayerId, squadIndex, comp }` → 위와 동일 응답 모양.
+  도착하면 전투 없이 'stationed'(주둔) 상태가 되어, 그 타깃이 공격받을 때마다 방어 측 전력에
+  자동 합산된다(원래 주인이 철수시키기 전까지 계속).
+- `POST /api/conquest/recall { missionId }` → 주둔 중인 내 지원군을 자진 철수(왕복 동일 소요시간).
+- `GET /api/conquest/missions` → 나와 관련된(내가 보냈거나, 나를 향한) 모든 미션 목록.
+
+**판정 로직**(`pvp.js`의 `sweepOnce`, 서버가 5초 간격으로 자체 실행 — 상대가 오프라인이어도
+정확한 시각에 처리됨):
+1. 공격 미션 도착 시각이 지나면: 수비 측 = 방어자의 홈 병력(`troopsByType`, 이미 출정 중인
+   병력은 애초에 troopsByType에서 빠져 있어 자동 제외) + 그 타깃에 현재 'stationed'인 모든
+   지원군을 합산해 판정. 이긴 쪽은 최대 60%, 진 쪽은 최대 100%까지 병력 손실(game.js
+   resolveBattle과 동일한 비대칭). 공격자가 이기면 방어자 보유 자원의 10%를 약탈(`LOOT_PERCENT`,
+   구체적 수치가 요청서에 없어 임의 책정). 공격 미션은 'returning'으로 전환.
+2. 바로 그 순간, 같은 타깃을 향해 아직 도착 못한(outbound) 지원군은 전부 자동으로 'returning'
+   전환(왕복 대칭 — 요청하신 "지원군보다 공격자가 먼저 도착하면 지원군은 철수" 규칙).
+3. 지원군 도착 시각이 지나면(전투 없이): 'stationed'로 전환.
+4. 귀환 시각이 지나면: 생존 병력을 origin의 `troopsByType`에 돌려주고 미션 행 삭제.
+
+**알려진 한계(동시성)**: 클라이언트는 자기 `state`를 주기적으로 통째로 PUT하는데, 서버가 PvP
+판정으로 `troopsByType`/`res`를 바꾼 직후 클라이언트가 그걸 모른 채 예전 값으로 다시 덮어쓸 수
+있는 이론적 경우가 있다. 완화책으로 클라이언트가 `GET /api/conquest/missions`를 주기적으로
+조회하다 내 미션 중 하나라도 상태가 바뀐 걸 감지하면 즉시 `GET /api/state`를 다시 받아
+`troopsByType`/`res`만 병합해 반영한다(`game.js`의 `adoptServerDeltaFields`) — 대부분의 경우를
+막아주지만 완벽한 낙관적 동시성 제어는 아니다.

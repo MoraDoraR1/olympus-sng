@@ -177,11 +177,22 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   position: absolute; top: 70px; right: 20px; z-index: 15;
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
-  font-size: .85rem; font-weight: 700; box-shadow: var(--shadow); max-width: 260px;
+  font-size: .85rem; font-weight: 700; box-shadow: var(--shadow); max-width: 300px;
+  max-height: calc(100% - 90px); overflow-y: auto;
 }
 .conquest-tile-info[hidden] { display: none; }
 .conquest-tile-info .ctf-title { font-family: var(--font-display); margin-bottom: 4px; }
 .conquest-tile-info .ctf-line { color: var(--ink-soft); font-weight: 600; font-size: .82rem; }
+.ctf-actions { display: flex; gap: 6px; margin-top: 8px; }
+.ctf-actions button { font-size: .78rem; padding: 6px 10px; flex: 1; }
+.ctf-dispatch { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.ctf-squad-select { font-family: var(--font-body); padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); }
+.ctf-troop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
+.ctf-troop-row input { width: 70px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); font-family: var(--font-body); }
+.ctf-submit { margin-top: 4px; }
+.conquest-missions { padding: 0 20px 8px; display: flex; flex-direction: column; gap: 4px; }
+.conquest-mission-row { font-size: .8rem; font-weight: 700; background: var(--bg); border-radius: 8px; padding: 5px 10px; }
+.conquest-mission-row.incoming { color: #b0463f; }
 /* 그리드 칸 수(15x9)·칸 크기(72px)는 game.js의 CONQUEST_VIEW_W/H·CONQUEST_TILE_PX와
    맞춰져 있다 — JS가 매 렌더마다 같은 값을 다시 넣어주지만, 로그인 전/로딩 중처럼
    JS가 아직 안 그린 상태에서도 빈 그리드가 정상 크기로 보이도록 기본값도 둔다. */

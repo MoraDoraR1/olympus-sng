@@ -2548,6 +2548,8 @@
   const conquestTiles = new Map(); // "x,y" -> { x, y, nickname, protectedUntil }
   let conquestLoading = false;
   let lastConquestFetchAt = 0;
+  let conquestMissions = []; // GET /api/conquest/missions 캐시
+  let lastMissionSnapshot = "";
 
   function clampConquestCamera(x, y) {
     const mapW = (conquestInfo && conquestInfo.mapWidth) || CONQUEST_VIEW_W;
@@ -2581,8 +2583,67 @@
       }
       if (conquestInfo.tile) await loadConquestViewportTiles();
     } catch (e) {}
+    if (conquestInfo && conquestInfo.tile) await refreshConquestMissions();
     conquestLoading = false;
     renderConquestBody();
+  }
+
+  // 서버가 PvP 전투/귀환 판정으로 바꾼 병사 수·자원은 클라이언트가 몰랐던 변화라,
+  // 다음 주기적 저장(syncStateToServer)이 그걸 덮어써버리지 않도록 미리 받아와 반영해야
+  // 한다. state 전체를 덮지 않고 이 두 필드만 병합하는 이유: 그 사이 로컬에서 건물/연구
+  // 등을 조작했다면 그 진행은 그대로 지키기 위함.
+  function adoptServerDeltaFields(serverState) {
+    if (!serverState) return;
+    if (serverState.troopsByType) state.troopsByType = serverState.troopsByType;
+    if (serverState.res) Object.assign(state.res, serverState.res);
+    renderTopbar();
+  }
+  function missionsSnapshot(list) {
+    return list.map((m) => `${m.id}:${m.phase}`).sort().join(",");
+  }
+  async function refreshConquestMissions() {
+    try {
+      const res = await apiRequest("/api/conquest/missions");
+      const snap = missionsSnapshot(res.missions);
+      if (lastMissionSnapshot && snap !== lastMissionSnapshot) {
+        try {
+          const fresh = await apiRequest("/api/state");
+          if (fresh.state) adoptServerDeltaFields(fresh.state);
+        } catch (e) {}
+      }
+      lastMissionSnapshot = snap;
+      conquestMissions = res.missions;
+      renderConquestMissions();
+    } catch (e) {}
+  }
+  async function recallConquestMission(missionId) {
+    try {
+      await apiRequest("/api/conquest/recall", { method: "POST", body: JSON.stringify({ missionId }) });
+      toast("🛡️ 지원군을 철수시켰습니다.");
+      lastMissionSnapshot = "";
+      refreshConquestMissions();
+    } catch (e) {
+      toast(e.message || "철수에 실패했습니다.");
+    }
+  }
+  function renderConquestMissions() {
+    const wrap = document.getElementById("conquest-missions");
+    if (!wrap) return;
+    const now = Date.now();
+    const rows = conquestMissions.map((m) => {
+      const other = m.isMine ? m.targetNickname : m.originNickname;
+      const kindLabel = m.kind === "attack" ? "⚔️ 공격" : "🛡️ 지원";
+      if (m.isMine) {
+        if (m.phase === "outbound") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 도착까지 ${formatCountdownShort(m.arriveAt - now)}</div>`;
+        if (m.phase === "stationed") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 주둔 중 <button class="btn-recall-mission" data-id="${m.id}">철수</button></div>`;
+        if (m.phase === "returning") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 귀환 중 ${formatCountdownShort(m.returnArriveAt - now)}</div>`;
+      } else if (m.kind === "attack" && m.phase === "outbound") {
+        return `<div class="conquest-mission-row incoming">⚠️ ${other}의 공격이 오는 중! 도착까지 ${formatCountdownShort(m.arriveAt - now)}</div>`;
+      }
+      return "";
+    }).filter(Boolean);
+    wrap.innerHTML = rows.join("");
+    wrap.querySelectorAll(".btn-recall-mission").forEach((btn) => btn.addEventListener("click", () => recallConquestMission(Number(btn.dataset.id))));
   }
 
   // 정복이 해금된 계정마다 딱 한 번만 보여주는 이미지(이모지) 시각화 튜토리얼.
@@ -2674,12 +2735,14 @@
       statusEl.innerHTML = `<p class="conquest-msg">불러오는 중...</p>`;
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
     if (!conquestInfo.unlocked) {
       statusEl.innerHTML = `<p class="conquest-msg">🔒 정복은 성 레벨 5부터 참가할 수 있습니다 (현재 성 레벨 ${state.tiles.castle.level} / 5)</p>`;
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
     if (!conquestInfo.tile) {
@@ -2690,6 +2753,7 @@
       document.getElementById("btn-conquest-spawn").addEventListener("click", doConquestSpawn);
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
     const protectedLeft = conquestInfo.tile.protectedUntil - Date.now();
@@ -2740,22 +2804,96 @@
 
   // 타일을 클릭하면 내 위치에서 그 타일까지 예상 이동 시간(거리 기반, 이동속도 시스템)을
   // 보여준다 — 아직 공격 시스템은 없지만 이동속도 계산 자체는 이렇게 미리 확인 가능하다.
+  function freeSquadOptionsHTML() {
+    const pvpBusy = new Set(conquestMissions.filter((m) => m.isMine && m.phase !== "resolved").map((m) => m.squadIndex));
+    return state.armies.map((a, idx) => {
+      const busy = !!a.mission || pvpBusy.has(idx);
+      return `<option value="${idx}" ${busy ? "disabled" : ""}>부대 ${idx + 1}${busy ? " (출정 중)" : ""}</option>`;
+    }).join("");
+  }
+  function troopCompInputsHTML() {
+    return TROOP_TYPES.map((t) => `
+      <label class="ctf-troop-row">
+        <span>${t.name} (보유 ${(state.troopsByType[t.key] || 0).toLocaleString()})</span>
+        <input type="number" min="0" max="${state.troopsByType[t.key] || 0}" value="0" data-troop="${t.key}" />
+      </label>
+    `).join("");
+  }
+  function readCompFromForm(infoEl) {
+    const comp = {};
+    infoEl.querySelectorAll("[data-troop]").forEach((input) => {
+      const n = Math.max(0, Math.floor(Number(input.value) || 0));
+      if (n > 0) comp[input.dataset.troop] = n;
+    });
+    return comp;
+  }
+  async function submitConquestDispatch(kind, targetPlayerId, infoEl) {
+    const squadIndex = Number(infoEl.querySelector(".ctf-squad-select").value);
+    const comp = readCompFromForm(infoEl);
+    try {
+      const res = await apiRequest(`/api/conquest/${kind}`, {
+        method: "POST",
+        body: JSON.stringify({ targetPlayerId, squadIndex, comp }),
+      });
+      toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}`);
+      lastMissionSnapshot = ""; // 다음 폴링에서 무조건 최신 상태를 반영하도록
+      infoEl.hidden = true;
+    } catch (e) {
+      toast(e.message || "출정에 실패했습니다.");
+    }
+  }
+  function dispatchFormHTML(kind, targetPlayerId) {
+    const label = kind === "attack" ? "⚔️ 공격 부대 편성" : "🛡️ 지원군 편성";
+    return `
+      <div class="ctf-dispatch">
+        <div class="ctf-line">${label}</div>
+        <select class="ctf-squad-select">${freeSquadOptionsHTML()}</select>
+        ${troopCompInputsHTML()}
+        <button class="ctf-submit" data-kind="${kind}" data-target="${targetPlayerId}">${kind === "attack" ? "공격 출정" : "지원 출정"}</button>
+      </div>
+    `;
+  }
   async function showConquestTileInfo(x, y, occ) {
     const infoEl = document.getElementById("conquest-tile-info");
     infoEl.hidden = false;
+    const isMe = conquestInfo.tile && conquestInfo.tile.x === x && conquestInfo.tile.y === y;
     const header = `<div class="ctf-title">📍 (${x}, ${y})${occ ? ` · ${occ.nickname}` : ""}</div>`;
     infoEl.innerHTML = `${header}<div class="ctf-line">이동 시간 계산 중...</div>`;
+    let travelHTML = "";
     try {
       const res = await apiRequest(`/api/conquest/travel-time?x=${x}&y=${y}`);
-      infoEl.innerHTML = `
-        ${header}
+      travelHTML = `
         <div class="ctf-line">거리 ${res.distance}칸</div>
         <div class="ctf-line">최저 속도 기준(편도): ${formatCountdownShort(res.baseSeconds * 1000)}</div>
         <div class="ctf-line">내 영웅 이동 보너스 적용 시: ${formatCountdownShort(res.bestSeconds * 1000)}${res.bestHeroBonus ? ` (+${res.bestHeroBonus.toFixed(1)}%)` : ""}</div>
       `;
     } catch (e) {
-      infoEl.innerHTML = `${header}<div class="ctf-line">${e.message || "이동 시간을 불러오지 못했습니다."}</div>`;
+      travelHTML = `<div class="ctf-line">${e.message || "이동 시간을 불러오지 못했습니다."}</div>`;
     }
+    let actionsHTML = "";
+    if (occ && !isMe) {
+      const protectedNow = occ.protectedUntil > Date.now();
+      if (protectedNow) {
+        actionsHTML = `<div class="ctf-line">🛡️ 보호 중인 플레이어입니다 (공격 불가, 지원은 가능)</div>
+          <div class="ctf-actions"><button class="ctf-open-reinforce">🛡️ 지원 보내기</button></div>`;
+      } else {
+        actionsHTML = `<div class="ctf-actions">
+          <button class="ctf-open-attack">⚔️ 공격</button>
+          <button class="ctf-open-reinforce">🛡️ 지원 보내기</button>
+        </div>`;
+      }
+    }
+    infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}`;
+    const openAttack = infoEl.querySelector(".ctf-open-attack");
+    const openReinforce = infoEl.querySelector(".ctf-open-reinforce");
+    if (openAttack) openAttack.addEventListener("click", () => {
+      infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("attack", occ.playerId)}`;
+      infoEl.querySelector(".ctf-submit").addEventListener("click", () => submitConquestDispatch("attack", occ.playerId, infoEl));
+    });
+    if (openReinforce) openReinforce.addEventListener("click", () => {
+      infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("reinforce", occ.playerId)}`;
+      infoEl.querySelector(".ctf-submit").addEventListener("click", () => submitConquestDispatch("reinforce", occ.playerId, infoEl));
+    });
   }
   document.getElementById("worldmap-field").addEventListener("click", (e) => {
     const cell = e.target.closest(".conquest-cell");

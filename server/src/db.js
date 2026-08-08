@@ -45,18 +45,23 @@ db.exec(`
     teleport INTEGER NOT NULL DEFAULT 0
   );
 
-  -- 공격/수성전(지원군 포함) 본체는 아직 구현 전이라 아무것도 이 표에 쓰지 않는다.
-  -- 미리 만들어 두는 이유: 보호막/성 이동 아이템의 "공격 중이면 사용 불가" 같은 조건이
-  -- 지금부터 이 표를 정확한 쿼리로 검사하게 해서, 나중에 공격 시스템이 이 표에 실제로
-  -- 행을 넣기 시작하는 순간 아이템 쪽 코드는 손댈 필요 없이 그대로 맞물리게 하기 위함.
+  -- 플레이어 간 공격/지원(수성전) 미션. phase: 'outbound'(출정 중) -> 공격이면 도착 시
+  -- 전투 판정 후 'returning'(귀환 중)으로, 지원이면 도착 시 'stationed'(주둔, 이후 그
+  -- 타일이 공격받을 때 방어 측에 합산)로 전환. 'returning'은 return_arrive_at에 도달하면
+  -- 병력이 origin에게 귀환하고 행이 삭제된다. origin_squad_index는 같은 부대가 두 개의
+  -- 정복 임무를 동시에 나가지 못하게 막는 용도(기존 싱글플레이 부대 3개 슬롯 재사용).
   CREATE TABLE IF NOT EXISTS pvp_missions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
     origin_player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    origin_squad_index INTEGER NOT NULL,
     target_player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     comp_json TEXT NOT NULL,
+    hero_ids_json TEXT NOT NULL,
     phase TEXT NOT NULL,
     depart_at INTEGER NOT NULL,
-    phase_ends_at INTEGER NOT NULL,
+    arrive_at INTEGER NOT NULL,
+    return_arrive_at INTEGER,
     result_json TEXT,
     created_at INTEGER NOT NULL
   );

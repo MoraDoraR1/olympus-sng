@@ -1,7 +1,8 @@
 "use strict";
 const { db } = require("./db");
-const { chebyshevDistance, travelTimeSeconds, TROOP_SPEED } = require("./movement");
+const { chebyshevDistance, travelTimeSeconds } = require("./movement");
 const { HERO_BY_ID } = require("./heroes");
+const { TROOP_BY_KEY } = require("./troops");
 
 const MAP_WIDTH = 200;
 const MAP_HEIGHT = 200;
@@ -93,7 +94,7 @@ function travelTimePreview(playerId, targetX, targetY) {
   const origin = myTile(playerId);
   if (!origin) return { error: "아직 정복 맵에 참가하지 않았습니다." };
   const distance = chebyshevDistance(origin, { x: targetX, y: targetY });
-  const baseSeconds = travelTimeSeconds(distance, TROOP_SPEED.militia);
+  const baseSeconds = travelTimeSeconds(distance, TROOP_BY_KEY.militia.speed);
   let bestHeroBonus = 0;
   const row = getStateJson.get(playerId);
   if (row) {
@@ -110,7 +111,7 @@ function travelTimePreview(playerId, targetX, targetY) {
       });
     } catch {}
   }
-  const bestSeconds = travelTimeSeconds(distance, TROOP_SPEED.militia * (1 + bestHeroBonus / 100));
+  const bestSeconds = travelTimeSeconds(distance, TROOP_BY_KEY.militia.speed * (1 + bestHeroBonus / 100));
   return { distance, baseSeconds, bestSeconds, bestHeroBonus };
 }
 
@@ -124,6 +125,7 @@ function tilesInViewport(x0, y0, x1, y1) {
   return tilesInBox.all(lo_x, hi_x, lo_y, hi_y).map((r) => ({
     x: r.x,
     y: r.y,
+    playerId: r.player_id,
     nickname: r.nickname,
     protectedUntil: r.protected_until,
   }));

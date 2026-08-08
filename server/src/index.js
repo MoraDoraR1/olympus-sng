@@ -7,6 +7,7 @@ const { db } = require("./db");
 const ws = require("./ws");
 const conquest = require("./conquest");
 const items = require("./items");
+const pvp = require("./pvp");
 
 const PORT = process.env.PORT || 8787;
 // 클라이언트가 백엔드와 다른 origin(예: GitHub Pages)에서 서빙되는 걸 전제로 CORS 허용.
@@ -126,8 +127,38 @@ app.post("/api/items/use-teleport", requireAuth, (req, res) => {
   res.json(result);
 });
 
+app.get("/api/conquest/missions", requireAuth, (req, res) => {
+  res.json({ missions: pvp.myMissions(req.player.id) });
+});
+
+app.post("/api/conquest/attack", requireAuth, (req, res) => {
+  const { targetPlayerId, squadIndex, comp } = req.body || {};
+  const result = pvp.dispatch(req.player.id, "attack", { targetPlayerId, squadIndex, comp });
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.post("/api/conquest/reinforce", requireAuth, (req, res) => {
+  const { targetPlayerId, squadIndex, comp } = req.body || {};
+  const result = pvp.dispatch(req.player.id, "reinforce", { targetPlayerId, squadIndex, comp });
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.post("/api/conquest/recall", requireAuth, (req, res) => {
+  const { missionId } = req.body || {};
+  const result = pvp.recall(req.player.id, missionId);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
 const server = http.createServer(app);
 ws.attach(server);
+
+// 도착/귀환 시각이 지난 정복 미션(공격 판정, 지원군 도착, 귀환 완료)을 주기적으로 처리.
+// 클라이언트가 붙어있지 않아도(상대가 오프라인이어도) 정확한 시각에 처리되어야 하므로
+// 요청-응답이 아니라 서버 자체 타이머로 돌린다.
+setInterval(() => pvp.sweepOnce(), 5000);
 
 server.listen(PORT, () => {
   console.log(`올림포스 도시 서버 실행 중 — http://localhost:${PORT} (WebSocket: /ws)`);
