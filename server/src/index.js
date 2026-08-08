@@ -1,4 +1,5 @@
 "use strict";
+require("./env"); // 다른 모듈이 process.env를 읽기 전에 가장 먼저 .env를 반영
 const http = require("node:http");
 const express = require("express");
 const { register, login } = require("./auth");

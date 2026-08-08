@@ -16,7 +16,10 @@ Pages 등에 그대로 둘 수 있다. 이 `/server`가 계정·정복(PvP) 맵�
 ```bash
 cd server
 npm install
-JWT_SECRET="아무-긴-랜덤-문자열" npm start
+cp .env.example .env
+# .env를 열어 JWT_SECRET에 아래 명령으로 만든 값을 채워 넣는다(안 채워도 동작은 하지만 권장):
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+npm start
 # http://localhost:8787/api/health 로 확인
 ```
 
@@ -27,9 +30,21 @@ JWT_SECRET="아무-긴-랜덤-문자열" npm start
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `PORT` | `8787` | HTTP/WebSocket 리슨 포트 |
-| `JWT_SECRET` | (개발용 고정값) | **배포 시 반드시 지정.** 로그인 토큰 서명 키 |
+| `JWT_SECRET` | (아래 참고) | 로그인 토큰 서명 키 |
 | `CORS_ORIGIN` | `*` | 클라이언트가 다른 origin(GitHub Pages 등)에서 서빙될 때 허용할 origin |
 | `DB_PATH` | `server/data/olympus.db` | SQLite 파일 경로 |
+
+`server/.env` 파일(있으면 자동으로 읽음, `.env.example` 참고)이나 실제 환경변수로 설정한다.
+`server/.env`는 `.gitignore`에 포함되어 있어 **절대 커밋되지 않는다** — 코드가 아무리 공개되어
+있어도(예: 이 저장소를 그대로 GitHub Pages로 서빙하는 경우) 거기엔 실제 비밀값이 담기지 않는다.
+
+`JWT_SECRET`을 코드에 고정값으로 두지 않는다. 아무것도 설정하지 않으면 서버가 처음 켜질 때
+이 인스턴스 전용 비밀값을 무작위로 생성해 `server/data/.jwt-secret`에 저장하고 이후 재시작마다
+재사용한다(`server/data/`도 `.gitignore` 처리되어 커밋되지 않음) — 로컬 테스트는 아무 설정 없이도
+바로 동작하지만, **실제로 여러 사람이 접속하는 배포에서는 반드시 `JWT_SECRET`을 직접 설정**해야
+한다. 설정하지 않으면 그 서버가 재배포될 때마다(호스팅에 따라 `server/data/`가 초기화되면) 기존
+로그인 토큰이 전부 무효화될 수 있고, 여러 인스턴스를 동시에 띄우는 구성에서는 인스턴스마다 서로
+다른 비밀값이 생겨 토큰이 서로 호환되지 않는다.
 
 ## 배포
 
