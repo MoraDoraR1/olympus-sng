@@ -24,6 +24,7 @@
     <div class="topbar-actions">
       <button id="btn-worldmap">🗺️ 월드맵</button>
       <button id="btn-raid">👑 보스 레이드</button>
+      <button id="btn-inventory">🎒 인벤토리</button>
       <button id="btn-army">⚔️ 군대</button>
       <button id="btn-heroes">🦸 보유 영웅</button>
       <button id="btn-codex">📖 영웅 도감</button>
@@ -138,7 +139,6 @@
             <button id="btn-tavern-odds">📊 확률표</button>
           </div>
         </div>
-        <div class="modal-section col" id="tavern-ticket-section"></div>
       </div>
       <h3 class="tavern-grid-title">🎲 영입 가능한 영웅</h3>
       <div class="tavern-grid" id="tavern-grid"></div>
@@ -166,6 +166,14 @@
     <div class="modal modal-wide">
       <button class="modal-close" data-close>✕</button>
       <div id="raid-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 인벤토리 모달 -->
+  <div class="modal-overlay" id="modal-inventory" hidden>
+    <div class="modal modal-narrow">
+      <button class="modal-close" data-close>✕</button>
+      <div id="inventory-modal-body"></div>
     </div>
   </div>
 

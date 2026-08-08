@@ -777,6 +777,7 @@
       openBuildingModal(openBuildingTileId);
     }
     if (!document.getElementById("modal-raid").hidden) renderRaidModal();
+    if (!document.getElementById("modal-inventory").hidden) renderInventoryModal();
     save();
   }
   // 탭이 백그라운드에 있거나 브라우저가 완전히 꺼져있던 동안에도 자원/훈련/
@@ -898,7 +899,7 @@
     if (heroId == null) { toast("영입할 수 있는 영웅이 없습니다"); return; }
     state.raidTickets[key] -= 1;
     addOwned(heroId);
-    renderTavernModal();
+    renderInventoryModal();
     renderTopbar();
     save();
   }
@@ -1718,26 +1719,6 @@
       const upBtn = status.querySelector("#btn-tavern-upgrade");
       if (upBtn && !upBtn.disabled) upBtn.addEventListener("click", () => upgrade("tavern"));
     }
-
-    const ticketSection = document.getElementById("tavern-ticket-section");
-    if (ticketSection) {
-      const t5 = state.raidTickets.t5, t6 = state.raidTickets.t6;
-      ticketSection.innerHTML = `
-        <div class="tavern-status-head"><span class="tavern-status-title">🎫 레이드 확정 소환권</span></div>
-        <div class="ticket-row">
-          <span>★5 이상 확정 (보유 ${t5}장)</span>
-          <button class="btn-use-ticket" data-rarity="5" ${t5 > 0 ? "" : "disabled"}>사용</button>
-        </div>
-        <div class="ticket-row">
-          <span>★6 이상 확정 (보유 ${t6}장)</span>
-          <button class="btn-use-ticket" data-rarity="6" ${t6 > 0 ? "" : "disabled"}>사용</button>
-        </div>
-      `;
-      ticketSection.querySelectorAll(".btn-use-ticket").forEach((btn) => {
-        if (btn.disabled) return;
-        btn.addEventListener("click", () => redeemRaidTicket(Number(btn.dataset.rarity)));
-      });
-    }
   }
   function renderTavernCards() {
     const grid = document.getElementById("tavern-grid");
@@ -2045,6 +2026,43 @@
   document.getElementById("btn-raid").addEventListener("click", () => {
     renderRaidModal();
     openModal("modal-raid");
+  });
+
+  // ---------- 인벤토리(레이드 보상으로 받은 조각/소환권 보관·사용) ----------
+  function renderInventoryModal() {
+    const body = document.getElementById("inventory-modal-body");
+    if (!body) return;
+    const t5 = state.raidTickets.t5, t6 = state.raidTickets.t6;
+    body.innerHTML = `
+      <h2>🎒 인벤토리</h2>
+      <div class="inv-item">
+        <span class="inv-item-icon">🧩</span>
+        <span class="inv-item-name">만능 조각</span>
+        <span class="inv-item-count">${state.raidShards}개</span>
+      </div>
+      <p class="inv-hint">만능 조각은 "보유 영웅" 상세 화면에서 원하는 영웅에게 적용할 수 있습니다.</p>
+      <div class="inv-item">
+        <span class="inv-item-icon">🎫</span>
+        <span class="inv-item-name">★5 이상 확정 소환권</span>
+        <span class="inv-item-count">${t5}장</span>
+        <button class="btn-use-ticket" data-rarity="5" ${t5 > 0 ? "" : "disabled"}>사용</button>
+      </div>
+      <div class="inv-item">
+        <span class="inv-item-icon">🎫</span>
+        <span class="inv-item-name">★6 이상 확정 소환권</span>
+        <span class="inv-item-count">${t6}장</span>
+        <button class="btn-use-ticket" data-rarity="6" ${t6 > 0 ? "" : "disabled"}>사용</button>
+      </div>
+      <p class="inv-hint">소환권을 사용하면 여관 비용 없이 즉시 해당 등급 이상의 영웅 1명을 영입합니다.</p>
+    `;
+    body.querySelectorAll(".btn-use-ticket").forEach((btn) => {
+      if (btn.disabled) return;
+      btn.addEventListener("click", () => redeemRaidTicket(Number(btn.dataset.rarity)));
+    });
+  }
+  document.getElementById("btn-inventory").addEventListener("click", () => {
+    renderInventoryModal();
+    openModal("modal-inventory");
   });
 
   // ---------- 군대 편성(다중 부대) ----------

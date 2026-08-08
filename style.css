@@ -768,8 +768,11 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .raid-status.defeated { color: var(--easy); }
 .raid-status.locked { color: var(--ink-soft); }
 
-.ticket-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .86rem; font-weight: 700; padding: 6px 0; }
-.ticket-row button { font-size: .82rem; padding: 5px 12px; }
+.inv-item { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.inv-item-icon { font-size: 1.6rem; }
+.inv-item-name { flex: 1; font-weight: 700; }
+.inv-item-count { font-weight: 800; font-variant-numeric: tabular-nums; }
+.inv-hint { font-size: .8rem; color: var(--ink-soft); font-weight: 600; margin: 0 0 14px; }
 .shard-apply-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .shard-apply-row input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-weight: 700; }
 .shard-apply-row button { font-size: .85rem; padding: 6px 12px; }
