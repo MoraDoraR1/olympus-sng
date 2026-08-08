@@ -169,15 +169,29 @@
     { key: "empusa", name: "엠푸사", icon: "👹" },
   ];
   // 예전엔 필드 8칸에 8% 확률로 섞여 나오던 엘리트 3종을, 상시 목록으로 볼 수 있는
-  // 별도 "보스 레이드" 컨텐츠로 옮겼다. 필드 몬스터와 달리 레벨이 고정이고, 처치
-  // 후에는 무작위 리스폰이 아니라 정해진 쿨다운이 지나야만 다시 도전할 수 있다.
+  // 별도 "보스 레이드" 컨텐츠로 옮겼다. 필드 몬스터와 달리 레벨이 고정이고, 무작위
+  // 리스폰도 없다 — 한 번 처치하면 그 보스는 세이브 안에서 영구적으로 다시 도전할
+  // 수 없다(1인 기준 "1회성 정복" 컨텐츠). requires로 순서를 강제해 앞 보스를 먼저
+  // 처치해야 다음 보스에 도전할 수 있는 6단계 체인을 이룬다.
   // powerMult: 필드 몬스터 최고 레벨(30)·월드맵 성 최고 레벨(20) 중 더 강한 쪽을
   // 기준선으로 삼아 몇 배 더 강한지(raidBossBaselineStats/raidBossStats 참고).
   // level은 이제 스탯과 무관 — 진군/전투 소요시간과 표시용으로만 쓰인다.
+  // reward.shards는 처치 시 "만능 조각"(state.raidShards)으로 지급되어 보유 영웅
+  // 아무에게나 나중에 배분할 수 있고, reward.ticketRarity/ticketCount는 여관에서
+  // 해당 등급 이상을 확정 소환할 수 있는 티켓(state.raidTickets)으로 지급된다.
   const RAID_BOSSES = [
-    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, powerMult: 4, cooldownSeconds: 3 * 3600 },
-    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, powerMult: 5.5, cooldownSeconds: 6 * 3600 },
-    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, powerMult: 7, cooldownSeconds: 10 * 3600 },
+    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, powerMult: 4, requires: null,
+      reward: { resourceAmount: 50000, goldBonus: 30000, shards: 5, ticketRarity: 5, ticketCount: 5 } },
+    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, powerMult: 5.5, requires: "medusa",
+      reward: { resourceAmount: 120000, goldBonus: 72000, shards: 10, ticketRarity: 5, ticketCount: 10 } },
+    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, powerMult: 7, requires: "hydra",
+      reward: { resourceAmount: 250000, goldBonus: 150000, shards: 20, ticketRarity: 5, ticketCount: 15 } },
+    { id: "echidna", key: "echidna", name: "에키드나", icon: "🐍", level: 30, powerMult: 10, requires: "cerberus",
+      reward: { resourceAmount: 500000, goldBonus: 300000, shards: 30, ticketRarity: 6, ticketCount: 3 } },
+    { id: "typhon", key: "typhon", name: "티폰", icon: "🌪️", level: 35, powerMult: 13, requires: "echidna",
+      reward: { resourceAmount: 800000, goldBonus: 480000, shards: 40, ticketRarity: 6, ticketCount: 5 } },
+    { id: "cronus", key: "cronus", name: "크로노스", icon: "⏳", level: 40, powerMult: 17, requires: "typhon",
+      reward: { resourceAmount: 1200000, goldBonus: 720000, shards: 50, ticketRarity: 6, ticketCount: 7 } },
   ];
   const MONSTER_SLOT_COUNT = 8;
   function monsterIconHTML(key) {
@@ -233,7 +247,7 @@
     slot.respawnTimer = 0;
   }
   function freshRaidsState() {
-    return Object.fromEntries(RAID_BOSSES.map((b) => [b.id, { cooldownLeft: 0 }]));
+    return Object.fromEntries(RAID_BOSSES.map((b) => [b.id, { defeated: false }]));
   }
   function freshMonsterSlots() {
     const slots = [];
@@ -306,6 +320,10 @@
       atk: Math.round(base.atk * boss.powerMult),
       def: Math.round(base.def * boss.powerMult),
     };
+  }
+  // 선행 보스를 처치해야 다음 보스에 도전할 수 있다(requires:null이면 항상 도전 가능)
+  function raidBossUnlocked(boss) {
+    return !boss.requires || !!state.raids[boss.requires]?.defeated;
   }
   function freshWorldCastles() {
     const castles = [];
@@ -401,6 +419,8 @@
       monsters: freshMonsterSlots(),
       worldCastles: freshWorldCastles(),
       raids: freshRaidsState(),
+      raidShards: 0, // 레이드 보상으로 받는 "만능 조각" — 보유 영웅 아무에게나 배분 가능
+      raidTickets: { t5: 0, t6: 0 }, // 확정 등급 이상 소환권 개수
       lastActiveAt: Date.now(),
     };
   }
@@ -468,9 +488,16 @@
       parsed.monsters.forEach((slot) => { if (slot.monster && slot.monster.elite) spawnMonster(slot); });
       if (!parsed.worldCastles) parsed.worldCastles = freshWorldCastles();
       if (!parsed.raids) parsed.raids = freshRaidsState();
+      // 예전 세이브의 raids는 {cooldownLeft} 형태(반복 도전 가능)였다 — 이제는
+      // {defeated} 1회성 처치 플래그로 바뀌었으므로, 아직 처치 기록이 없으면
+      // 안전하게 "미처치"로 이관한다(진행 중이던 쿨다운은 의미가 사라짐).
       RAID_BOSSES.forEach((b) => {
-        if (!parsed.raids[b.id] || typeof parsed.raids[b.id].cooldownLeft !== "number") parsed.raids[b.id] = { cooldownLeft: 0 };
+        if (!parsed.raids[b.id] || typeof parsed.raids[b.id].defeated !== "boolean") parsed.raids[b.id] = { defeated: false };
       });
+      if (typeof parsed.raidShards !== "number") parsed.raidShards = 0;
+      if (!parsed.raidTickets) parsed.raidTickets = { t5: 0, t6: 0 };
+      if (typeof parsed.raidTickets.t5 !== "number") parsed.raidTickets.t5 = 0;
+      if (typeof parsed.raidTickets.t6 !== "number") parsed.raidTickets.t6 = 0;
       Object.values(parsed.owned || {}).forEach((o) => {
         if (typeof o.enhance !== "number") { o.enhance = 0; delete o.star; }
       });
@@ -728,10 +755,6 @@
       const rate = castleBankRate(c.level);
       ["food", "wood", "stone", "gold"].forEach((r) => { c.bank[r] = Math.min(cap, c.bank[r] + rate); });
     });
-    RAID_BOSSES.forEach((b) => {
-      const r = state.raids[b.id];
-      if (r.cooldownLeft > 0) r.cooldownLeft -= 1;
-    });
     state.armies.forEach((army, idx) => {
       if (!army.mission) return;
       army.mission.timeLeft -= 1;
@@ -823,6 +846,23 @@
     if (!pool.length) return null;
     return pool[Math.floor(Math.random() * pool.length)].id;
   }
+  // 레이드 확정 소환권용 — 평소 확률표(currentRollTable, 연구 보너스 포함)에서
+  // floorRarity 미만인 등급만 잘라내고 남은 등급끼리 비율을 재조정해서 뽑는다.
+  // 그래서 "5성 이상 확정"이어도 5성이 압도적으로 많고 카미/8성은 여전히 희귀하다.
+  function rollHeroIdAtLeast(floorRarity) {
+    const table = currentRollTable().filter((r) => r.rarity === "kami" || r.rarity >= floorRarity);
+    const total = table.reduce((s, r) => s + r.p, 0);
+    let roll = Math.random() * total;
+    let rarity = floorRarity;
+    for (const row of table) {
+      roll -= row.p;
+      if (roll <= 0) { rarity = row.rarity; break; }
+    }
+    if (rarity === "kami") return KAMI ? KAMI.id : null;
+    const pool = HEROES.filter((h) => h.rarity === rarity && !h.secret);
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }
   function tavernSlotCount() {
     return tavernSlotsForLevel(state.tiles.tavern.level || 1);
   }
@@ -849,6 +889,18 @@
       state.owned[heroId].count += 1;
       toast(`중복 영입: ${hero.name} 조각 +1 (보유 ${state.owned[heroId].count}번째, 조각 ${state.owned[heroId].shards})`);
     }
+  }
+  // 레이드 확정 소환권 1장을 소모해 즉시 영웅 1명을 영입한다(여관 자원 비용 없음)
+  function redeemRaidTicket(rarity) {
+    const key = rarity >= 6 ? "t6" : "t5";
+    if ((state.raidTickets[key] || 0) <= 0) { toast("보유한 소환권이 없습니다"); return; }
+    const heroId = rollHeroIdAtLeast(rarity);
+    if (heroId == null) { toast("영입할 수 있는 영웅이 없습니다"); return; }
+    state.raidTickets[key] -= 1;
+    addOwned(heroId);
+    renderTavernModal();
+    renderTopbar();
+    save();
   }
   function recruit(slotIndex) {
     const heroId = state.tavern.candidates[slotIndex];
@@ -1117,7 +1169,12 @@
     if (!army || army.mission) { toast("해당 부대는 이미 출정 중입니다"); return; }
     const enemy = findEnemy(kind, targetId);
     if (!enemy) { toast("공격할 수 없습니다"); return; }
-    if (kind === "raid" && (state.raids[targetId]?.cooldownLeft || 0) > 0) { toast("아직 쿨다운 중입니다"); return; }
+    if (kind === "raid") {
+      const boss = RAID_BOSSES.find((b) => b.id === targetId);
+      if (!boss) { toast("공격할 수 없습니다"); return; }
+      if (state.raids[targetId].defeated) { toast("이미 처치한 보스입니다"); return; }
+      if (!raidBossUnlocked(boss)) { toast(`먼저 ${RAID_BOSSES.find((b2) => b2.id === boss.requires).name}을(를) 처치해야 합니다`); return; }
+    }
     if (state.armies.some((a) => a.mission && a.mission.kind === kind && a.mission.targetId === targetId)) { toast("이미 다른 부대가 그 대상을 공격 중입니다"); return; }
     const total = totalDeployedTroops(comp);
     const owned = totalOwnedTroops();
@@ -1161,23 +1218,31 @@
       state.troopsByType[key] = (state.troopsByType[key] || 0) + (count - lost);
     });
     if (verdict.win) {
-      let reward;
+      let reward = {};
+      let bonusMsg = "";
       if (mission.kind === "castle") {
-        reward = {};
         Object.entries(enemy.bank).forEach(([r, v]) => { if (Math.round(v) > 0) reward[r] = Math.round(v); });
         enemy.bank = { food: 0, wood: 0, stone: 0, gold: 0 };
+      } else if (mission.kind === "raid") {
+        const boss = RAID_BOSSES.find((b) => b.id === mission.targetId);
+        const types = ["food", "wood", "stone", "gold"];
+        const type = types[Math.floor(Math.random() * types.length)];
+        reward[type] = (reward[type] || 0) + boss.reward.resourceAmount;
+        reward.gold = (reward.gold || 0) + boss.reward.goldBonus;
+        state.raids[boss.id].defeated = true;
+        state.raidShards += boss.reward.shards;
+        const ticketKey = boss.reward.ticketRarity >= 6 ? "t6" : "t5";
+        state.raidTickets[ticketKey] += boss.reward.ticketCount;
+        bonusMsg = ` 만능 조각 +${boss.reward.shards}, ★${boss.reward.ticketRarity}+ 확정 소환권 +${boss.reward.ticketCount}장!`;
       } else {
         reward = monsterReward(enemy.level, enemy.elite);
       }
       Object.entries(reward).forEach(([r, v]) => addRes(r, v));
-      toast(`⚔️ 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level}) 처치!${totalLost > 0 ? ` 병사 ${totalLost}명 손실.` : ""} 보상: ${costText(reward)}`);
-      logEvent(`⚔️ 부대 ${squadIdx + 1} 승리! ${enemy.name}(Lv.${enemy.level}) 처치, 보상 ${costText(reward)}`, "battle-win");
+      toast(`⚔️ 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level}) 처치!${totalLost > 0 ? ` 병사 ${totalLost}명 손실.` : ""} 보상: ${costText(reward)}${bonusMsg}`);
+      logEvent(`⚔️ 부대 ${squadIdx + 1} 승리! ${enemy.name}(Lv.${enemy.level}) 처치, 보상 ${costText(reward)}${bonusMsg}`, "battle-win");
       if (mission.kind === "monster") {
         const slot = state.monsters.find((s) => s.id === mission.targetId);
         if (slot) { slot.monster = null; slot.respawnTimer = 8 + Math.floor(Math.random() * 8); }
-      } else if (mission.kind === "raid") {
-        const boss = RAID_BOSSES.find((b) => b.id === mission.targetId);
-        if (boss) state.raids[boss.id].cooldownLeft = boss.cooldownSeconds;
       }
     } else {
       toast(`💀 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level})에게 패배했습니다. 병사 ${totalLost}명 손실, 전과 없음.`);
@@ -1653,6 +1718,26 @@
       const upBtn = status.querySelector("#btn-tavern-upgrade");
       if (upBtn && !upBtn.disabled) upBtn.addEventListener("click", () => upgrade("tavern"));
     }
+
+    const ticketSection = document.getElementById("tavern-ticket-section");
+    if (ticketSection) {
+      const t5 = state.raidTickets.t5, t6 = state.raidTickets.t6;
+      ticketSection.innerHTML = `
+        <div class="tavern-status-head"><span class="tavern-status-title">🎫 레이드 확정 소환권</span></div>
+        <div class="ticket-row">
+          <span>★5 이상 확정 (보유 ${t5}장)</span>
+          <button class="btn-use-ticket" data-rarity="5" ${t5 > 0 ? "" : "disabled"}>사용</button>
+        </div>
+        <div class="ticket-row">
+          <span>★6 이상 확정 (보유 ${t6}장)</span>
+          <button class="btn-use-ticket" data-rarity="6" ${t6 > 0 ? "" : "disabled"}>사용</button>
+        </div>
+      `;
+      ticketSection.querySelectorAll(".btn-use-ticket").forEach((btn) => {
+        if (btn.disabled) return;
+        btn.addEventListener("click", () => redeemRaidTicket(Number(btn.dataset.rarity)));
+      });
+    }
   }
   function renderTavernCards() {
     const grid = document.getElementById("tavern-grid");
@@ -1819,12 +1904,17 @@
           <p>레벨 ${revealed ? enemy.level : "?"}</p>
           <p>${revealed ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : `감시탑 Lv.${requiredWatchLevelFor(enemy.level)}+ 필요 (야생 몬스터만 해당)`}</p>
           ${kind === "castle" ? `<p>승리 시 이 성이 그동안 모은 자원을 전부 획득합니다: ${costText(enemy.bank && Object.fromEntries(Object.entries(enemy.bank).filter(([, v]) => v >= 1).map(([k, v]) => [k, Math.round(v)])))}</p>` : ""}
-          ${kind === "monster" || kind === "raid"
+          ${kind === "monster"
             ? revealed
-              ? `<p>승리 시 보상: 🌾🪵🪨🪙 중 1종 <b>${monsterRewardAmount(enemy.level, enemy.elite).toLocaleString()}개</b>(무작위)${enemy.elite ? ` + 🪙${Math.round(monsterRewardAmount(enemy.level, enemy.elite) * 0.6).toLocaleString()}(엘리트 추가)` : ""}</p>`
+              ? `<p>승리 시 보상: 🌾🪵🪨🪙 중 1종 <b>${monsterRewardAmount(enemy.level, enemy.elite).toLocaleString()}개</b>(무작위)</p>`
               : `<p>승리 시 보상: 감시탑으로 정보를 공개해야 예상 보상을 볼 수 있습니다</p>`
             : ""}
-          ${kind === "raid" ? `<p><small>처치 후 ${formatDuration(RAID_BOSSES.find((b) => b.id === targetId).cooldownSeconds)} 동안 이 보스는 쿨다운에 들어갑니다.</small></p>` : ""}
+          ${kind === "raid" ? (() => {
+            const boss = RAID_BOSSES.find((b) => b.id === targetId);
+            const r = boss.reward;
+            return `<p>승리 시 보상: 자원 무작위 1종 <b>${r.resourceAmount.toLocaleString()}개</b> + 🪙${r.goldBonus.toLocaleString()} · 만능 조각 ${r.shards}개 · ★${r.ticketRarity}+ 확정 소환권 ${r.ticketCount}장</p>
+            <p><small>⚠️ 이 보스는 한 번 처치하면 이 세이브에서 다시 도전할 수 없습니다.</small></p>`;
+          })() : ""}
           <p><span id="verdict-badge" class="verdict-badge">-</span></p>
         </div>
         <div class="col">
@@ -1909,31 +1999,36 @@
     return `${sec}초`;
   }
   function raidActionHTML(boss) {
+    if (state.raids[boss.id].defeated) return `<span class="raid-status defeated">✅ 처치 완료</span>`;
     const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "raid" && a.mission.targetId === boss.id);
     if (attackingIdx >= 0) {
       const mission = state.armies[attackingIdx].mission;
       return `<span class="raid-status inprogress">부대${attackingIdx + 1} ${mission.phase === "march" ? "진군 중" : "전투 중"}… ${mission.timeLeft}s</span>`;
     }
-    const cooldownLeft = state.raids[boss.id].cooldownLeft;
-    if (cooldownLeft > 0) return `<span class="raid-status cooldown">⏳ ${formatDuration(cooldownLeft)} 후 도전 가능</span>`;
+    if (!raidBossUnlocked(boss)) {
+      const prevName = RAID_BOSSES.find((b) => b.id === boss.requires)?.name || "";
+      return `<span class="raid-status locked">🔒 ${prevName} 처치 필요</span>`;
+    }
     return `<button class="do-raid-attack" data-id="${boss.id}">⚔️ 도전</button>`;
   }
   function renderRaidModal() {
     const body = document.getElementById("raid-modal-body");
     body.innerHTML = `
       <h2>👑 보스 레이드</h2>
-      <p class="raid-intro">필드에서는 만날 수 없는 강력한 엘리트 몬스터들입니다. 처치하면 큰 보상을 주지만, 한 번 물리치면 각자 정해진 쿨다운이 지나야 다시 도전할 수 있습니다.</p>
+      <p class="raid-intro">필드·월드맵보다 압도적으로 강한 6단계 보스 체인입니다. 앞 보스를 처치해야 다음 보스에 도전할 수 있고, 한 번 처치한 보스는 이 세이브에서 다시 도전할 수 없습니다.</p>
+      <p class="raid-inventory">🧩 만능 조각 보유: <b>${state.raidShards}</b>개 · 🎫 ★5+ 확정권 <b>${state.raidTickets.t5}</b>장 · 🎫 ★6+ 확정권 <b>${state.raidTickets.t6}</b>장</p>
       <div class="raid-list">
         ${RAID_BOSSES.map((boss) => {
           const s = raidBossStats(boss);
-          const amount = monsterRewardAmount(boss.level, true);
+          const r = boss.reward;
+          const locked = !state.raids[boss.id].defeated && !raidBossUnlocked(boss);
           return `
-          <div class="raid-row">
+          <div class="raid-row ${state.raids[boss.id].defeated ? "cleared" : ""} ${locked ? "locked" : ""}">
             <div class="icon">${monsterIconHTML(boss.key)}</div>
             <div class="raid-info">
               <div class="raid-name">${boss.name} 👑 <span class="raid-level">Lv.${boss.level}</span></div>
               <div class="raid-stats">⚔️${s.atk.toLocaleString()} 🛡️${s.def.toLocaleString()} ❤️${s.hp.toLocaleString()}</div>
-              <div class="raid-reward">보상: 🌾🪵🪨🪙 중 1종 ${amount.toLocaleString()}개 + 🪙${Math.round(amount * 0.6).toLocaleString()}</div>
+              <div class="raid-reward">보상: 자원 1종 ${r.resourceAmount.toLocaleString()} + 🪙${r.goldBonus.toLocaleString()} · 조각 ${r.shards} · ★${r.ticketRarity}+ 소환권 ${r.ticketCount}장</div>
             </div>
             <div class="raid-action">${raidActionHTML(boss)}</div>
           </div>`;
@@ -2101,6 +2196,17 @@
     document.getElementById("codex-progress").textContent = `(${ownedCount} / ${HEROES.length} 수집)`;
   }
   // 영웅 상세 패널 HTML(도감/보유 영웅 모달 공용)
+  // 레이드에서 받은 "만능 조각"(어떤 영웅에게든 쓸 수 있음) n개를 이 영웅의 조각으로 전환한다
+  function applyRaidShards(heroId, amount) {
+    const owned = state.owned[heroId];
+    if (!owned) return;
+    const n = Math.max(0, Math.min(Math.floor(amount) || 0, state.raidShards));
+    if (n <= 0) { toast("적용할 조각 수를 입력하세요"); return; }
+    state.raidShards -= n;
+    owned.shards += n;
+    toast(`🧩 만능 조각 ${n}개를 ${HERO_BY_ID[heroId].name}에게 적용했습니다`);
+    save();
+  }
   function heroDetailHTML(heroId) {
     const hero = HERO_BY_ID[heroId];
     const owned = state.owned[heroId];
@@ -2115,6 +2221,12 @@
       <p>공격 ${hero.atk} · 방어 ${hero.def} · 체력 ${hero.hp}</p>
       <p>누적 영입 ${owned.count}회 · 조각: ${owned.shards}${needed !== null ? ` / 강화 필요 ${needed}` : " (최고 강화 +" + MAX_ENHANCE + "강)"}</p>
       ${needed !== null ? `<button class="do-enhance" data-hero="${heroId}">강화하기 (+1강)</button>` : ""}
+      ${needed !== null && state.raidShards > 0 ? `
+        <div class="shard-apply-row">
+          <input type="number" class="raid-shard-input" min="1" max="${state.raidShards}" value="${Math.min(state.raidShards, Math.max(1, needed - owned.shards))}" />
+          <button class="do-apply-shards" data-hero="${heroId}">🧩 만능 조각 적용 (보유 ${state.raidShards})</button>
+        </div>
+      ` : ""}
     `;
   }
   function renderCodexDetail(heroId) {
@@ -2122,6 +2234,13 @@
     panel.innerHTML = heroDetailHTML(heroId);
     const btn = panel.querySelector(".do-enhance");
     if (btn) btn.addEventListener("click", () => { enhance(heroId); renderCodexDetail(heroId); renderCodexGrid(); });
+    const shardBtn = panel.querySelector(".do-apply-shards");
+    if (shardBtn) shardBtn.addEventListener("click", () => {
+      const input = panel.querySelector(".raid-shard-input");
+      applyRaidShards(heroId, Number(input.value));
+      renderCodexDetail(heroId);
+      renderCodexGrid();
+    });
   }
   document.getElementById("btn-codex").addEventListener("click", () => {
     renderCodexFilters();
@@ -2156,6 +2275,12 @@
     panel.innerHTML = heroDetailHTML(heroId);
     const btn = panel.querySelector(".do-enhance");
     if (btn) btn.addEventListener("click", () => { enhance(heroId); renderOwnedHeroDetail(heroId); });
+    const shardBtn = panel.querySelector(".do-apply-shards");
+    if (shardBtn) shardBtn.addEventListener("click", () => {
+      const input = panel.querySelector(".raid-shard-input");
+      applyRaidShards(heroId, Number(input.value));
+      renderOwnedHeroDetail(heroId);
+    });
   }
   document.getElementById("btn-heroes").addEventListener("click", () => {
     renderOwnedHeroesGrid();

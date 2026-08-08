@@ -661,6 +661,75 @@ monsterBuilders.cerberus = () => {
   });
   return svg(s);
 };
+// 레이드 확장 보스 3종 — 엘리트 3종보다도 한 단계 더 위협적으로(더 크고 화려하게)
+monsterBuilders.echidna = () => {
+  const scale = "#8B6BA8", skin = "#E8B98A";
+  const tailC = shade(scale, -0.05);
+  const hg = roundFill(skin);
+  let s = ground(50, 92, 28);
+  s += `<path d="M 50 58 Q 72 64 60 78" fill="none" stroke="${tailC}" stroke-width="19" stroke-linecap="round"/>`;
+  s += `<path d="M 60 76 Q 46 84 62 92" fill="none" stroke="${tailC}" stroke-width="14" stroke-linecap="round"/>`;
+  s += `<path d="M 61 90 Q 52 96 66 98" fill="none" stroke="${tailC}" stroke-width="8" stroke-linecap="round"/>`;
+  s += `<path d="M 55 62 Q 61 65 58 70" fill="none" stroke="${shade(scale, -0.28)}" stroke-width="1.6" opacity="0.5"/>`;
+  s += `<path d="M 56 82 Q 50 85 53 89" fill="none" stroke="${shade(scale, -0.28)}" stroke-width="1.6" opacity="0.5"/>`;
+  s += bentLimb(40, 46, 30, 50, 24, 58, 3.8, skin, "claw");
+  s += bentLimb(60, 46, 70, 50, 76, 58, 3.8, skin, "claw");
+  s += `${hg.defs}<ellipse cx="50" cy="46" rx="12.5" ry="16" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 40, 3.4, 1.8);
+  for (let i = 0; i < 7; i++) {
+    const ang = (Math.PI / 6) * i - Math.PI * 1.05;
+    const x1 = 50 + Math.cos(ang) * 13, y1 = 38 + Math.sin(ang) * 13;
+    const x2 = 50 + Math.cos(ang) * 23, y2 = 38 + Math.sin(ang) * 20;
+    s += `<path d="M ${x1} ${y1} Q ${x2 + 4} ${y2 - 4} ${x2} ${y2}" fill="none" stroke="${scale}" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  s += `<path d="M 42 32 L 45 24 L 50 30 L 55 24 L 58 32 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
+  s += eyes(50, 44, 4, 1.8);
+  s += smile(50, 50, 3);
+  return svg(s);
+};
+monsterBuilders.typhon = () => {
+  const hide = "#4A4A5E";
+  const wingC = shade(hide, -0.1);
+  const bg = roundFill(hide);
+  let s = ground(50, 92, 32);
+  const wing = (x, dir) => `<path d="M ${x} 54 Q ${x + dir * 24} 36 ${x + dir * 32} 52 Q ${x + dir * 22} 50 ${x + dir * 15} 60 Q ${x + dir * 8} 56 ${x} 64 Z" fill="${wingC}" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round" opacity="0.94"/>`;
+  s += wing(37, -1) + wing(63, 1);
+  s += bentLimb(38, 78, 33, 86, 28, 92, 6.5, hide, "claw");
+  s += bentLimb(62, 78, 67, 86, 72, 92, 6.5, hide, "claw");
+  s += `${bg.defs}<ellipse cx="50" cy="66" rx="19" ry="20" fill="${bg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(43, 58, 5, 2.6);
+  // 뿔+주둥이가 있는 큰 머리 하나로 단순화(작은 목 2개는 날개와 겹쳐 시인성이
+  // 떨어져서 제외) — 대신 턱 아래로 확실히 보이는 불길로 위협감을 준다
+  const hg = roundFill(hide);
+  s += earPair(50, 32, 8, 9, shade(hide, -0.15));
+  s += `${hg.defs}<circle cx="50" cy="38" r="15" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.8"/>`;
+  s += gloss(43, 32, 4.2, 2.2);
+  s += muzzle(50, 47, 6.5, 4.6, shade(hide, 0.08));
+  s += `<circle cx="44" cy="36" r="2.4" fill="${P.red}"/><circle cx="56" cy="36" r="2.4" fill="${P.red}"/>`;
+  const flameOuter = dGrad(shade(P.red, 0.15), shade(P.roofDeep, -0.05));
+  const flameInner = dGrad(shade(P.gold, 0.35), P.gold);
+  // 위가 아니라 아래로 향하는 불길(입에서 뿜어져 나오는 모습)
+  const tongueDown = (x, y, h, w, grad) => `<path d="M ${x - w} ${y} Q ${x - w * 1.3} ${y + h * 0.55} ${x} ${y + h} Q ${x + w * 1.3} ${y + h * 0.55} ${x + w} ${y} Z" fill="${grad.id}" stroke="${P.ink}" stroke-width="1.3" stroke-linejoin="round"/>`;
+  s += `${flameOuter.defs}${tongueDown(46, 53, 11, 3, flameOuter)}${tongueDown(54, 53, 11, 3, flameOuter)}`;
+  s += `${flameInner.defs}${tongueDown(50, 53, 14, 3.4, flameInner)}`;
+  return svg(s);
+};
+monsterBuilders.cronus = () => {
+  const robe = "#5B4A3A", skin = "#C89A72", metal = "#8F7B4E";
+  const rg = roundFill(robe), hg = roundFill(skin), blade = dGrad(shade(P.stone, 0.2), shade(P.stoneDeep, -0.1));
+  let s = ground(50, 90, 24);
+  s += `<line x1="70" y1="20" x2="34" y2="80" stroke="${shade(metal, -0.2)}" stroke-width="3" stroke-linecap="round"/>`;
+  s += `${blade.defs}<path d="M 68 18 Q 84 20 80 34 Q 74 30 66 28 Z" fill="${blade.id}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/>`;
+  s += `${rg.defs}<path d="M 32 88 Q 30 55 40 46 L 60 46 Q 70 55 68 88 Z" fill="${rg.id}" stroke="${P.ink}" stroke-width="2.6" stroke-linejoin="round"/>`;
+  s += bentLimb(36, 54, 28, 62, 24, 72, 4.2, skin, "claw");
+  s += bentLimb(64, 54, 72, 62, 76, 72, 4.2, skin, "claw");
+  s += `${hg.defs}<circle cx="50" cy="38" r="13" fill="${hg.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(45, 33, 3.4, 1.8);
+  s += `<path d="M 39 30 L 42 20 L 47 27 L 50 18 L 53 27 L 58 20 L 61 30 Z" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  s += `<circle cx="45" cy="38" r="2.4" fill="${P.gold}"/><circle cx="55" cy="38" r="2.4" fill="${P.gold}"/>`;
+  s += `<path d="M 44 46 Q 50 43 56 46" fill="none" stroke="${P.ink}" stroke-width="1.6" stroke-linecap="round" opacity="0.7"/>`;
+  return svg(s);
+};
 
 // ---------- 월드맵: 성채 아이콘(내 도시 1 + NPC 4티어) ----------
 const worldmapBuilders = {};

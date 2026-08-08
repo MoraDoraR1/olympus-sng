@@ -749,10 +749,13 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .help-row .help-name { font-family: var(--font-display); min-width: 90px; }
 .help-row .help-desc { font-size: .87rem; font-weight: 600; }
 
-.raid-intro { font-size: .87rem; font-weight: 600; color: var(--ink-soft); margin: 6px 0 14px; }
+.raid-intro { font-size: .87rem; font-weight: 600; color: var(--ink-soft); margin: 6px 0 8px; }
+.raid-inventory { font-size: .86rem; font-weight: 700; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 14px; }
 .raid-list { display: flex; flex-direction: column; gap: 10px; }
 .raid-row { display: flex; align-items: center; gap: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 .raid-row .icon { font-size: 3.2rem; flex-shrink: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.raid-row.locked { opacity: .55; }
+.raid-row.cleared { opacity: .75; }
 .raid-info { flex: 1; min-width: 0; }
 .raid-name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; }
 .raid-level { font-size: .85rem; color: var(--ink-soft); font-weight: 700; }
@@ -762,6 +765,14 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .raid-action button.do-raid-attack { background: #b0463f; color: #fff; font-size: .92rem; padding: 7px 14px; }
 .raid-status { font-size: .84rem; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
 .raid-status.inprogress { color: var(--wood); }
+.raid-status.defeated { color: var(--easy); }
+.raid-status.locked { color: var(--ink-soft); }
+
+.ticket-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .86rem; font-weight: 700; padding: 6px 0; }
+.ticket-row button { font-size: .82rem; padding: 5px 12px; }
+.shard-apply-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.shard-apply-row input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-weight: 700; }
+.shard-apply-row button { font-size: .85rem; padding: 6px 12px; }
 
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
