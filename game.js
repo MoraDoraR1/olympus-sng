@@ -1970,15 +1970,6 @@
   }
 
   // ---------- 보스 레이드(필드에서 분리된 엘리트 전용 컨텐츠) ----------
-  function formatDuration(totalSeconds) {
-    const s = Math.max(0, Math.floor(totalSeconds));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (h > 0) return `${h}시간 ${m}분`;
-    if (m > 0) return `${m}분 ${sec}초`;
-    return `${sec}초`;
-  }
   function raidActionHTML(boss) {
     if (state.raids[boss.id].defeated) return `<span class="raid-status defeated">✅ 처치 완료</span>`;
     const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "raid" && a.mission.targetId === boss.id);
