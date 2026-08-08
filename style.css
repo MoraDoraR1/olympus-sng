@@ -749,6 +749,20 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .help-row .help-name { font-family: var(--font-display); min-width: 90px; }
 .help-row .help-desc { font-size: .87rem; font-weight: 600; }
 
+.raid-intro { font-size: .87rem; font-weight: 600; color: var(--ink-soft); margin: 6px 0 14px; }
+.raid-list { display: flex; flex-direction: column; gap: 10px; }
+.raid-row { display: flex; align-items: center; gap: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.raid-row .icon { font-size: 3.2rem; flex-shrink: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.raid-info { flex: 1; min-width: 0; }
+.raid-name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; }
+.raid-level { font-size: .85rem; color: var(--ink-soft); font-weight: 700; }
+.raid-stats { font-size: .84rem; font-weight: 600; color: var(--ink-soft); margin-top: 2px; }
+.raid-reward { font-size: .82rem; font-weight: 600; margin-top: 2px; }
+.raid-action { flex-shrink: 0; text-align: right; }
+.raid-action button.do-raid-attack { background: #b0463f; color: #fff; font-size: .92rem; padding: 7px 14px; }
+.raid-status { font-size: .84rem; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+.raid-status.inprogress { color: var(--wood); }
+
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
   background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px;

@@ -168,13 +168,15 @@
     { key: "lamia", name: "라미아", icon: "🦂" },
     { key: "empusa", name: "엠푸사", icon: "👹" },
   ];
-  const ELITE_TYPES = [
-    { key: "medusa", name: "메두사", icon: "🗿" },
-    { key: "hydra", name: "히드라", icon: "🐉" },
-    { key: "cerberus", name: "케르베로스", icon: "🐺" },
+  // 예전엔 필드 8칸에 8% 확률로 섞여 나오던 엘리트 3종을, 상시 목록으로 볼 수 있는
+  // 별도 "보스 레이드" 컨텐츠로 옮겼다. 필드 몬스터와 달리 레벨이 고정이고, 처치
+  // 후에는 무작위 리스폰이 아니라 정해진 쿨다운이 지나야만 다시 도전할 수 있다.
+  const RAID_BOSSES = [
+    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, cooldownSeconds: 3 * 3600 },
+    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, cooldownSeconds: 6 * 3600 },
+    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, cooldownSeconds: 10 * 3600 },
   ];
   const MONSTER_SLOT_COUNT = 8;
-  const ELITE_CHANCE = 0.08;
   function monsterIconHTML(key) {
     return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
   }
@@ -221,13 +223,14 @@
     return reward;
   }
   function spawnMonster(slot) {
-    const elite = Math.random() < ELITE_CHANCE;
-    const pool = elite ? ELITE_TYPES : MONSTER_TYPES;
-    const type = pool[Math.floor(Math.random() * pool.length)];
+    const type = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
     const level = rollMonsterLevel();
-    const stats = monsterStats(level, elite);
-    slot.monster = { key: type.key, name: type.name, icon: type.icon, elite, level, ...stats };
+    const stats = monsterStats(level, false);
+    slot.monster = { key: type.key, name: type.name, icon: type.icon, elite: false, level, ...stats };
     slot.respawnTimer = 0;
+  }
+  function freshRaidsState() {
+    return Object.fromEntries(RAID_BOSSES.map((b) => [b.id, { cooldownLeft: 0 }]));
   }
   function freshMonsterSlots() {
     const slots = [];
@@ -259,11 +262,23 @@
   function enemyIconHTML(kind, enemy) {
     return kind === "castle" ? worldCastleIconHTML(enemy.level) : monsterIconHTML(enemy.key);
   }
+  // 몬스터와 동일한 이유로 성 스탯도 구간형 가속 곡선으로 재설계 — 1~7구간은
+  // 기존 배율 그대로 두고(초반 원정 체감 유지), 8구간부터 더 가팔라진다.
+  function castleStatRate(level, kind) {
+    const RATES = { hp: [1.35, 1.41, 1.47], atk: [1.32, 1.38, 1.44], def: [1.3, 1.36, 1.42] };
+    const tier = level <= 7 ? 0 : level <= 14 ? 1 : 2;
+    return RATES[kind][tier];
+  }
+  function castleStatFactor(level, kind) {
+    let f = 1;
+    for (let l = 2; l <= level; l++) f *= castleStatRate(l, kind);
+    return f;
+  }
   function castleStats(level) {
     return {
-      hp: Math.round(300 * Math.pow(1.35, level - 1)),
-      atk: Math.round(25 * Math.pow(1.32, level - 1)),
-      def: Math.round(18 * Math.pow(1.3, level - 1)),
+      hp: Math.round(300 * castleStatFactor(level, "hp")),
+      atk: Math.round(25 * castleStatFactor(level, "atk")),
+      def: Math.round(18 * castleStatFactor(level, "def")),
     };
   }
   function castleBankRate(level) { return 2 * Math.pow(1.25, level - 1); }
@@ -361,6 +376,7 @@
       armies: Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} })),
       monsters: freshMonsterSlots(),
       worldCastles: freshWorldCastles(),
+      raids: freshRaidsState(),
       lastActiveAt: Date.now(),
     };
   }
@@ -423,7 +439,14 @@
         spawnMonster(slot);
         parsed.monsters.push(slot);
       }
+      // 엘리트가 필드에서 사라지고 보스 레이드로 이관되면서, 기존 세이브에 이미
+      // 나와있던 필드 엘리트는 일반 몬스터로 즉시 교체한다(멱등 — 이후엔 대상 없음)
+      parsed.monsters.forEach((slot) => { if (slot.monster && slot.monster.elite) spawnMonster(slot); });
       if (!parsed.worldCastles) parsed.worldCastles = freshWorldCastles();
+      if (!parsed.raids) parsed.raids = freshRaidsState();
+      RAID_BOSSES.forEach((b) => {
+        if (!parsed.raids[b.id] || typeof parsed.raids[b.id].cooldownLeft !== "number") parsed.raids[b.id] = { cooldownLeft: 0 };
+      });
       Object.values(parsed.owned || {}).forEach((o) => {
         if (typeof o.enhance !== "number") { o.enhance = 0; delete o.star; }
       });
@@ -681,6 +704,10 @@
       const rate = castleBankRate(c.level);
       ["food", "wood", "stone", "gold"].forEach((r) => { c.bank[r] = Math.min(cap, c.bank[r] + rate); });
     });
+    RAID_BOSSES.forEach((b) => {
+      const r = state.raids[b.id];
+      if (r.cooldownLeft > 0) r.cooldownLeft -= 1;
+    });
     state.armies.forEach((army, idx) => {
       if (!army.mission) return;
       army.mission.timeLeft -= 1;
@@ -702,6 +729,7 @@
     if (!document.getElementById("modal-building").hidden && openBuildingTileId) {
       openBuildingModal(openBuildingTileId);
     }
+    if (!document.getElementById("modal-raid").hidden) renderRaidModal();
     save();
   }
   // 탭이 백그라운드에 있거나 브라우저가 완전히 꺼져있던 동안에도 자원/훈련/
@@ -1049,6 +1077,11 @@
   // 몬스터/월드맵 성 공용 타깃 조회: mission.kind에 따라 실제 적 스탯 객체를 찾아준다.
   function findEnemy(kind, targetId) {
     if (kind === "castle") return state.worldCastles.find((c) => c.id === targetId) || null;
+    if (kind === "raid") {
+      const boss = RAID_BOSSES.find((b) => b.id === targetId);
+      if (!boss) return null;
+      return { key: boss.key, name: boss.name, icon: boss.icon, elite: true, level: boss.level, ...monsterStats(boss.level, true) };
+    }
     const slot = state.monsters.find((s) => s.id === targetId);
     return slot && slot.monster ? slot.monster : null;
   }
@@ -1060,6 +1093,7 @@
     if (!army || army.mission) { toast("해당 부대는 이미 출정 중입니다"); return; }
     const enemy = findEnemy(kind, targetId);
     if (!enemy) { toast("공격할 수 없습니다"); return; }
+    if (kind === "raid" && (state.raids[targetId]?.cooldownLeft || 0) > 0) { toast("아직 쿨다운 중입니다"); return; }
     if (state.armies.some((a) => a.mission && a.mission.kind === kind && a.mission.targetId === targetId)) { toast("이미 다른 부대가 그 대상을 공격 중입니다"); return; }
     const total = totalDeployedTroops(comp);
     const owned = totalOwnedTroops();
@@ -1117,6 +1151,9 @@
       if (mission.kind === "monster") {
         const slot = state.monsters.find((s) => s.id === mission.targetId);
         if (slot) { slot.monster = null; slot.respawnTimer = 8 + Math.floor(Math.random() * 8); }
+      } else if (mission.kind === "raid") {
+        const boss = RAID_BOSSES.find((b) => b.id === mission.targetId);
+        if (boss) state.raids[boss.id].cooldownLeft = boss.cooldownSeconds;
       }
     } else {
       toast(`💀 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level})에게 패배했습니다. 병사 ${totalLost}명 손실, 전과 없음.`);
@@ -1749,20 +1786,21 @@
     const enemy = findEnemy(kind, targetId);
     if (!enemy) return;
     const body = document.getElementById("monster-modal-body");
-    const revealed = kind === "castle" ? true : monsterInfoRevealed(enemy.level);
+    const revealed = kind === "castle" || kind === "raid" ? true : monsterInfoRevealed(enemy.level);
     const duration = battleDurationFor(enemy.level, !!enemy.elite);
     body.innerHTML = `
       <div class="modal-cols">
         <div class="col narrow">
-          <h2><span class="modal-icon">${enemyIconHTML(kind, enemy)}</span>${enemy.name} ${enemy.elite ? "👑 엘리트" : ""}</h2>
+          <h2><span class="modal-icon">${enemyIconHTML(kind, enemy)}</span>${enemy.name} ${kind === "raid" ? "👑 레이드 보스" : enemy.elite ? "👑 엘리트" : ""}</h2>
           <p>레벨 ${revealed ? enemy.level : "?"}</p>
           <p>${revealed ? `⚔️ 공격력 ${enemy.atk} · 🛡️ 방어력 ${enemy.def} · ❤️ 체력 ${enemy.hp}` : `감시탑 Lv.${requiredWatchLevelFor(enemy.level)}+ 필요 (야생 몬스터만 해당)`}</p>
           ${kind === "castle" ? `<p>승리 시 이 성이 그동안 모은 자원을 전부 획득합니다: ${costText(enemy.bank && Object.fromEntries(Object.entries(enemy.bank).filter(([, v]) => v >= 1).map(([k, v]) => [k, Math.round(v)])))}</p>` : ""}
-          ${kind === "monster"
+          ${kind === "monster" || kind === "raid"
             ? revealed
               ? `<p>승리 시 보상: 🌾🪵🪨🪙 중 1종 <b>${monsterRewardAmount(enemy.level, enemy.elite).toLocaleString()}개</b>(무작위)${enemy.elite ? ` + 🪙${Math.round(monsterRewardAmount(enemy.level, enemy.elite) * 0.6).toLocaleString()}(엘리트 추가)` : ""}</p>`
               : `<p>승리 시 보상: 감시탑으로 정보를 공개해야 예상 보상을 볼 수 있습니다</p>`
             : ""}
+          ${kind === "raid" ? `<p><small>처치 후 ${formatDuration(RAID_BOSSES.find((b) => b.id === targetId).cooldownSeconds)} 동안 이 보스는 쿨다운에 들어갑니다.</small></p>` : ""}
           <p><span id="verdict-badge" class="verdict-badge">-</span></p>
         </div>
         <div class="col">
@@ -1835,6 +1873,60 @@
     wrap.querySelectorAll(".ec-input").forEach((inp) => inp.addEventListener("input", updateVerdict));
     updateVerdict();
   }
+
+  // ---------- 보스 레이드(필드에서 분리된 엘리트 전용 컨텐츠) ----------
+  function formatDuration(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}시간 ${m}분`;
+    if (m > 0) return `${m}분 ${sec}초`;
+    return `${sec}초`;
+  }
+  function raidActionHTML(boss) {
+    const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "raid" && a.mission.targetId === boss.id);
+    if (attackingIdx >= 0) {
+      const mission = state.armies[attackingIdx].mission;
+      return `<span class="raid-status inprogress">부대${attackingIdx + 1} ${mission.phase === "march" ? "진군 중" : "전투 중"}… ${mission.timeLeft}s</span>`;
+    }
+    const cooldownLeft = state.raids[boss.id].cooldownLeft;
+    if (cooldownLeft > 0) return `<span class="raid-status cooldown">⏳ ${formatDuration(cooldownLeft)} 후 도전 가능</span>`;
+    return `<button class="do-raid-attack" data-id="${boss.id}">⚔️ 도전</button>`;
+  }
+  function renderRaidModal() {
+    const body = document.getElementById("raid-modal-body");
+    body.innerHTML = `
+      <h2>👑 보스 레이드</h2>
+      <p class="raid-intro">필드에서는 만날 수 없는 강력한 엘리트 몬스터들입니다. 처치하면 큰 보상을 주지만, 한 번 물리치면 각자 정해진 쿨다운이 지나야 다시 도전할 수 있습니다.</p>
+      <div class="raid-list">
+        ${RAID_BOSSES.map((boss) => {
+          const s = monsterStats(boss.level, true);
+          const amount = monsterRewardAmount(boss.level, true);
+          return `
+          <div class="raid-row">
+            <div class="icon">${monsterIconHTML(boss.key)}</div>
+            <div class="raid-info">
+              <div class="raid-name">${boss.name} 👑 <span class="raid-level">Lv.${boss.level}</span></div>
+              <div class="raid-stats">⚔️${s.atk.toLocaleString()} 🛡️${s.def.toLocaleString()} ❤️${s.hp.toLocaleString()}</div>
+              <div class="raid-reward">보상: 🌾🪵🪨🪙 중 1종 ${amount.toLocaleString()}개 + 🪙${Math.round(amount * 0.6).toLocaleString()}</div>
+            </div>
+            <div class="raid-action">${raidActionHTML(boss)}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+    body.querySelectorAll(".do-raid-attack").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        closeModal("modal-raid");
+        openEngageModal("raid", btn.dataset.id);
+      });
+    });
+  }
+  document.getElementById("btn-raid").addEventListener("click", () => {
+    renderRaidModal();
+    openModal("modal-raid");
+  });
 
   // ---------- 군대 편성(다중 부대) ----------
   function openArmyModal() {
