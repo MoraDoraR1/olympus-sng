@@ -182,12 +182,28 @@
   function rollMonsterLevel() {
     return 1 + Math.floor(Math.pow(Math.random(), 1.5) * 30);
   }
+  // 몬스터 스탯 성장률 — 예전엔 전 레벨 균일 배율이라 병사 스탯만 놓고 보면 맞아
+  // 보였지만, 실제로는 배치된 영웅의 고정 공/방/체 기여가 병사 몇 명 규모를
+  // 가볍게 뛰어넘어서 좋은 영웅 소수 + 최소 인원 병사만으로도 중후반 레벨(예: 17)까지
+  // 손쉽게 뚫리는 문제가 있었다. 1~10구간은 기존 배율 그대로 둬 초반 체감은 유지하고,
+  // 11구간부터 성장률 자체를 가파르게 올려 "영웅이 강할수록 더 높은 레벨까지 도전
+  // 가능"은 유지하되, 왕관급 영웅 소수만으로 전체 레벨을 무력화하지 못하게 했다.
+  function monsterStatRate(level, kind) {
+    const RATES = { hp: [1.22, 1.33, 1.44], atk: [1.20, 1.29, 1.37], def: [1.18, 1.26, 1.33] };
+    const tier = level <= 10 ? 0 : level <= 20 ? 1 : 2;
+    return RATES[kind][tier];
+  }
+  function monsterStatFactor(level, kind) {
+    let f = 1;
+    for (let l = 2; l <= level; l++) f *= monsterStatRate(l, kind);
+    return f;
+  }
   function monsterStats(level, elite) {
     const m = elite ? 3 : 1;
     return {
-      hp: Math.round(55 * Math.pow(1.22, level - 1) * m),
-      atk: Math.round(8 * Math.pow(1.2, level - 1) * m),
-      def: Math.round(5 * Math.pow(1.18, level - 1) * m),
+      hp: Math.round(55 * monsterStatFactor(level, "hp") * m),
+      atk: Math.round(8 * monsterStatFactor(level, "atk") * m),
+      def: Math.round(5 * monsterStatFactor(level, "def") * m),
     };
   }
   // 승리 시 실제로 얻는 자원량(레벨/엘리트로 결정, 결정론적) — 종류만 처치 시점에 무작위로 고른다
