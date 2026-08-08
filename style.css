@@ -167,45 +167,42 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  touch-action: none;
 }
+.worldmap-viewport:active { cursor: grabbing; }
+.conquest-status { padding: 10px 20px 0; text-align: center; }
+.conquest-msg { color: var(--ink-soft); font-weight: 700; margin: 0 0 8px; }
+/* 그리드 칸 수(15x9)·칸 크기(72px)는 game.js의 CONQUEST_VIEW_W/H·CONQUEST_TILE_PX와
+   맞춰져 있다 — JS가 매 렌더마다 같은 값을 다시 넣어주지만, 로그인 전/로딩 중처럼
+   JS가 아직 안 그린 상태에서도 빈 그리드가 정상 크기로 보이도록 기본값도 둔다. */
 .worldmap-field {
-  position: relative;
-  width: 1600px;
-  height: 852px;
+  display: grid;
+  grid-template-columns: repeat(15, 72px);
+  grid-template-rows: repeat(9, 72px);
+  gap: 3px;
   flex: 0 0 auto;
+  padding: 10px;
   border: 3px dashed var(--line); border-radius: 20px;
   background-image: linear-gradient(160deg, rgba(231,162,107,0.08), transparent), url("assets/worldmap/background.svg");
   background-size: cover;
   background-position: center;
   transform-origin: center center;
+  user-select: none;
 }
-.wm-castle, .wm-mine {
-  position: absolute; transform: translate(-50%, -50%);
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  width: 110px; pointer-events: auto;
+.conquest-cell {
+  width: 72px; height: 72px; border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 55%, #4a7a4f);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; overflow: hidden;
 }
-.wm-castle .icon, .wm-mine .icon { font-size: 4.4rem; position: relative; z-index: 1; animation: idle-float 2.4s ease-in-out infinite; filter: drop-shadow(0 3px 3px rgba(0,0,0,.25)); }
-.wm-castle.in-battle .icon { animation: idle-float 2.4s ease-in-out infinite, battle-shake .35s ease-in-out infinite; }
-.wm-mine .icon { font-size: 4.8rem; animation-duration: 3s; }
-.wm-castle .wm-name,
-.wm-castle .wm-bank,
-.wm-castle .wm-status,
-.wm-mine .wm-name {
-  position: relative; z-index: 2;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  border-radius: 999px;
-  padding: 0 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.15);
-  text-shadow: none;
-}
-.wm-castle .wm-name, .wm-mine .wm-name { font-family: var(--font-display); font-size: .74rem; margin-top: -20px; font-weight: 700; }
-.wm-castle .wm-bank { font-size: .66rem; color: var(--gold); font-weight: 800; }
-.wm-castle .wm-status { font-size: .68rem; font-weight: 800; color: var(--wood); }
-.wm-castle button.do-attack-castle { font-size: .74rem; padding: 4px 10px; background: #b0463f; color: #fff; }
-.wm-marcher {
-  position: absolute; transform: translate(-50%, -50%); font-size: 1.7rem;
-  display: flex; align-items: flex-end; gap: .14em;
-  transition: left 1s linear, top 1s linear; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3));
+.conquest-cell.occupied { background: color-mix(in srgb, var(--panel) 55%, var(--roof)); }
+.conquest-cell.me { outline: 3px solid var(--gold); outline-offset: -3px; }
+.conquest-cell.protected { box-shadow: inset 0 0 0 2px #6bd4ff; }
+.conquest-cell-icon { font-size: 1.5rem; line-height: 1; }
+.conquest-cell-name {
+  font-family: var(--font-display); font-size: .64rem; font-weight: 700;
+  max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* 화면 아래쪽 남은 공간을 전부 차지하고, 그 안에서 kingdom-stage를 실제 크기 그대로
@@ -415,14 +412,12 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 /* 전투 중: 흔들림 + 교전 이펙트로 실제 싸움이 벌어지는 느낌을 준다 */
 .monster-card.in-battle .icon { animation: idle-float 2.2s ease-in-out infinite, battle-shake .35s ease-in-out infinite; }
-.monster-card .battle-clash,
-.wm-castle .battle-clash {
+.monster-card .battle-clash {
   position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
   font-size: 3.6rem; z-index: 3; pointer-events: none;
   animation: clash-pulse .5s ease-in-out infinite;
   filter: drop-shadow(0 0 8px rgba(255,255,255,.85));
 }
-.wm-castle .battle-clash { font-size: 2.2rem; top: 38%; }
 @keyframes battle-shake {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   20% { transform: translate(-4px, 3px) rotate(-3deg); }

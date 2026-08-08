@@ -27,6 +27,15 @@ db.exec(`
     state_json TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS world_tiles (
+    player_id INTEGER PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+    x INTEGER NOT NULL,
+    y INTEGER NOT NULL,
+    spawned_at INTEGER NOT NULL,
+    protected_until INTEGER NOT NULL,
+    UNIQUE(x, y)
+  );
 `);
 
 module.exports = { db, DB_PATH };

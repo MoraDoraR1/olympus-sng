@@ -5,6 +5,7 @@ const { register, login } = require("./auth");
 const { requireAuth } = require("./middleware");
 const { db } = require("./db");
 const ws = require("./ws");
+const conquest = require("./conquest");
 
 const PORT = process.env.PORT || 8787;
 // 클라이언트가 백엔드와 다른 origin(예: GitHub Pages)에서 서빙되는 걸 전제로 CORS 허용.
@@ -61,6 +62,32 @@ app.put("/api/state", requireAuth, (req, res) => {
   const now = Date.now();
   upsertStateStmt.run(req.player.id, JSON.stringify(state), now);
   res.json({ ok: true, updatedAt: now });
+});
+
+app.get("/api/conquest/me", requireAuth, (req, res) => {
+  res.json({
+    tile: conquest.myTile(req.player.id),
+    unlocked: conquest.isUnlocked(req.player.id),
+    mapWidth: conquest.MAP_WIDTH,
+    mapHeight: conquest.MAP_HEIGHT,
+  });
+});
+
+app.post("/api/conquest/spawn", requireAuth, (req, res) => {
+  const result = conquest.trySpawn(req.player.id);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ tile: result.tile });
+});
+
+app.get("/api/conquest/tiles", requireAuth, (req, res) => {
+  const x0 = parseInt(req.query.x0, 10);
+  const y0 = parseInt(req.query.y0, 10);
+  const x1 = parseInt(req.query.x1, 10);
+  const y1 = parseInt(req.query.y1, 10);
+  if ([x0, y0, x1, y1].some((n) => !Number.isFinite(n))) {
+    return res.status(400).json({ error: "x0,y0,x1,y1 쿼리 파라미터가 필요합니다." });
+  }
+  res.json({ tiles: conquest.tilesInViewport(x0, y0, x1, y1) });
 });
 
 const server = http.createServer(app);

@@ -2426,58 +2426,172 @@
   });
 
   // ---------- 월드맵: 레벨1~20 성을 경로 형태로 배치 ----------
-  function castlePosition(level) {
-    const idx = level - 1;
-    const row = Math.floor(idx / 5);
-    let col = idx % 5;
-    if (row % 2 === 1) col = 4 - col;
-    return { left: 8 + col * 21, top: 20 + row * 20 };
+  // ---------- 정복(PvP 월드맵): 거대 타일 그리드 + 서버 동기화 ----------
+  // 아래 세 상수는 style.css의 .worldmap-field/.conquest-cell 기본값과 맞춰져 있다.
+  const CONQUEST_TILE_PX = 72;
+  const CONQUEST_VIEW_W = 15;
+  const CONQUEST_VIEW_H = 9;
+  const CONQUEST_FETCH_INTERVAL_MS = 4000;
+  let conquestInfo = null; // GET /api/conquest/me 캐시: { tile, unlocked, mapWidth, mapHeight }
+  let conquestCamera = null; // 뷰포트 좌상단 타일 좌표
+  const conquestTiles = new Map(); // "x,y" -> { x, y, nickname, protectedUntil }
+  let conquestLoading = false;
+  let lastConquestFetchAt = 0;
+
+  function clampConquestCamera(x, y) {
+    const mapW = (conquestInfo && conquestInfo.mapWidth) || CONQUEST_VIEW_W;
+    const mapH = (conquestInfo && conquestInfo.mapHeight) || CONQUEST_VIEW_H;
+    const maxX = Math.max(0, mapW - CONQUEST_VIEW_W);
+    const maxY = Math.max(0, mapH - CONQUEST_VIEW_H);
+    return { x: Math.max(0, Math.min(maxX, Math.round(x))), y: Math.max(0, Math.min(maxY, Math.round(y))) };
   }
-  function renderWorldMap() {
+
+  async function loadConquestViewportTiles() {
+    if (!conquestCamera) return;
+    const pad = 3; // 드래그 중에도 화면이 덜 비어 보이도록 보이는 범위보다 살짝 넓게 미리 받아둔다
+    const x0 = Math.max(0, conquestCamera.x - pad);
+    const y0 = Math.max(0, conquestCamera.y - pad);
+    const x1 = conquestCamera.x + CONQUEST_VIEW_W - 1 + pad;
+    const y1 = conquestCamera.y + CONQUEST_VIEW_H - 1 + pad;
+    try {
+      const res = await apiRequest(`/api/conquest/tiles?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
+      res.tiles.forEach((t) => conquestTiles.set(t.x + "," + t.y, t));
+      renderConquestBody();
+    } catch (e) {}
+  }
+
+  async function refreshConquestInfo() {
+    conquestLoading = true;
+    try {
+      conquestInfo = await apiRequest("/api/conquest/me");
+      if (conquestInfo.tile && !conquestCamera) {
+        conquestCamera = clampConquestCamera(conquestInfo.tile.x - Math.floor(CONQUEST_VIEW_W / 2), conquestInfo.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
+      }
+      if (conquestInfo.tile) await loadConquestViewportTiles();
+    } catch (e) {}
+    conquestLoading = false;
+    renderConquestBody();
+  }
+
+  async function doConquestSpawn() {
+    try {
+      const res = await apiRequest("/api/conquest/spawn", { method: "POST" });
+      conquestInfo.tile = res.tile;
+      conquestCamera = clampConquestCamera(res.tile.x - Math.floor(CONQUEST_VIEW_W / 2), res.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
+      lastConquestFetchAt = 0;
+      await loadConquestViewportTiles();
+      renderConquestBody();
+      toast("⚔️ 정복 맵에 참가했습니다! 30분간 보호받습니다.");
+      logEvent("⚔️ 정복 맵에 참가했습니다", "build");
+    } catch (e) {
+      toast(e.message || "참가에 실패했습니다.");
+    }
+  }
+
+  function formatCountdownShort(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) return `${h}시간 ${m}분`;
+    if (m > 0) return `${m}분 ${s}초`;
+    return `${s}초`;
+  }
+
+  function renderConquestGrid() {
     const field = document.getElementById("worldmap-field");
-    if (!field) return;
+    field.style.gridTemplateColumns = `repeat(${CONQUEST_VIEW_W}, ${CONQUEST_TILE_PX}px)`;
+    field.style.gridTemplateRows = `repeat(${CONQUEST_VIEW_H}, ${CONQUEST_TILE_PX}px)`;
     field.innerHTML = "";
-    const my = document.createElement("div");
-    my.className = "wm-castle wm-mine";
-    my.style.left = "6%";
-    my.style.top = "6%";
-    my.innerHTML = `<div class="icon"><img src="assets/worldmap/castle_mine.svg" alt="내 도시" /></div><div class="wm-name">내 도시</div>`;
-    field.appendChild(my);
-    state.worldCastles.forEach((c) => {
-      const pos = castlePosition(c.level);
-      const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "castle" && a.mission.targetId === c.id);
-      const inBattle = attackingIdx >= 0 && state.armies[attackingIdx].mission.phase === "battle";
-      const node = document.createElement("div");
-      node.className = "wm-castle" + (inBattle ? " in-battle" : "");
-      node.style.left = pos.left + "%";
-      node.style.top = pos.top + "%";
-      const bankTotal = Math.round(Object.values(c.bank).reduce((s, v) => s + v, 0));
-      node.innerHTML = `
-        <div class="icon">${worldCastleIconHTML(c.level)}</div>
-        ${inBattle ? `<div class="battle-clash">⚔️</div>` : ""}
-        <div class="wm-name">Lv.${c.level} ${c.name}</div>
-        <div class="wm-bank">💰 ${bankTotal}</div>
-        ${attackingIdx >= 0
-          ? `<div class="wm-status">부대${attackingIdx + 1} ${state.armies[attackingIdx].mission.phase === "march" ? "진군 중" : "전투 중"}</div>`
-          : `<button class="do-attack-castle">공격</button>`}
-      `;
-      if (attackingIdx < 0) node.querySelector(".do-attack-castle").addEventListener("click", () => openEngageModal("castle", c.id));
-      field.appendChild(node);
-    });
-    state.armies.forEach((army) => {
-      if (!army.mission || army.mission.kind !== "castle" || army.mission.phase !== "march") return;
-      const target = state.worldCastles.find((c) => c.id === army.mission.targetId);
-      if (!target) return;
-      const pos = castlePosition(target.level);
-      const progress = 1 - army.mission.timeLeft / army.mission.marchTime;
-      const marcher = document.createElement("div");
-      marcher.className = "wm-marcher";
-      marcher.style.left = (6 + (pos.left - 6) * progress) + "%";
-      marcher.style.top = (6 + (pos.top - 6) * progress) + "%";
-      marcher.innerHTML = marchingSquadHTML();
-      field.appendChild(marcher);
-    });
+    const now = Date.now();
+    for (let dy = 0; dy < CONQUEST_VIEW_H; dy++) {
+      for (let dx = 0; dx < CONQUEST_VIEW_W; dx++) {
+        const x = conquestCamera.x + dx;
+        const y = conquestCamera.y + dy;
+        const cell = document.createElement("div");
+        cell.className = "conquest-cell";
+        cell.title = `(${x}, ${y})`;
+        const occ = conquestTiles.get(x + "," + y);
+        const isMe = conquestInfo.tile && conquestInfo.tile.x === x && conquestInfo.tile.y === y;
+        if (isMe) cell.classList.add("me");
+        if (occ) {
+          cell.classList.add("occupied");
+          if (occ.protectedUntil > now) cell.classList.add("protected");
+          cell.innerHTML = `<span class="conquest-cell-icon">🏰</span><span class="conquest-cell-name"></span>`;
+          cell.querySelector(".conquest-cell-name").textContent = occ.nickname;
+        }
+        field.appendChild(cell);
+      }
+    }
   }
+
+  function renderConquestBody() {
+    const statusEl = document.getElementById("conquest-status");
+    const field = document.getElementById("worldmap-field");
+    if (!conquestInfo) {
+      statusEl.innerHTML = `<p class="conquest-msg">불러오는 중...</p>`;
+      field.innerHTML = "";
+      return;
+    }
+    if (!conquestInfo.unlocked) {
+      statusEl.innerHTML = `<p class="conquest-msg">🔒 정복은 성 레벨 5부터 참가할 수 있습니다 (현재 성 레벨 ${state.tiles.castle.level} / 5)</p>`;
+      field.innerHTML = "";
+      return;
+    }
+    if (!conquestInfo.tile) {
+      statusEl.innerHTML = `
+        <p class="conquest-msg">정복 맵에 참가하면 거대한 지도의 무작위 위치에 성이 배정되고, 30분간 다른 플레이어의 공격으로부터 보호받습니다.</p>
+        <button id="btn-conquest-spawn">⚔️ 정복 참가하기</button>
+      `;
+      document.getElementById("btn-conquest-spawn").addEventListener("click", doConquestSpawn);
+      field.innerHTML = "";
+      return;
+    }
+    const protectedLeft = conquestInfo.tile.protectedUntil - Date.now();
+    statusEl.innerHTML = `<p class="conquest-msg">내 위치 (${conquestInfo.tile.x}, ${conquestInfo.tile.y})${protectedLeft > 0 ? ` · 🛡️ 보호 중 (${formatCountdownShort(protectedLeft)} 남음)` : ""} — 드래그해서 지도를 둘러보세요</p>`;
+    renderConquestGrid();
+  }
+
+  function renderWorldMap() {
+    const screenEl = document.getElementById("screen-worldmap");
+    if (!screenEl || screenEl.hidden || !authToken) return;
+    const now = Date.now();
+    if (!conquestLoading && now - lastConquestFetchAt > CONQUEST_FETCH_INTERVAL_MS) {
+      lastConquestFetchAt = now;
+      refreshConquestInfo();
+    } else {
+      renderConquestBody();
+    }
+  }
+
+  // window에 move/up 리스너를 다는 방식 — 뷰포트 요소 경계를 벗어나 빠르게 드래그해도
+  // (또는 setPointerCapture의 pointerleave 처리가 브라우저마다 미묘하게 달라도) 안정적으로 따라온다.
+  (function setupConquestDrag() {
+    const viewport = document.getElementById("worldmap-viewport");
+    const field = document.getElementById("worldmap-field");
+    let startPX = 0, startPY = 0, startCam = null;
+    function onMove(e) {
+      const scale = Math.min(viewport.clientWidth / field.offsetWidth, viewport.clientHeight / field.offsetHeight) || 1;
+      const dxTiles = -Math.round((e.clientX - startPX) / scale / CONQUEST_TILE_PX);
+      const dyTiles = -Math.round((e.clientY - startPY) / scale / CONQUEST_TILE_PX);
+      const next = clampConquestCamera(startCam.x + dxTiles, startCam.y + dyTiles);
+      if (next.x !== conquestCamera.x || next.y !== conquestCamera.y) {
+        conquestCamera = next;
+        lastConquestFetchAt = 0;
+        renderConquestBody();
+      }
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    viewport.addEventListener("pointerdown", (e) => {
+      if (!conquestCamera) return;
+      startPX = e.clientX; startPY = e.clientY; startCam = { x: conquestCamera.x, y: conquestCamera.y };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+  })();
   // ---------- 화면 꽉 채우기(스케일-투-핏) ----------
   // 도시맵/월드맵은 내부 요소를 고정 px로 설계하고(뷰포트 단위 사용 안 함), 여기서
   // transform:scale()로 통째로 늘리거나 줄여 뷰포트 안에 스크롤 없이 꽉 차게 맞춘다.
