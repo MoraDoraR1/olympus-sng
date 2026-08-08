@@ -196,6 +196,7 @@
     { id: "cronus", key: "cronus", name: "크로노스", icon: "⏳", level: 40, powerMult: 17, requires: "typhon",
       reward: { resourceAmount: 1200000, goldBonus: 720000, shards: 50, ticketRarity: 6, ticketCount: 7 } },
   ];
+  const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 보스별 재도전 대기시간(하루 1회)
   const MONSTER_SLOT_COUNT = 8;
   function monsterIconHTML(key) {
     return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
@@ -250,7 +251,13 @@
     slot.respawnTimer = 0;
   }
   function freshRaidsState() {
-    return Object.fromEntries(RAID_BOSSES.map((b) => [b.id, { defeated: false }]));
+    // defeated: 선행 조건(다음 보스 해금) 판정용 — 한 번이라도 처치하면 영구히 true.
+    // lastDefeatedAt: 재도전 쿨타임(하루) 판정용 — 처치할 때마다 갱신된다.
+    return Object.fromEntries(RAID_BOSSES.map((b) => [b.id, { defeated: false, lastDefeatedAt: null }]));
+  }
+  function raidOnCooldown(bossId) {
+    const last = state.raids[bossId] && state.raids[bossId].lastDefeatedAt;
+    return !!last && Date.now() - last < RAID_COOLDOWN_MS;
   }
   function freshMonsterSlots() {
     const slots = [];
@@ -564,11 +571,16 @@
       parsed.monsters.forEach((slot) => { if (slot.monster && slot.monster.elite) spawnMonster(slot); });
       if (!parsed.worldCastles) parsed.worldCastles = freshWorldCastles();
       if (!parsed.raids) parsed.raids = freshRaidsState();
-      // 예전 세이브의 raids는 {cooldownLeft} 형태(반복 도전 가능)였다 — 이제는
-      // {defeated} 1회성 처치 플래그로 바뀌었으므로, 아직 처치 기록이 없으면
-      // 안전하게 "미처치"로 이관한다(진행 중이던 쿨다운은 의미가 사라짐).
+      // raids는 {defeated, lastDefeatedAt} 형태 — defeated는 선행 조건용(영구),
+      // lastDefeatedAt은 하루 쿨타임용. 처치 기록이 없는 예전 세이브는 안전하게
+      // "미처치"로, {defeated:true}만 있고 lastDefeatedAt이 없던 세이브(1회성
+      // 처치 시절 기록)는 "쿨타임 없음"으로 간주해 바로 재도전 가능하게 이관한다.
       RAID_BOSSES.forEach((b) => {
-        if (!parsed.raids[b.id] || typeof parsed.raids[b.id].defeated !== "boolean") parsed.raids[b.id] = { defeated: false };
+        if (!parsed.raids[b.id] || typeof parsed.raids[b.id].defeated !== "boolean") {
+          parsed.raids[b.id] = { defeated: false, lastDefeatedAt: null };
+        } else if (typeof parsed.raids[b.id].lastDefeatedAt !== "number" && parsed.raids[b.id].lastDefeatedAt !== null) {
+          parsed.raids[b.id].lastDefeatedAt = null;
+        }
       });
       if (typeof parsed.raidShards !== "number") parsed.raidShards = 0;
       if (!parsed.raidTickets) parsed.raidTickets = { t5: 0, t6: 0 };
@@ -1276,8 +1288,8 @@
     if (kind === "raid") {
       const boss = RAID_BOSSES.find((b) => b.id === targetId);
       if (!boss) { toast("공격할 수 없습니다"); return; }
-      if (state.raids[targetId].defeated) { toast("이미 처치한 보스입니다"); return; }
       if (!raidBossUnlocked(boss)) { toast(`먼저 ${RAID_BOSSES.find((b2) => b2.id === boss.requires).name}을(를) 처치해야 합니다`); return; }
+      if (raidOnCooldown(targetId)) { toast(`아직 재도전 대기시간이 남았습니다 (${formatCountdownShort(RAID_COOLDOWN_MS - (Date.now() - state.raids[targetId].lastDefeatedAt))})`); return; }
     }
     if (state.armies.some((a) => a.mission && a.mission.kind === kind && a.mission.targetId === targetId)) { toast("이미 다른 부대가 그 대상을 공격 중입니다"); return; }
     const total = totalDeployedTroops(comp);
@@ -1334,6 +1346,7 @@
         reward[type] = (reward[type] || 0) + boss.reward.resourceAmount;
         reward.gold = (reward.gold || 0) + boss.reward.goldBonus;
         state.raids[boss.id].defeated = true;
+        state.raids[boss.id].lastDefeatedAt = Date.now();
         state.raidShards += boss.reward.shards;
         const ticketKey = boss.reward.ticketRarity >= 6 ? "t6" : "t5";
         state.raidTickets[ticketKey] += boss.reward.ticketCount;
@@ -1997,7 +2010,7 @@
             const boss = RAID_BOSSES.find((b) => b.id === targetId);
             const r = boss.reward;
             return `<p>승리 시 보상: 자원 무작위 1종 <b>${r.resourceAmount.toLocaleString()}개</b> + 🪙${r.goldBonus.toLocaleString()} · 만능 조각 ${r.shards}개 · ★${r.ticketRarity}+ 확정 소환권 ${r.ticketCount}장</p>
-            <p><small>⚠️ 이 보스는 한 번 처치하면 이 세이브에서 다시 도전할 수 없습니다.</small></p>`;
+            <p><small>⚠️ 처치 후 24시간 동안은 이 보스를 다시 공격할 수 없습니다.</small></p>`;
           })() : ""}
           <p><span id="verdict-badge" class="verdict-badge">-</span></p>
         </div>
@@ -2074,7 +2087,6 @@
 
   // ---------- 보스 레이드(필드에서 분리된 엘리트 전용 컨텐츠) ----------
   function raidActionHTML(boss) {
-    if (state.raids[boss.id].defeated) return `<span class="raid-status defeated">✅ 처치 완료</span>`;
     const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "raid" && a.mission.targetId === boss.id);
     if (attackingIdx >= 0) {
       const mission = state.armies[attackingIdx].mission;
@@ -2084,21 +2096,25 @@
       const prevName = RAID_BOSSES.find((b) => b.id === boss.requires)?.name || "";
       return `<span class="raid-status locked">🔒 ${prevName} 처치 필요</span>`;
     }
+    if (raidOnCooldown(boss.id)) {
+      const remain = RAID_COOLDOWN_MS - (Date.now() - state.raids[boss.id].lastDefeatedAt);
+      return `<span class="raid-status defeated">✅ 처치 완료 · ⏳ ${formatCountdownShort(remain)} 후 재도전</span>`;
+    }
     return `<button class="do-raid-attack" data-id="${boss.id}">⚔️ 도전</button>`;
   }
   function renderRaidModal() {
     const body = document.getElementById("raid-modal-body");
     body.innerHTML = `
       <h2>👑 보스 레이드</h2>
-      <p class="raid-intro">필드·월드맵보다 압도적으로 강한 6단계 보스 체인입니다. 앞 보스를 처치해야 다음 보스에 도전할 수 있고, 한 번 처치한 보스는 이 세이브에서 다시 도전할 수 없습니다.</p>
+      <p class="raid-intro">필드·월드맵보다 압도적으로 강한 6단계 보스 체인입니다. 앞 보스를 한 번 처치해야 다음 보스가 해금되고, 각 보스는 처치 후 24시간이 지나면 다시 도전할 수 있습니다.</p>
       <p class="raid-inventory">🧩 만능 조각 보유: <b>${state.raidShards}</b>개 · 🎫 ★5+ 확정권 <b>${state.raidTickets.t5}</b>장 · 🎫 ★6+ 확정권 <b>${state.raidTickets.t6}</b>장</p>
       <div class="raid-list">
         ${RAID_BOSSES.map((boss) => {
           const s = raidBossStats(boss);
           const r = boss.reward;
-          const locked = !state.raids[boss.id].defeated && !raidBossUnlocked(boss);
+          const locked = !raidBossUnlocked(boss);
           return `
-          <div class="raid-row ${state.raids[boss.id].defeated ? "cleared" : ""} ${locked ? "locked" : ""}">
+          <div class="raid-row ${raidOnCooldown(boss.id) ? "cleared" : ""} ${locked ? "locked" : ""}">
             <div class="icon">${monsterIconHTML(boss.key)}</div>
             <div class="raid-info">
               <div class="raid-name">${boss.name} 👑 <span class="raid-level">Lv.${boss.level}</span></div>

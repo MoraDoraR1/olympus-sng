@@ -55,22 +55,32 @@ function num(v) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-// prevState/nextState의 raids가 defeated:false -> true로 바뀐 보스마다, 그
-// 보상만큼을 이번 저장에서 추가로 허용되는 자원/골드 여유분에 더한다.
-function raidRewardAllowance(prevState, nextState) {
+// game.js와 동일한 하루 쿨타임(raidOnCooldown) — 서버도 "그 정도 간격을 두고
+// 다시 처치했는지"를 대조해야, lastDefeatedAt을 계속 최신 시각으로 밀어넣는
+// 방식으로 보상 여유분을 무한정 우려내는 걸 막을 수 있다. 클라이언트/서버 시각
+// 차이를 감안해 살짝(30분) 여유를 둔다.
+const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const RAID_COOLDOWN_SLACK_MS = 30 * 60 * 1000;
+
+// prevState/nextState의 raids에서 lastDefeatedAt이 "그럴듯하게"(처음 처치이거나,
+// 직전 처치로부터 쿨타임만큼 지난 뒤) 갱신된 보스마다, 그 보상만큼을 이번 저장에서
+// 추가로 허용되는 자원/골드 여유분에 더한다. 하루 쿨타임이라 매번 재검증해야
+// 반복 처치(일일 클리어)도 계속 정상적으로 허용된다.
+function raidRewardAllowance(prevState, nextState, now) {
   const allowance = { food: 0, wood: 0, stone: 0, gold: 0 };
   const prevRaids = (prevState && prevState.raids) || {};
   const nextRaids = (nextState && nextState.raids) || {};
   Object.keys(RAID_REWARDS).forEach((bossId) => {
-    const wasDefeated = !!(prevRaids[bossId] && prevRaids[bossId].defeated);
-    const nowDefeated = !!(nextRaids[bossId] && nextRaids[bossId].defeated);
-    if (!wasDefeated && nowDefeated) {
-      const r = RAID_REWARDS[bossId];
-      // 보상 자원의 종류는 처치 시점에 무작위라 서버가 알 수 없으므로, 네 종류
-      // 전부에 그 양만큼 여유를 준다(어차피 실제로는 그중 하나만 오르므로 안전).
-      RES_KEYS.forEach((key) => { allowance[key] += r.resourceAmount; });
-      allowance.gold += r.goldBonus;
-    }
+    const prevAt = num((prevRaids[bossId] || {}).lastDefeatedAt);
+    const nextAt = num((nextRaids[bossId] || {}).lastDefeatedAt);
+    if (!(nextAt > prevAt)) return; // 갱신 없음
+    if (nextAt > now + 60000) return; // 미래 시각 — 조작으로 간주, 허용 안 함
+    if (prevAt > 0 && nextAt - prevAt < RAID_COOLDOWN_MS - RAID_COOLDOWN_SLACK_MS) return; // 너무 이른 재처치
+    const r = RAID_REWARDS[bossId];
+    // 보상 자원의 종류는 처치 시점에 무작위라 서버가 알 수 없으므로, 네 종류
+    // 전부에 그 양만큼 여유를 준다(어차피 실제로는 그중 하나만 오르므로 안전).
+    RES_KEYS.forEach((key) => { allowance[key] += r.resourceAmount; });
+    allowance.gold += r.goldBonus;
   });
   return allowance;
 }
@@ -95,7 +105,7 @@ function checkStatePush({ prevRow, createdAt, nextState, now }) {
   }
 
   const elapsedSeconds = Math.max(0, Math.min(OFFLINE_CAP_SECONDS, (now - prevUpdatedAt) / 1000));
-  const raidAllowance = raidRewardAllowance(prevState, nextState);
+  const raidAllowance = raidRewardAllowance(prevState, nextState, now);
 
   const prevRes = (prevState && prevState.res) || {};
   const nextRes = (nextState && nextState.res) || {};
