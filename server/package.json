@@ -1,0 +1,21 @@
+{
+  "name": "olympus-sng-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "올림포스 도시 — 멀티플레이 백엔드 (계정, 정복 맵, PvP, 아이템)",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.0"
+  }
+}

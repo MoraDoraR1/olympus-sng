@@ -385,6 +385,15 @@
   const SAVE_KEY = "olympusSngSave_v5";
   const OFFLINE_CAP_SECONDS = 12 * 3600; // 오프라인 진행은 최대 12시간분까지만 한 번에 재생
 
+  // ---------- 계정/서버 동기화 ----------
+  // index.html의 <meta name="olympus-api-base">를 바꾸면 배포된 실제 백엔드 주소를 가리키게 된다.
+  const AUTH_TOKEN_KEY = "olympusSngAuthToken";
+  const API_BASE = (document.querySelector('meta[name="olympus-api-base"]') || {}).content || "http://localhost:8787";
+  const SERVER_SYNC_INTERVAL_MS = 15000; // 매 초 로컬 저장과 별개로, 서버 체크포인트는 이 주기로만 전송(스팸 방지)
+  let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || null;
+  let currentPlayer = null; // { id, nickname } — 로그인 성공 후 채워짐
+  let lastServerSyncAt = 0;
+
   // 6성 이상(6/7/8/카미)이 연구로 부스트됐을 때 지나치게 자주 등장하던 문제 —
   // 기본 확률 자체를 낮추고(6+7+8 합계 1.95%→0.5%), 그만큼 1성 쪽으로 되돌려
   // 전체 합은 100%를 유지한다. 연구 부스트 공식(currentRollTable)도 함께
@@ -431,6 +440,63 @@
   // ---------- 저장 ----------
   function save() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+    syncStateToServer(false);
+  }
+
+  // ---------- 계정 API ----------
+  async function apiRequest(path, options) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: "Bearer " + authToken } : {}),
+        ...((options && options.headers) || {}),
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "서버 요청에 실패했습니다.");
+    return data;
+  }
+
+  // 로컬 저장(save())은 매 tick 그대로 유지하되, 네트워크 요청은 스팸이 되지 않도록
+  // SERVER_SYNC_INTERVAL_MS 간격으로만 보낸다. force=true는 로그인 직후처럼 즉시 반영이
+  // 필요한 순간에만 사용.
+  function syncStateToServer(force) {
+    if (!authToken) return;
+    const now = Date.now();
+    if (!force && now - lastServerSyncAt < SERVER_SYNC_INTERVAL_MS) return;
+    lastServerSyncAt = now;
+    apiRequest("/api/state", { method: "PUT", body: JSON.stringify({ state }) }).catch(() => {});
+  }
+
+  function renderAccountBadge() {
+    const badge = document.getElementById("account-badge");
+    if (!currentPlayer) { badge.hidden = true; return; }
+    badge.hidden = false;
+    document.getElementById("player-nickname-label").textContent = currentPlayer.nickname;
+  }
+
+  async function afterLogin(data) {
+    authToken = data.token;
+    currentPlayer = data.player;
+    localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+    try {
+      const remote = await apiRequest("/api/state");
+      if (remote.state) {
+        const migrated = migrateState(remote.state);
+        if (migrated) state = migrated;
+      } else {
+        // 이 계정은 서버에 저장된 진행 상황이 아직 없다 — 이 브라우저에 남아있던
+        // (로그인 전 load()로 이미 읽어들인) 진행 상황을 그대로 이 계정 것으로 채택한다.
+        syncStateToServer(true);
+      }
+    } catch (e) {}
+    renderAccountBadge();
+  }
+
+  function logout() {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    location.reload();
   }
   // 예전 상호배타성 버그 등으로 세이브에 이미 남아있을 수 있는 "같은 영웅이
   // 부대와 건물에 동시에 배치된" 상태를 정리한다. 진행 중인 원정이 있는 부대를
@@ -460,7 +526,14 @@
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw);
+      return migrateState(JSON.parse(raw));
+    } catch (e) { return null; }
+  }
+
+  // localStorage든 서버(GET /api/state)든, 저장된 상태를 로드할 때 항상 같은
+  // 마이그레이션 경로를 거치게 하기 위해 load()에서 분리했다.
+  function migrateState(parsed) {
+    try {
       if (!parsed.tiles || !parsed.tavern) return null;
       if (!parsed.research) parsed.research = {};
       // 예전 세이브의 연구는 완료 여부(boolean)만 저장했다 — 레벨 시스템으로 바뀌며 Lv.1로 이관
@@ -2466,4 +2539,58 @@
     document.getElementById("screen-outro").hidden = false;
     try { window.close(); } catch (e) {}
   });
+
+  // ---------- 로그인 화면 ----------
+  function showLoginError(message) {
+    const el = document.getElementById("login-error");
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+  async function handleAuthSubmit(kind) {
+    const nickname = document.getElementById("login-nickname").value.trim();
+    const password = document.getElementById("login-password").value;
+    showLoginError(null);
+    document.getElementById("login-hint").textContent = "처리 중...";
+    try {
+      const data = await apiRequest(kind === "register" ? "/api/auth/register" : "/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ nickname, password }),
+      });
+      await afterLogin(data);
+      document.getElementById("login-hint").textContent = "";
+      document.getElementById("screen-login").hidden = true;
+      document.getElementById("screen-title").hidden = false;
+    } catch (e) {
+      document.getElementById("login-hint").textContent = "";
+      showLoginError(e instanceof TypeError ? "서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인하세요." : (e.message || "요청에 실패했습니다."));
+    }
+  }
+  document.getElementById("login-form").addEventListener("submit", (e) => { e.preventDefault(); handleAuthSubmit("login"); });
+  document.getElementById("btn-register-submit").addEventListener("click", () => handleAuthSubmit("register"));
+  document.getElementById("btn-logout").addEventListener("click", logout);
+
+  // 이미 로그인 토큰이 있으면 조용히 검증 + 서버 진행 상황을 불러오고 바로 타이틀
+  // 화면으로 넘어간다(매번 재로그인할 필요 없게). 실패하면 로그인 화면을 보여준다.
+  (async function bootAuth() {
+    if (authToken) {
+      try {
+        const me = await apiRequest("/api/auth/me");
+        currentPlayer = me.player;
+        const remote = await apiRequest("/api/state");
+        if (remote.state) {
+          const migrated = migrateState(remote.state);
+          if (migrated) state = migrated;
+        }
+        renderAccountBadge();
+        document.getElementById("screen-login").hidden = true;
+        document.getElementById("screen-title").hidden = false;
+        return;
+      } catch (e) {
+        authToken = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
+    }
+    document.getElementById("screen-login").hidden = false;
+    document.getElementById("screen-title").hidden = true;
+  })();
 })();
