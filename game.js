@@ -171,10 +171,13 @@
   // 예전엔 필드 8칸에 8% 확률로 섞여 나오던 엘리트 3종을, 상시 목록으로 볼 수 있는
   // 별도 "보스 레이드" 컨텐츠로 옮겼다. 필드 몬스터와 달리 레벨이 고정이고, 처치
   // 후에는 무작위 리스폰이 아니라 정해진 쿨다운이 지나야만 다시 도전할 수 있다.
+  // powerMult: 필드 몬스터 최고 레벨(30)·월드맵 성 최고 레벨(20) 중 더 강한 쪽을
+  // 기준선으로 삼아 몇 배 더 강한지(raidBossBaselineStats/raidBossStats 참고).
+  // level은 이제 스탯과 무관 — 진군/전투 소요시간과 표시용으로만 쓰인다.
   const RAID_BOSSES = [
-    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, cooldownSeconds: 3 * 3600 },
-    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, cooldownSeconds: 6 * 3600 },
-    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, cooldownSeconds: 10 * 3600 },
+    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, powerMult: 4, cooldownSeconds: 3 * 3600 },
+    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, powerMult: 5.5, cooldownSeconds: 6 * 3600 },
+    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, powerMult: 7, cooldownSeconds: 10 * 3600 },
   ];
   const MONSTER_SLOT_COUNT = 8;
   function monsterIconHTML(key) {
@@ -283,6 +286,27 @@
   }
   function castleBankRate(level) { return 2 * Math.pow(1.25, level - 1); }
   function castleBankCap(level) { return Math.round(300 * Math.pow(1.3, level - 1)); }
+  // 레이드 보스 기준선 — "필드 몬스터·월드맵 성보다 훨씬 강해야 한다"는 요청에 따라
+  // 두 시스템의 최고 레벨 스탯 중 더 강한 쪽을 기준선으로 잡는다. 몬스터/성 곡선이
+  // 나중에 또 조정돼도 라이드가 항상 그보다 확실히 강한 상태를 유지하도록 이 함수를
+  // 경유해서 계산한다(하드코딩된 숫자를 직접 곱하지 않음).
+  function raidBossBaselineStats() {
+    const fieldCeiling = monsterStats(30, false);
+    const castleCeiling = castleStats(WORLD_CASTLE_COUNT);
+    return {
+      hp: Math.max(fieldCeiling.hp, castleCeiling.hp),
+      atk: Math.max(fieldCeiling.atk, castleCeiling.atk),
+      def: Math.max(fieldCeiling.def, castleCeiling.def),
+    };
+  }
+  function raidBossStats(boss) {
+    const base = raidBossBaselineStats();
+    return {
+      hp: Math.round(base.hp * boss.powerMult),
+      atk: Math.round(base.atk * boss.powerMult),
+      def: Math.round(base.def * boss.powerMult),
+    };
+  }
   function freshWorldCastles() {
     const castles = [];
     for (let level = 1; level <= WORLD_CASTLE_COUNT; level++) {
@@ -1080,7 +1104,7 @@
     if (kind === "raid") {
       const boss = RAID_BOSSES.find((b) => b.id === targetId);
       if (!boss) return null;
-      return { key: boss.key, name: boss.name, icon: boss.icon, elite: true, level: boss.level, ...monsterStats(boss.level, true) };
+      return { key: boss.key, name: boss.name, icon: boss.icon, elite: true, level: boss.level, ...raidBossStats(boss) };
     }
     const slot = state.monsters.find((s) => s.id === targetId);
     return slot && slot.monster ? slot.monster : null;
@@ -1901,7 +1925,7 @@
       <p class="raid-intro">필드에서는 만날 수 없는 강력한 엘리트 몬스터들입니다. 처치하면 큰 보상을 주지만, 한 번 물리치면 각자 정해진 쿨다운이 지나야 다시 도전할 수 있습니다.</p>
       <div class="raid-list">
         ${RAID_BOSSES.map((boss) => {
-          const s = monsterStats(boss.level, true);
+          const s = raidBossStats(boss);
           const amount = monsterRewardAmount(boss.level, true);
           return `
           <div class="raid-row">
