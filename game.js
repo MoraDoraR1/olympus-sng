@@ -2464,6 +2464,7 @@
     conquestLoading = true;
     try {
       conquestInfo = await apiRequest("/api/conquest/me");
+      if (conquestInfo.unlocked) maybeShowConquestTutorial();
       if (conquestInfo.tile && !conquestCamera) {
         conquestCamera = clampConquestCamera(conquestInfo.tile.x - Math.floor(CONQUEST_VIEW_W / 2), conquestInfo.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
       }
@@ -2471,6 +2472,34 @@
     } catch (e) {}
     conquestLoading = false;
     renderConquestBody();
+  }
+
+  // 정복이 해금된 계정마다 딱 한 번만 보여주는 이미지(이모지) 시각화 튜토리얼.
+  // 서버가 아니라 localStorage에 닉네임별로 기록 — 다른 기기에서 한 번 더 보일 수는
+  // 있지만(공유 계정 시스템에 이 정도 사소한 중복은 감수), 별도 서버 컬럼 없이 단순하다.
+  function maybeShowConquestTutorial() {
+    if (!currentPlayer) return;
+    const key = "olympusSngSeenConquestTutorial_" + currentPlayer.nickname;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    document.getElementById("conquest-tutorial-body").innerHTML = `
+      <div class="tutorial-step">
+        <div class="tutorial-visual">🗺️ → 🏰</div>
+        <p>정복이 해금되었습니다! 거대한 정복 지도의 무작위 위치에 내 성이 배정됩니다.
+        같은 칸에 두 플레이어가 겹치는 일은 없습니다.</p>
+      </div>
+      <div class="tutorial-step">
+        <div class="tutorial-visual">🛡️ 30:00</div>
+        <p>배정 직후 30분간은 다른 플레이어가 나를 공격할 수 없습니다.
+        이 시간 동안 병력을 준비하고 지도를 둘러보세요.</p>
+      </div>
+      <div class="tutorial-step">
+        <div class="tutorial-visual">🏰⚔️🏰 · 🏰🛡️🤝</div>
+        <p>보호가 끝나면 다른 플레이어를 공격하거나 공격받을 수 있습니다.
+        동료의 성에 지원군을 보내 함께 방어할 수도 있습니다.</p>
+      </div>
+    `;
+    openModal("modal-conquest-tutorial");
   }
 
   async function doConquestSpawn() {

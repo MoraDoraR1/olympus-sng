@@ -531,6 +531,10 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   max-height: 86vh; overflow-y: auto;
 }
 .modal h2 { font-family: var(--font-display); }
+.tutorial-step { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tutorial-step:last-child { border-bottom: none; }
+.tutorial-visual { flex: 0 0 auto; font-size: 1.8rem; width: 92px; text-align: center; font-weight: 800; }
+.tutorial-step p { margin: 0; color: var(--ink-soft); font-weight: 600; line-height: 1.5; }
 .modal-wide { max-width: 960px; }
 .modal-narrow { max-width: 420px; }
 .modal-xwide { max-width: 1140px; }
