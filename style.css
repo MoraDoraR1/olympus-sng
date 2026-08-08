@@ -153,7 +153,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   pointer-events: none;
 }
 .worldmap-header h2 {
-  font-family: var(--font-display); pointer-events: auto;
+  font-family: var(--font-display);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   border-radius: 999px; padding: 6px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
@@ -173,6 +173,15 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .worldmap-viewport:active { cursor: grabbing; }
 .conquest-status { padding: 10px 20px 0; text-align: center; }
 .conquest-msg { color: var(--ink-soft); font-weight: 700; margin: 0 0 8px; }
+.conquest-tile-info {
+  position: absolute; top: 70px; right: 20px; z-index: 15;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+  font-size: .85rem; font-weight: 700; box-shadow: var(--shadow); max-width: 260px;
+}
+.conquest-tile-info[hidden] { display: none; }
+.conquest-tile-info .ctf-title { font-family: var(--font-display); margin-bottom: 4px; }
+.conquest-tile-info .ctf-line { color: var(--ink-soft); font-weight: 600; font-size: .82rem; }
 /* 그리드 칸 수(15x9)·칸 크기(72px)는 game.js의 CONQUEST_VIEW_W/H·CONQUEST_TILE_PX와
    맞춰져 있다 — JS가 매 렌더마다 같은 값을 다시 넣어주지만, 로그인 전/로딩 중처럼
    JS가 아직 안 그린 상태에서도 빈 그리드가 정상 크기로 보이도록 기본값도 둔다. */
@@ -790,6 +799,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .inv-item-name { flex: 1; font-weight: 700; }
 .inv-item-count { font-weight: 800; font-variant-numeric: tabular-nums; }
 .inv-hint { font-size: .8rem; color: var(--ink-soft); font-weight: 600; margin: 0 0 14px; }
+.inv-section-title { font-family: var(--font-display); font-weight: 700; margin: 4px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.inv-item .btn-buy-item, .inv-item .btn-use-shield, .inv-item .btn-use-teleport { font-size: .8rem; padding: 6px 10px; white-space: nowrap; }
 .shard-apply-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .shard-apply-row input { width: 70px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-weight: 700; }
 .shard-apply-row button { font-size: .85rem; padding: 6px 12px; }

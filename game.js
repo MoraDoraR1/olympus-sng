@@ -80,12 +80,15 @@
   // 민병대(1.06) < 호플리테스(1.31) < 스파르타(1.61) < 미르미돈(2.08) <
   // 아레스의 대전사(2.59)로 상위 등급일수록 확실히 이득이면서, 절대 비용도
   // 함께 올라 경제 규모가 못 따라가면 못 뽑는다(특히 상위 두 등급은 금 비중 확대).
+  // speed: 이동속도 배율 — 정복 맵 출정/귀환 시간 계산의 기준(낮을수록 느림).
+  // 최하급 병종(민병대)·이동속도 특성 없는 영웅 기준 인접 타일 편도 1분이 되도록
+  // BASE_SECONDS_PER_TILE(아래)과 함께 맞춰뒀다.
   const TROOP_TYPES = [
-    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6 },
-    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5 },
-    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21 },
-    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31 },
-    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50 },
+    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6, speed: 1 },
+    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5, speed: 1.1 },
+    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21, speed: 1.25 },
+    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31, speed: 1.4 },
+    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50, speed: 1.6 },
   ];
   const TROOP_TYPES_BY_KEY = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, t]));
 
@@ -664,6 +667,9 @@
   function heroCombatTraits(hero) {
     return hero.traits.filter((t) => t.type === "combat");
   }
+  function heroMovementTraits(hero) {
+    return hero.traits.filter((t) => t.type === "movement");
+  }
   function heroBuildingTraitsFor(hero, buildingType) {
     return hero.traits.filter((t) => t.type === "building" && t.building === buildingType);
   }
@@ -677,6 +683,9 @@
     if (trait.type === "combat") {
       const label = trait.statKey === "atk" ? "공격력" : trait.statKey === "def" ? "방어력" : "체력";
       return `⚔️ ${trait.name}${trait.signature ? " ✨" : ""}: 부대 ${label} +${pct}%`;
+    }
+    if (trait.type === "movement") {
+      return `🐎 ${trait.name}${trait.signature ? " ✨" : ""}: 이동 속도 +${pct}%`;
     }
     return `🏛️ ${trait.name}${trait.signature ? " ✨" : ""}: ${trait.building} +${pct}%`;
   }
@@ -1202,6 +1211,27 @@
     troopHp *= (1 + bonus.hp / 100) * researchTroop;
     const expedition = 1 + expeditionBonusPercent() / 100;
     return { atk: heroAtk + troopAtk, def: (heroDef + troopDef) * expedition, hp: heroHp + troopHp };
+  }
+  // 정복 맵 출정/귀환 시간의 기준. 이동속도 특성이 없는 최하급 병종(민병대, speed=1)
+  // 기준으로 인접 타일(거리 1) 편도가 정확히 60초가 되도록 잡았다.
+  const BASE_SECONDS_PER_TILE = 60;
+  // 부대의 이동속도 배율 = (편성된 병종 중 가장 느린 speed) x (1 + 영웅 이동속도 특성 합산%/100)
+  // 실제 병력이 하나도 없는 경우(사전 미리보기 등)에는 최하급 병종 speed를 기본값으로 쓴다.
+  function armySpeedMultiplier(heroIds, comp) {
+    const activeSpeeds = Object.entries(comp || {})
+      .filter(([, count]) => count > 0)
+      .map(([key]) => (TROOP_TYPES_BY_KEY[key] || TROOP_TYPES[0]).speed);
+    const baseSpeed = activeSpeeds.length ? Math.min(...activeSpeeds) : TROOP_TYPES[0].speed;
+    let bonus = 0;
+    (heroIds || []).filter(Boolean).forEach((id) => {
+      const hero = HERO_BY_ID[id];
+      if (!hero) return;
+      heroMovementTraits(hero).forEach((t) => { bonus += heroTraitPercent(hero, t); });
+    });
+    return baseSpeed * (1 + bonus / 100);
+  }
+  function travelTimeSeconds(distanceTiles, speedMultiplier) {
+    return Math.max(1, Math.round((distanceTiles * BASE_SECONDS_PER_TILE) / Math.max(0.01, speedMultiplier)));
   }
   // 부대 편성 화면에서 한눈에 비교할 수 있는 종합 전투력 수치(공격+방어+체력 합산)
   function armyPowerScore(heroIds, comp) {
@@ -2093,6 +2123,71 @@
   });
 
   // ---------- 인벤토리(레이드 보상으로 받은 조각/소환권 보관·사용) ----------
+  // ---------- 정복 아이템(보호막/성 이동) — 서버 인벤토리 ----------
+  const SHIELD_TIER_LABEL = { shield30: "30분", shield60: "1시간", shield120: "2시간" };
+  let conquestItemsInfo = null; // { items:{shield30,shield60,shield120,teleport}, costs:{...} }
+  let lastItemsFetchAt = 0;
+  const ITEMS_FETCH_INTERVAL_MS = 5000;
+
+  async function refreshConquestItemsInfo() {
+    try { conquestItemsInfo = await apiRequest("/api/items/me"); } catch (e) {}
+    renderInventoryModal();
+  }
+  function buyConquestItem(item) {
+    apiRequest("/api/items/buy", { method: "POST", body: JSON.stringify({ item }) })
+      .then((res) => {
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
+        toast("🛒 아이템을 구매했습니다.");
+        renderInventoryModal();
+      })
+      .catch((e) => toast(e.message || "구매에 실패했습니다."));
+  }
+  function useConquestShield(tier) {
+    apiRequest("/api/items/use-shield", { method: "POST", body: JSON.stringify({ tier }) })
+      .then((res) => {
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
+        toast("🛡️ 보호막을 사용했습니다.");
+        lastConquestFetchAt = 0;
+        renderInventoryModal();
+      })
+      .catch((e) => toast(e.message || "사용에 실패했습니다."));
+  }
+  function useConquestTeleport() {
+    apiRequest("/api/items/use-teleport", { method: "POST" })
+      .then((res) => {
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
+        toast("🌀 정복 맵의 새로운 위치로 이동했습니다.");
+        lastConquestFetchAt = 0;
+        renderInventoryModal();
+      })
+      .catch((e) => toast(e.message || "사용에 실패했습니다."));
+  }
+  function conquestItemsSectionHTML() {
+    if (!conquestItemsInfo) return `<p class="inv-hint">정복 아이템을 불러오는 중...</p>`;
+    const { items, costs } = conquestItemsInfo;
+    const shieldRows = ["shield30", "shield60", "shield120"].map((key) => `
+      <div class="inv-item">
+        <span class="inv-item-icon">🛡️</span>
+        <span class="inv-item-name">보호막 (${SHIELD_TIER_LABEL[key]})</span>
+        <span class="inv-item-count">${items[key] || 0}개</span>
+        <button class="btn-buy-item" data-item="${key}">구매 🪙${(costs[key] || 0).toLocaleString()}</button>
+        <button class="btn-use-shield" data-tier="${key.replace("shield", "")}" ${items[key] > 0 ? "" : "disabled"}>사용</button>
+      </div>
+    `).join("");
+    return `
+      <div class="inv-section-title">⚔️ 정복 아이템</div>
+      ${shieldRows}
+      <div class="inv-item">
+        <span class="inv-item-icon">🌀</span>
+        <span class="inv-item-name">성 이동</span>
+        <span class="inv-item-count">${items.teleport || 0}개</span>
+        <button class="btn-buy-item" data-item="teleport">구매 🪙${(costs.teleport || 0).toLocaleString()}</button>
+        <button class="btn-use-teleport" ${items.teleport > 0 ? "" : "disabled"}>사용</button>
+      </div>
+      <p class="inv-hint">보호막은 중첩됩니다(예: 27분 남은 상태에서 1시간짜리 사용 시 1시간 27분). 누군가 공격하러 오는 중에는 보호막을 사용할 수 없습니다. 성 이동은 보호막이 활성화되어 있거나 부대가 출정·귀환 중일 때는 사용할 수 없습니다.</p>
+    `;
+  }
+
   function renderInventoryModal() {
     const body = document.getElementById("inventory-modal-body");
     if (!body) return;
@@ -2118,11 +2213,27 @@
         <button class="btn-use-ticket" data-rarity="6" ${t6 > 0 ? "" : "disabled"}>사용</button>
       </div>
       <p class="inv-hint">소환권을 사용하면 여관 비용 없이 즉시 해당 등급 이상의 영웅 1명을 영입합니다.</p>
+      ${conquestItemsSectionHTML()}
     `;
     body.querySelectorAll(".btn-use-ticket").forEach((btn) => {
       if (btn.disabled) return;
       btn.addEventListener("click", () => redeemRaidTicket(Number(btn.dataset.rarity)));
     });
+    body.querySelectorAll(".btn-buy-item").forEach((btn) => {
+      btn.addEventListener("click", () => buyConquestItem(btn.dataset.item));
+    });
+    body.querySelectorAll(".btn-use-shield").forEach((btn) => {
+      if (btn.disabled) return;
+      btn.addEventListener("click", () => useConquestShield(Number(btn.dataset.tier)));
+    });
+    const teleportBtn = body.querySelector(".btn-use-teleport");
+    if (teleportBtn && !teleportBtn.disabled) teleportBtn.addEventListener("click", useConquestTeleport);
+    const now = Date.now();
+    if (!authToken) return;
+    if (now - lastItemsFetchAt > ITEMS_FETCH_INTERVAL_MS) {
+      lastItemsFetchAt = now;
+      refreshConquestItemsInfo();
+    }
   }
   document.getElementById("btn-inventory").addEventListener("click", () => {
     renderInventoryModal();
@@ -2540,6 +2651,8 @@
         const cell = document.createElement("div");
         cell.className = "conquest-cell";
         cell.title = `(${x}, ${y})`;
+        cell.dataset.x = x;
+        cell.dataset.y = y;
         const occ = conquestTiles.get(x + "," + y);
         const isMe = conquestInfo.tile && conquestInfo.tile.x === x && conquestInfo.tile.y === y;
         if (isMe) cell.classList.add("me");
@@ -2560,11 +2673,13 @@
     if (!conquestInfo) {
       statusEl.innerHTML = `<p class="conquest-msg">불러오는 중...</p>`;
       field.innerHTML = "";
+      document.getElementById("conquest-tile-info").hidden = true;
       return;
     }
     if (!conquestInfo.unlocked) {
       statusEl.innerHTML = `<p class="conquest-msg">🔒 정복은 성 레벨 5부터 참가할 수 있습니다 (현재 성 레벨 ${state.tiles.castle.level} / 5)</p>`;
       field.innerHTML = "";
+      document.getElementById("conquest-tile-info").hidden = true;
       return;
     }
     if (!conquestInfo.tile) {
@@ -2574,6 +2689,7 @@
       `;
       document.getElementById("btn-conquest-spawn").addEventListener("click", doConquestSpawn);
       field.innerHTML = "";
+      document.getElementById("conquest-tile-info").hidden = true;
       return;
     }
     const protectedLeft = conquestInfo.tile.protectedUntil - Date.now();
@@ -2621,6 +2737,33 @@
       window.addEventListener("pointerup", onUp);
     });
   })();
+
+  // 타일을 클릭하면 내 위치에서 그 타일까지 예상 이동 시간(거리 기반, 이동속도 시스템)을
+  // 보여준다 — 아직 공격 시스템은 없지만 이동속도 계산 자체는 이렇게 미리 확인 가능하다.
+  async function showConquestTileInfo(x, y, occ) {
+    const infoEl = document.getElementById("conquest-tile-info");
+    infoEl.hidden = false;
+    const header = `<div class="ctf-title">📍 (${x}, ${y})${occ ? ` · ${occ.nickname}` : ""}</div>`;
+    infoEl.innerHTML = `${header}<div class="ctf-line">이동 시간 계산 중...</div>`;
+    try {
+      const res = await apiRequest(`/api/conquest/travel-time?x=${x}&y=${y}`);
+      infoEl.innerHTML = `
+        ${header}
+        <div class="ctf-line">거리 ${res.distance}칸</div>
+        <div class="ctf-line">최저 속도 기준(편도): ${formatCountdownShort(res.baseSeconds * 1000)}</div>
+        <div class="ctf-line">내 영웅 이동 보너스 적용 시: ${formatCountdownShort(res.bestSeconds * 1000)}${res.bestHeroBonus ? ` (+${res.bestHeroBonus.toFixed(1)}%)` : ""}</div>
+      `;
+    } catch (e) {
+      infoEl.innerHTML = `${header}<div class="ctf-line">${e.message || "이동 시간을 불러오지 못했습니다."}</div>`;
+    }
+  }
+  document.getElementById("worldmap-field").addEventListener("click", (e) => {
+    const cell = e.target.closest(".conquest-cell");
+    if (!cell || !conquestInfo || !conquestInfo.tile) return;
+    const x = Number(cell.dataset.x), y = Number(cell.dataset.y);
+    const occ = cell.classList.contains("occupied") ? conquestTiles.get(x + "," + y) : null;
+    showConquestTileInfo(x, y, occ);
+  });
   // ---------- 화면 꽉 채우기(스케일-투-핏) ----------
   // 도시맵/월드맵은 내부 요소를 고정 px로 설계하고(뷰포트 단위 사용 안 함), 여기서
   // transform:scale()로 통째로 늘리거나 줄여 뷰포트 안에 스크롤 없이 꽉 차게 맞춘다.

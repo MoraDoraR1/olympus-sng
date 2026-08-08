@@ -6,6 +6,7 @@ const { requireAuth } = require("./middleware");
 const { db } = require("./db");
 const ws = require("./ws");
 const conquest = require("./conquest");
+const items = require("./items");
 
 const PORT = process.env.PORT || 8787;
 // 클라이언트가 백엔드와 다른 origin(예: GitHub Pages)에서 서빙되는 걸 전제로 CORS 허용.
@@ -88,6 +89,41 @@ app.get("/api/conquest/tiles", requireAuth, (req, res) => {
     return res.status(400).json({ error: "x0,y0,x1,y1 쿼리 파라미터가 필요합니다." });
   }
   res.json({ tiles: conquest.tilesInViewport(x0, y0, x1, y1) });
+});
+
+app.get("/api/conquest/travel-time", requireAuth, (req, res) => {
+  const x = parseInt(req.query.x, 10);
+  const y = parseInt(req.query.y, 10);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return res.status(400).json({ error: "x,y 쿼리 파라미터가 필요합니다." });
+  }
+  const result = conquest.travelTimePreview(req.player.id, x, y);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.get("/api/items/me", requireAuth, (req, res) => {
+  res.json({ items: items.myItems(req.player.id), costs: items.ITEM_COSTS });
+});
+
+app.post("/api/items/buy", requireAuth, (req, res) => {
+  const { item } = req.body || {};
+  const result = items.buyItem(req.player.id, item);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.post("/api/items/use-shield", requireAuth, (req, res) => {
+  const tier = Number((req.body || {}).tier);
+  const result = items.useShield(req.player.id, tier);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
+});
+
+app.post("/api/items/use-teleport", requireAuth, (req, res) => {
+  const result = items.useTeleport(req.player.id);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result);
 });
 
 const server = http.createServer(app);
