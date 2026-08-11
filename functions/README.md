@@ -110,11 +110,34 @@ Scheduler의 최소 간격은 1분이라, `pvpSweep`은 1분마다 도착 시각
   텍스트로 읽어 `new Function`으로 감싸는 편법을 썼다. `data/heroes.js` 끝에
   `module.exports` 겸용 코드를 추가해 이제는 정식 `require`로 재사용한다.
 
-## 배포 (내일 할 일)
+## 배포
+
+### 최초 1회 (수동)
 
 1. https://console.firebase.google.com 에서 프로젝트 생성 후 웹 앱 추가, `firebaseConfig` 확보
 2. `../firebase-config.js`의 `firebaseConfig`를 실제 값으로 교체, `USE_EMULATORS = false`
 3. `../.firebaserc`의 `"default"` 프로젝트 ID를 실제 프로젝트 ID로 교체
 4. Firebase 콘솔에서 Firestore 사용 설정 + Authentication → 이메일/비밀번호 로그인 활성화
 5. 저장소 루트에서 `firebase deploy --only functions,firestore`
-6. `firebase-config.js` 커밋 후 GitHub Pages가 보는 `main`에 반영
+6. `firebase-config.js`/`.firebaserc` 커밋 후 GitHub Pages가 보는 `main`에 반영
+
+### 이후 자동 배포 (GitHub Actions)
+
+`.github/workflows/firebase-deploy.yml`이 `functions/`나 `firestore.rules` 등이 바뀐 채로
+`main`에 푸시될 때마다(또는 Actions 탭에서 수동으로) `firebase deploy --only
+functions,firestore`를 대신 실행해준다. 최초 1회 다음을 준비해야 동작한다:
+
+1. GCP 콘솔(https://console.cloud.google.com/iam-admin/serviceaccounts, 상단에서 Firebase
+   프로젝트 선택) → **서비스 계정 만들기** (이름 예: `github-actions-deploy`)
+2. 역할 부여 — 가장 간단한 조합: **Firebase 관리자(Firebase Admin)** + **서비스 계정 사용자
+   (Service Account User)**. (세밀하게 나누고 싶다면 Cloud Functions 관리자·Cloud Run
+   관리자·Artifact Registry 관리자·Eventarc 관리자·Firebase Rules 관리자도 필요하지만,
+   개인 프로젝트 규모에서는 위 두 역할로 충분하다.)
+3. 그 서비스 계정 → **키** 탭 → **키 추가 → JSON** → 다운로드(자동으로 파일 저장됨)
+4. **GitHub 저장소**(브라우저) → Settings → Secrets and variables → Actions →
+   **New repository secret** → 이름 `FIREBASE_SERVICE_ACCOUNT_KEY`, 값에 방금 받은 JSON
+   파일 내용을 그대로 붙여넣기. (또는 터미널에 `gh` CLI가 있다면:
+   `gh secret set FIREBASE_SERVICE_ACCOUNT_KEY < 다운로드한-키.json`)
+   **이 값은 어디에도(특히 채팅·이슈·커밋) 붙여넣지 않는다** — 저장소에 대한 배포 권한을
+   그대로 넘겨주는 값이다.
+5. 다운로드한 JSON 키 파일은 GitHub에 등록한 뒤 로컬에서 삭제해도 된다(용도가 끝났으므로).
