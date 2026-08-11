@@ -118,6 +118,36 @@ async function main() {
   const invText = await page.locator("#inventory-modal-body").innerText().catch(() => "");
   console.log("    inventory:", invText.replace(/\s+/g, " ").slice(0, 200));
   if (!/정복 아이템/.test(invText) || !/보호막/.test(invText)) throw new Error("인벤토리에 정복 아이템 섹션이 없음");
+  await page.evaluate(() => document.querySelector("#modal-inventory [data-close]")?.click());
+
+  // 백엔드 교체와 무관해 손대지 않은 순수 클라이언트 로직(건설/여관/몬스터)도 실제로
+  // 깨진 게 없는지 확인 — 코드는 안 건드렸지만 지금까지 클릭으로 확인한 적은 없었다.
+  console.log("[7] 도시 화면으로 돌아가 빈 부지에 농장 건설");
+  await page.evaluate(() => document.getElementById("btn-back-city").click());
+  await page.waitForSelector("#city-viewport", { state: "visible", timeout: 5000 });
+  const hasEmptyPlot = await page.evaluate(() => !!document.querySelector(".tile-empty"));
+  if (!hasEmptyPlot) throw new Error("빈 부지를 찾을 수 없음");
+  await page.evaluate(() => document.querySelector(".tile-empty").click());
+  await page.waitForSelector('.type-choice[data-type="농장"]', { state: "visible", timeout: 5000 });
+  // chooseType()은 건설비를 낼 수 있으면 그 자리에서 즉시 짓고 모달을 스스로 닫는다
+  // (별도 확인 버튼이 없다) — 첫 시도에서 이걸 모르고 #do-build를 기다리다 타임아웃났었음.
+  await page.evaluate(() => document.querySelector('.type-choice[data-type="농장"]').click());
+  await page.waitForTimeout(300);
+  const farmBuilt = await page.evaluate(() =>
+    Array.from(document.querySelectorAll(".plot")).some((el) => el.querySelector(".name")?.textContent === "농장")
+  );
+  console.log(`    농장 건설 후 보드에 반영됨: ${farmBuilt}`);
+  if (!farmBuilt) throw new Error("농장을 지었는데 보드에 반영되지 않음");
+
+  console.log("[8] 여관 화면 열기");
+  await page.evaluate(() => {
+    const tavernPlot = Array.from(document.querySelectorAll(".plot")).find((el) => el.querySelector(".name")?.textContent === "여관");
+    tavernPlot?.click();
+  });
+  await page.waitForSelector("#modal-building", { state: "visible", timeout: 5000 });
+  const tavernText = await page.locator("#building-modal-body").innerText().catch(() => "");
+  console.log("    tavern modal:", tavernText.replace(/\s+/g, " ").slice(0, 150));
+  if (!tavernText) throw new Error("여관 모달 내용이 비어있음");
 
   // 구글 폰트는 이 테스트에서 의도적으로 차단했고(ERR_FAILED), 새로고침 도중 취소된
   // 요청(Firestore listen 채널/saveState)은 페이지 이동 자체가 원인인 정상적인 취소라
