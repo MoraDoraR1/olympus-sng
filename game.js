@@ -3033,14 +3033,19 @@
     showLoginError(null);
     document.getElementById("login-hint").textContent = "처리 중...";
     try {
+      // Firebase Auth는 createUserWithEmailAndPassword/signInWithEmailAndPassword가 반환하는
+      // 프로미스가 풀리기도 전에 onAuthStateChanged를 먼저 통지할 수 있다 — 아래 호출 이후에
+      // 구독 해지하면 그 사이에 부팅 리스너가 먼저 끼어들어(아직 registerProfile을 못 불러
+      // players 문서가 비어있는 상태로) 임시 닉네임으로 afterLogin을 실행해버릴 수 있다.
+      // 그래서 실제 인증 호출 전에 미리 구독을 해지해 둔다.
+      authBootHandled = true;
+      if (unsubscribeAuthBoot) unsubscribeAuthBoot();
       const email = nicknameToEmail(nickname);
       const cred =
         kind === "register"
           ? await fbAuth.createUserWithEmailAndPassword(email, password)
           : await fbAuth.signInWithEmailAndPassword(email, password);
       if (kind === "register") await callFn("registerProfile", { nickname });
-      authBootHandled = true; // 아래 onAuthStateChanged 최초 1회 처리와 중복되지 않도록
-      if (unsubscribeAuthBoot) unsubscribeAuthBoot();
       await afterLogin(cred.user, nickname);
       document.getElementById("login-hint").textContent = "";
       document.getElementById("screen-login").hidden = true;

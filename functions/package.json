@@ -7,6 +7,7 @@
   },
   "main": "index.js",
   "scripts": {
+    "pretest": "node ../scripts/sync-heroes.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

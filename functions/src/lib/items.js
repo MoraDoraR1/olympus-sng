@@ -100,8 +100,6 @@ async function useShield(playerId, tier) {
 }
 
 async function useTeleport(playerId) {
-  const items = await myItems(playerId);
-  if (!items.teleport) return { error: "보유한 성 이동 아이템이 없습니다." };
   const tileQuery = await db.collection("worldTiles").where("playerId", "==", playerId).limit(1).get();
   if (tileQuery.empty) return { error: "아직 정복 맵에 참가하지 않았습니다." };
   const tileData = tileQuery.docs[0].data();
@@ -111,11 +109,29 @@ async function useTeleport(playerId) {
   if (await hasOutboundMission(playerId)) {
     return { error: "군대가 출정 중이거나 귀환 중일 때는 성 이동을 사용할 수 없습니다." };
   }
+  // 아이템 차감을 트랜잭션으로 먼저 확정한다(buyItem/useShield와 동일 패턴) — 이렇게 하지
+  // 않으면 이중 클릭 등으로 두 요청이 동시에 myItems()를 읽어 둘 다 "1개 있음"을 보고
+  // relocateToRandomTile을 각각 실행한 뒤 같은 값(1-1=0)으로 저장해, 실제로는 두 번
+  // 이동했는데 재고만 1개 차감되는(공짜 텔레포트가 생기는) 문제가 있었다.
+  // relocateToRandomTile 자체는 좌표를 무작위로 재시도하는 별도 트랜잭션이라 이 트랜잭션과
+  // 합치기 어렵다 — 지도가 거의 다 차서 빈 칸을 못 찾는 극히 드문 경우에만 아이템이
+  // 소모되고 이동은 실패하는 예외가 남지만(원래도 있었던 한계), 이중 사용보다는 안전하다.
+  let itemsAfterClaim;
+  try {
+    itemsAfterClaim = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(itemsRef(playerId));
+      const current = snap.exists ? { ...DEFAULT_ITEMS, ...snap.data() } : { ...DEFAULT_ITEMS };
+      if (!current.teleport) throw new Error("보유한 성 이동 아이템이 없습니다.");
+      const next = { ...current, teleport: current.teleport - 1 };
+      tx.set(itemsRef(playerId), next);
+      return next;
+    });
+  } catch (e) {
+    return { error: e.message };
+  }
   const result = await conquest.relocateToRandomTile(playerId);
   if (result.error) return result;
-  const nextItems = { ...items, teleport: items.teleport - 1 };
-  await itemsRef(playerId).set(nextItems);
-  return { tile: result.tile, items: nextItems };
+  return { tile: result.tile, items: itemsAfterClaim };
 }
 
 module.exports = { ITEM_COSTS, myItems, buyItem, useShield, useTeleport };
