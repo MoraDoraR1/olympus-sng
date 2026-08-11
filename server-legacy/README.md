@@ -1,3 +1,10 @@
+# 올림포스 도시 — 멀티플레이 백엔드 (레거시, 더 이상 사용하지 않음)
+
+> ⚠️ **현재 백엔드는 이 Node/SQLite 서버가 아니라 `../functions/`(Firebase Cloud
+> Functions + Firestore + Firebase Auth)입니다.** 이 디렉터리는 삭제하지 않고
+> 이전 구현을 참고용으로만 남겨둔 것입니다 — 새로 배포/실행하지 마세요.
+> 라우트·데이터 모델·PvP 스윕 로직의 이식 매핑은 `../functions/README.md`를 참고합니다.
+
 # 올림포스 도시 — 멀티플레이 백엔드
 
 클라이언트(`../game.js`, `../index.html`)는 여전히 빌드 도구 없는 정적 파일이라 GitHub

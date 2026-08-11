@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 전체 게임 상태 저장분. anticheat 검증을 거쳐야 하므로 클라이언트 직접 쓰기는 금지하고
+    // Cloud Functions(Admin SDK, 규칙 우회)만 쓸 수 있게 한다. 읽기는 본인 문서만.
+    match /players/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // 방어막/텔레포트 인벤토리 — players와 동일한 접근 정책.
+    match /playerItems/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // 정복 맵 타일 — 다른 플레이어 위치도 봐야 하므로 로그인한 사용자에게 전체 공개 읽기.
+    match /worldTiles/{tileId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // PvP 미션 — 공격자/방어자 본인만 조회 가능.
+    match /pvpMissions/{missionId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.originPlayerId ||
+         request.auth.uid == resource.data.targetPlayerId);
+      allow write: if false;
+    }
+  }
+}

@@ -300,3 +300,10 @@ const HEROES = [
   { id: 299, name: "가이아", culture: "그리스", domain: "태초의 대지 어머니 여신", rarity: 8, atk: 75, def: 118, hp: 288, traits: [{ type: "building", name: "대지의 축복", building: "농장", percent: 34 }, { type: "building", name: "생명의 근원", building: "성", percent: 34 }, { type: "building", name: "태초의 어머니", building: "채석장", percent: 34, signature: true }], flavor: "카오스에서 태어난 태초의 대지 여신으로 모든 신과 생명의 근원이다. (로마 신화명: 테라)" },
   { id: 300, name: "까미", culture: "혼합", domain: "강사님이 애지중지 키우는 고양이(신격화)", rarity: 8, atk: 115, def: 120, hp: 298, traits: [{ type: "combat", name: "고양이 펀치", statKey: "atk", percent: 34 }, { type: "combat", name: "도도한 자세", statKey: "def", percent: 34 }, { type: "combat", name: "아홉 개의 목숨", statKey: "hp", percent: 34, signature: true }], flavor: "신화 속 인물이 아니다. 그냥 강사님 고양이인데 어쩌다 신이 됐다. 뽑으면 무조건 써야 한다.", secret: true, dropRate: 0.0005 },
 ];
+
+// 브라우저(<script> 전역 HEROES)와 Node(Cloud Functions에서 require) 양쪽에서
+// 이 파일 하나를 그대로 쓰기 위한 겸용 export. 브라우저에는 module이 없으므로 아무 일도
+// 하지 않는다.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { HEROES };
+}
