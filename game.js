@@ -9,12 +9,12 @@
     "농장": { icon: "🌾", base: { food: 1.2 }, buildCostGold: 40, upgradeCost: { wood: 50 }, selectable: true, desc: "식량을 생산한다." },
     "벌목장": { icon: "🪵", base: { wood: 1.2 }, buildCostGold: 40, upgradeCost: { food: 50 }, selectable: true, desc: "목재를 생산한다." },
     "채석장": { icon: "⛏️", base: { stone: 0.9 }, buildCostGold: 70, upgradeCost: { wood: 60, food: 40 }, selectable: true, desc: "석재를 생산한다." },
-    "자원보호소": { icon: "📦", base: { capBonus: 0.05 }, buildCostGold: 70, upgradeCost: { wood: 60, stone: 40 }, fixedOnly: true, noHeroBonus: true, desc: "자원 저장 상한을 늘린다. 영웅 배치 대상이 아니다." },
+    "자원보호소": { icon: "📦", base: { capBonus: 0.05 }, buildCostGold: 70, upgradeCost: { wood: 60, stone: 40 }, fixedOnly: true, noHeroBonus: true, desc: "자원 저장 상한을 늘린다. 정복 맵에서 공격받아도 레벨에 비례한 일정량의 자원은 약탈당하지 않는다. 영웅 배치 대상이 아니다." },
     "아카데미": { icon: "📜", base: {}, buildCostGold: 90, upgradeCost: { wood: 80, stone: 80 }, unlocksAscend: true, fixedOnly: true, desc: "연구를 통해 생산·전투·영웅 획득에 영구적인 배율 효과를 얻는다." },
-    "방어탑": { icon: "🛡️", base: { defense: 4 }, buildCostGold: 90, upgradeCost: { stone: 100 }, fixedOnly: true, noHeroBonus: true, desc: "영웅 배치 대상이 아니다. 대신 레벨마다 %만큼 내가 출정 보내는 모든 부대의 방어력을 강화한다." },
+    "방어탑": { icon: "🛡️", base: { defense: 4 }, buildCostGold: 90, upgradeCost: { stone: 100 }, fixedOnly: true, noHeroBonus: true, desc: "영웅 배치 대상이 아니다. 대신 레벨마다 %만큼 정복 맵에서 내가 공격받을 때(수성) 방어력을 강화한다." },
     "감시탑": { icon: "🔭", base: {}, buildCostGold: 70, upgradeCost: { stone: 60, wood: 40 }, fixedOnly: true, noHeroBonus: true, desc: "야생 지역 몬스터의 정보(레벨→상세 스탯)를 공개한다. 영웅 배치 대상이 아니다." },
     "여관": { icon: "🍺", base: { gold: 0.6 }, buildCostGold: 100, upgradeCost: { wood: 50, food: 50 }, isTavern: true, fixedOnly: true, desc: "일정 시간마다 영웅 후보가 등장한다. 금화로 즉시 초기화할 수 있다." },
-    "성벽": { icon: "🧱", base: { defense: 15 }, buildCostGold: 120, upgradeCost: { wood: 100, stone: 100 }, fixedOnly: true, desc: "도시의 상징적인 수비력을 나타낸다." },
+    "성벽": { icon: "🧱", base: { defense: 15 }, buildCostGold: 120, upgradeCost: { wood: 100, stone: 100 }, fixedOnly: true, desc: "정복 맵에서 내가 공격받을 때(수성) 방어 스탯에 고정 수치로 더해진다." },
   };
   const SELECTABLE_TYPES = Object.keys(BUILDING_TYPES).filter((t) => BUILDING_TYPES[t].selectable);
 
@@ -744,14 +744,18 @@
     }
     return Math.round(cap);
   }
-  // 방어탑: 내가 출정 보내는 부대의 방어력을 강화하는 %(영웅 보너스 없음, 레벨+연구만 반영)
-  function expeditionBonusPercent() {
+  // 방어탑: 정복 맵에서 내가 공격받을 때(수성) 방어력을 강화하는 %(영웅 보너스 없음,
+  // 레벨+연구만 반영). 실제 PvP 판정 적용은 서버 workers/src/lib/combat.js의
+  // homeDefenseMultiplier()가 동일한 공식으로 담당한다 — 여기서는 HUD 표시용으로만 쓰인다.
+  function homeDefenseBonusPercent() {
     const tower = state.tiles.defense;
     if (!tower.built) return 0;
     const researchMult = 1 + researchPercent("defensePercent") / 100;
     return Math.round(tower.level * BUILDING_TYPES["방어탑"].base.defense * researchMult * 10) / 10;
   }
-  // 성벽: 도시의 상징적인 수비력 표시(전투에 직접 관여하지 않음)
+  // 성벽: 정복 맵 수성 시 방어 스탯에 고정으로 더해지는 수치(방어탑처럼 배수가 아니라
+  // 가산 — "성벽=고정 수비대 보강"). 서버 workers/src/lib/combat.js의 wallFlatDefense()가
+  // 동일한 공식으로 PvP 판정에 반영한다.
   function wallScore() {
     const wall = state.tiles.wall;
     if (!wall.built) return 0;
@@ -1248,8 +1252,10 @@
     troopAtk *= (1 + bonus.atk / 100) * researchTroop;
     troopDef *= (1 + bonus.def / 100) * researchTroop;
     troopHp *= (1 + bonus.hp / 100) * researchTroop;
-    const expedition = 1 + expeditionBonusPercent() / 100;
-    return { atk: heroAtk + troopAtk, def: (heroDef + troopDef) * expedition, hp: heroHp + troopHp };
+    // 방어탑은 더 이상 원정(PvE 몬스터/월드 성 공략) 부대를 강화하지 않는다 — 수성(정복 맵
+    // PvP 방어) 전용으로 역할이 바뀌었고, 실제 적용은 서버 workers/src/lib/combat.js의
+    // homeDefenseMultiplier()가 담당한다.
+    return { atk: heroAtk + troopAtk, def: heroDef + troopDef, hp: heroHp + troopHp };
   }
   // 정복 맵 출정/귀환 시간의 기준. 이동속도 특성이 없는 최하급 병종(민병대, speed=1)
   // 기준으로 인접 타일(거리 1) 편도가 정확히 18초가 되도록 잡았다 — 200x200 맵의
@@ -1502,7 +1508,7 @@
       document.getElementById(`cap-${r}`).textContent = formatNum(capFor(r));
     });
     document.getElementById("res-gold").textContent = formatNum(state.res.gold);
-    document.getElementById("defense-score").textContent = "+" + expeditionBonusPercent() + "%";
+    document.getElementById("defense-score").textContent = "+" + homeDefenseBonusPercent() + "%";
     const totalTroops = Object.values(state.troopsByType).reduce((s, v) => s + v, 0);
     document.getElementById("troop-count").textContent = totalTroops;
     ["food", "wood", "stone", "gold"].forEach((r) => {
@@ -1701,9 +1707,9 @@
     if (bdef.base.capBonus) parts.push(`창고 +${Math.round(BASE_CAP * bdef.base.capBonus * level * mult).toLocaleString()}`);
     if (tile.type === "방어탑") {
       const researchMult = 1 + researchPercent("defensePercent") / 100;
-      parts.push(`🛡️ 원정 강화 +${Math.round(level * bdef.base.defense * researchMult * 10) / 10}%`);
+      parts.push(`🛡️ 수성 방어력 +${Math.round(level * bdef.base.defense * researchMult * 10) / 10}%`);
     }
-    if (tile.type === "성벽") parts.push(`🛡️ 수비력 ${Math.round(level * bdef.base.defense * mult)}`);
+    if (tile.type === "성벽") parts.push(`🛡️ 수성 방어력 +${Math.round(level * bdef.base.defense * mult)}`);
     if (bdef.isTavern) parts.push(`슬롯 ${tavernSlotsForLevel(level)}`);
     return parts.join(" · ");
   }

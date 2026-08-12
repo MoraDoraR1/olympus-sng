@@ -11,6 +11,9 @@ import {
   applyCasualties,
   PVP_BATTLE_DURATION_SECONDS,
   LOOT_PERCENT,
+  homeDefenseMultiplier,
+  wallFlatDefense,
+  shelterProtectedAmount,
 } from "./combat.js";
 import { TROOP_BY_KEY } from "./troops.js";
 
@@ -175,7 +178,13 @@ async function resolveAttack(db, missionId) {
     reinforcements.push({ row: r, comp: rComp, stats: armyCombatStats(rComp, rHeroIds, rState.owned || {}) });
   }
 
-  const defenderStats = sumStats([defenderHomeStats, ...reinforcements.map((r) => r.stats)]);
+  const baseDefenderStats = sumStats([defenderHomeStats, ...reinforcements.map((r) => r.stats)]);
+  // 방어탑(배수)·성벽(가산)은 도시 전체를 지키는 시설이므로 수성 측 총합(집주인 + 주둔
+  // 지원군)에 함께 적용한다 — 원정(공격) 부대에는 적용되지 않는다.
+  const defenderStats = {
+    ...baseDefenderStats,
+    def: baseDefenderStats.def * homeDefenseMultiplier(defenderState) + wallFlatDefense(defenderState),
+  };
   const verdict = pvpVerdict(attackerStats, defenderStats, PVP_BATTLE_DURATION_SECONDS);
 
   const attackerCasualty = applyCasualties(attackerComp, verdict.attackerLossRatio);
@@ -195,9 +204,13 @@ async function resolveAttack(db, missionId) {
     loot = {};
     attackerState.res = attackerState.res || {};
     defenderState.res = defenderState.res || {};
+    // 자원보호소는 레벨에 비례한 일정량을 약탈 대상에서 아예 제외한다(그 이하 자원은
+    // 손대지 않음) — 10% 약탈은 "보호되지 않는 나머지"에만 적용된다.
+    const protectedAmount = shelterProtectedAmount(defenderState);
     ["food", "wood", "stone", "gold"].forEach((res) => {
       const have = Math.max(0, Math.floor(defenderState.res[res] || 0));
-      const taken = Math.floor(have * LOOT_PERCENT);
+      const exposed = Math.max(0, have - protectedAmount);
+      const taken = Math.floor(exposed * LOOT_PERCENT);
       if (taken > 0) {
         loot[res] = taken;
         defenderState.res[res] = have - taken;
