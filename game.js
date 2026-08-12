@@ -217,6 +217,8 @@
   ];
   const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 보스별 재도전 대기시간(하루 1회)
   const MONSTER_SLOT_COUNT = 8;
+  // 필드 몬스터 로테이션 주기 — 이 시간마다(교전 중이 아닌 칸만) 새 종류/레벨로 갈아치운다.
+  const MONSTER_ROTATION_SECONDS = 5 * 60;
   function monsterIconHTML(key) {
     return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
   }
@@ -289,6 +291,26 @@
       slots.push(slot);
     }
     return slots;
+  }
+  // MONSTER_ROTATION_SECONDS(5분)마다 tick()에서 호출 — 죽인 뒤 respawnTimer가 다 되길
+  // 기다리지 않아도, 필드 전체가 주기적으로 새 몬스터 구성으로 갈아치워진다. 단, 지금
+  // 부대가 교전 중인(march/battle) 칸은 건드리지 않는다 — startBattle/resolveBattle이
+  // findEnemy()로 그 칸의 몬스터를 그때그때 다시 읽으므로, 전투 도중 몰래 바뀌면 원정을
+  // 보낼 때와 다른 상대와 싸우게 되는 문제가 생긴다.
+  function rotateFieldMonsters() {
+    const busyTargetIds = new Set(
+      state.armies.filter((a) => a.mission && a.mission.kind === "monster").map((a) => a.mission.targetId)
+    );
+    let rotated = 0;
+    state.monsters.forEach((slot) => {
+      if (busyTargetIds.has(slot.id)) return;
+      spawnMonster(slot);
+      rotated += 1;
+    });
+    if (rotated > 0) {
+      toast("🐾 필드에 새로운 몬스터들이 나타났습니다!");
+      logEvent("🐾 필드 몬스터가 새로 나타났습니다", "build");
+    }
   }
 
   // ---------- 월드맵: 레벨 1~20 NPC 성 ----------
@@ -485,6 +507,7 @@
       tavern: { timer: TAVERN_CYCLE, candidates: new Array(tavernSlotsForLevel(1)).fill(null), resetCost: TAVERN_RESET_BASE_COST },
       armies: Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} })),
       monsters: freshMonsterSlots(),
+      monsterRotationTimer: MONSTER_ROTATION_SECONDS,
       worldCastles: freshWorldCastles(),
       raids: freshRaidsState(),
       raidShards: 0, // 레이드 보상으로 받는 "만능 조각" — 보유 영웅 아무에게나 배분 가능
@@ -572,6 +595,25 @@
       t.heroIds = t.heroIds.filter((h) => claimBuilding(h));
     });
   }
+  // 영웅은 한 부대에만 배치되도록 이미 보장돼 있었지만, 병사 편성(lastComp)은 부대별로
+  // 독립된 슬라이더 값이라 같은 병사 수가 여러 부대에 동시에 "편성 가능"하게 보이는
+  // 문제가 있었다(부대1에 100명을 편성해도 부대2·3에서 여전히 100명이 가용한 것처럼
+  // 표시됨). 부대1부터 순서대로 우선권을 줘서, 합계가 보유량을 넘지 않게 정리한다.
+  // 매 로드마다 실행해도 이미 깨끗한 데이터에는 아무 영향이 없다(멱등).
+  function dedupeTroopComps(parsed) {
+    const used = {};
+    TROOP_TYPES.forEach((t) => { used[t.key] = 0; });
+    parsed.armies.forEach((a) => {
+      TROOP_TYPES.forEach((t) => {
+        const owned = parsed.troopsByType[t.key] || 0;
+        const want = a.lastComp[t.key] || 0;
+        const remain = Math.max(0, owned - used[t.key]);
+        const clamped = Math.min(want, remain);
+        if (clamped > 0) { a.lastComp[t.key] = clamped; used[t.key] += clamped; }
+        else delete a.lastComp[t.key];
+      });
+    });
+  }
   function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -602,6 +644,7 @@
       if (!parsed.armies) parsed.armies = Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} }));
       parsed.armies.forEach((a) => { if (!a.lastComp) a.lastComp = {}; });
       dedupeHeroPlacements(parsed);
+      dedupeTroopComps(parsed);
       if (!parsed.monsters) parsed.monsters = freshMonsterSlots();
       while (parsed.monsters.length < MONSTER_SLOT_COUNT) {
         const slot = { id: "m" + parsed.monsters.length, monster: null, respawnTimer: 0 };
@@ -611,6 +654,7 @@
       // 엘리트가 필드에서 사라지고 보스 레이드로 이관되면서, 기존 세이브에 이미
       // 나와있던 필드 엘리트는 일반 몬스터로 즉시 교체한다(멱등 — 이후엔 대상 없음)
       parsed.monsters.forEach((slot) => { if (slot.monster && slot.monster.elite) spawnMonster(slot); });
+      if (typeof parsed.monsterRotationTimer !== "number") parsed.monsterRotationTimer = MONSTER_ROTATION_SECONDS;
       if (!parsed.worldCastles) parsed.worldCastles = freshWorldCastles();
       if (!parsed.raids) parsed.raids = freshRaidsState();
       // raids는 {defeated, lastDefeatedAt} 형태 — defeated는 선행 조건용(영구),
@@ -913,6 +957,11 @@
         if (slot.respawnTimer <= 0) spawnMonster(slot);
       }
     });
+    state.monsterRotationTimer -= 1;
+    if (state.monsterRotationTimer <= 0) {
+      rotateFieldMonsters();
+      state.monsterRotationTimer = MONSTER_ROTATION_SECONDS;
+    }
     state.worldCastles.forEach((c) => {
       const cap = castleBankCap(c.level);
       const rate = castleBankRate(c.level);
@@ -2469,15 +2518,21 @@
           </div>
         </div>
         <h3>병사 배치</h3>
-        <p><small>부대에 함께 보낼 병사 수를 미리 정해두면, 다음 출격 시 이 값이 자동 적용됩니다.</small></p>
+        <p><small>부대에 함께 보낼 병사 수를 미리 정해두면, 다음 출격 시 이 값이 자동 적용됩니다. 한 병사는 한 부대에만 편성할 수 있습니다.</small></p>
         <div class="troop-comp-grid" id="army-comp-list">
           ${TROOP_TYPES.map((t) => {
-            const avail = state.troopsByType[t.key] || 0;
+            const owned = state.troopsByType[t.key] || 0;
+            // 다른 부대가 이미 편성해 둔 만큼은 이 부대에서 쓸 수 없다 — 영웅이 한 부대에만
+            // 있을 수 있는 것과 같은 원칙. 초과분이 있으면(예: 다른 탭에서 방금 늘림) 방어적으로
+            // 즉시 깎는다.
+            const reservedByOthers = state.armies.reduce((sum, a, idx) => idx === activeSquad ? sum : sum + (a.lastComp[t.key] || 0), 0);
+            const avail = Math.max(0, owned - reservedByOthers);
             const val = Math.min(avail, army.lastComp[t.key] || 0);
+            if (val > 0) army.lastComp[t.key] = val; else delete army.lastComp[t.key];
             return `
             <div class="troop-comp-card">
               <div class="tc-name">${t.name}</div>
-              <div class="tc-avail">보유 ${avail}</div>
+              <div class="tc-avail">보유 ${avail}${reservedByOthers > 0 ? ` <span class="hr-note">(다른 부대 편성 ${reservedByOthers}명 제외)</span>` : ""}</div>
               <input type="range" class="ac-input" data-key="${t.key}" min="0" max="${avail}" value="${val}" ${avail === 0 ? "disabled" : ""} />
               <div class="tc-value"><span class="tc-num" data-key-val="${t.key}">${val}</span><span class="tc-unit">명</span></div>
             </div>`;
@@ -2499,9 +2554,12 @@
           army.heroIds[i] = candidates.shift();
           filled += 1;
         }
+        // 병사도 영웅처럼 다른 부대가 이미 편성해 둔 만큼은 제외한 "진짜 남은 수량"만 채운다.
         TROOP_TYPES.forEach((t) => {
-          const avail = state.troopsByType[t.key] || 0;
-          if (avail > 0) army.lastComp[t.key] = avail;
+          const owned = state.troopsByType[t.key] || 0;
+          const reservedByOthers = state.armies.reduce((sum, a, idx) => idx === activeSquad ? sum : sum + (a.lastComp[t.key] || 0), 0);
+          const avail = Math.max(0, owned - reservedByOthers);
+          if (avail > 0) army.lastComp[t.key] = avail; else delete army.lastComp[t.key];
         });
         save();
         renderBoard();
