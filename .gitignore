@@ -13,3 +13,9 @@ firestore-debug.log
 ui-debug.log
 pubsub-debug.log
 emulator-data/
+
+# Cloudflare Workers 백엔드(workers/)
+workers/node_modules/
+workers/.wrangler/
+workers/.dev.vars
+.wrangler/

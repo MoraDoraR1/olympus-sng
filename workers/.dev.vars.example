@@ -1,0 +1,5 @@
+# 로컬 개발용 예시. 실제 값은 .dev.vars(gitignore 대상)에 넣는다.
+# JWT_SECRET: HMAC-SHA256 서명용 비밀값. 아래 명령으로 무작위 값을 생성해서 쓴다.
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+# 운영 배포 시에는 커밋되는 파일이 아니라 `wrangler secret put JWT_SECRET`으로 설정한다.
+JWT_SECRET=REPLACE_WITH_RANDOM_SECRET

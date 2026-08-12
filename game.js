@@ -395,43 +395,29 @@
   const SAVE_KEY = "olympusSngSave_v5";
   const OFFLINE_CAP_SECONDS = 12 * 3600; // 오프라인 진행은 최대 12시간분까지만 한 번에 재생
 
-  // ---------- 계정/서버 동기화 (Firebase) ----------
-  // 실제 프로젝트 연결 정보는 firebase-config.js(별도 파일, .gitignore 대상 —
-  // firebase-config.example.js를 복사해서 만든다)가 미리 firebase.initializeApp()을
-  // 호출해 둔다. 여기서는 그렇게 초기화된 전역 firebase만 사용한다.
+  // ---------- 계정/서버 동기화 ----------
+  // 클라이언트와 API가 같은 Cloudflare Worker(같은 오리진)에서 서빙되므로 API_BASE는
+  // 기본적으로 빈 문자열(상대 경로)이면 충분하다 — index.html의
+  // <meta name="olympus-api-base">로 다른 백엔드 주소를 가리키게 오버라이드할 수도 있다.
+  const AUTH_TOKEN_KEY = "olympusSngAuthToken";
+  const API_BASE = (document.querySelector('meta[name="olympus-api-base"]') || {}).content || "";
   const SERVER_SYNC_INTERVAL_MS = 15000; // 매 초 로컬 저장과 별개로, 서버 체크포인트는 이 주기로만 전송(스팸 방지)
-  const CONQUEST_MAP_SIZE = 200; // functions/src/lib/conquest.js의 MAP_WIDTH/MAP_HEIGHT와 동일
-  const CONQUEST_UNLOCK_CASTLE_LEVEL = 5; // functions/src/lib/conquest.js의 UNLOCK_CASTLE_LEVEL과 동일
-  const CONQUEST_ITEM_COSTS = { shield30: 5000, shield60: 9000, shield120: 16000, teleport: 8000 }; // functions/src/lib/items.js의 ITEM_COSTS와 동일
-  const fbAuth = firebase.auth();
-  const fbDb = firebase.firestore();
-  const fbFunctions = firebase.functions();
+  let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || null;
   let currentPlayer = null; // { id, nickname } — 로그인 성공 후 채워짐
   let lastServerSyncAt = 0;
 
-  // 닉네임+비밀번호 로그인 UX는 유지하되 실제 계정은 Firebase Auth(이메일/비밀번호)로
-  // 관리한다 — 닉네임을 고정된 규칙으로 이메일 형태로 바꿔서 사용한다(실재하는 주소가
-  // 아니어도 된다). 이 매핑이 곧 닉네임 유일성 보장이다: 같은 이메일로 두 번 가입하는
-  // 것 자체를 Firebase Auth가 막아준다.
-  function nicknameToEmail(nickname) {
-    const bytes = new TextEncoder().encode(nickname);
-    const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-    return `u-${hex}@olympus-sng.local`;
-  }
-
-  function callFn(name, data) {
-    return fbFunctions.httpsCallable(name)(data).then((res) => res.data);
-  }
-
-  function firebaseErrorMessage(e) {
-    const code = e && e.code;
-    if (code === "auth/email-already-in-use") return "이미 사용 중인 닉네임입니다.";
-    if (code === "auth/weak-password") return "비밀번호는 6자 이상이어야 합니다.";
-    if (code === "auth/wrong-password" || code === "auth/user-not-found" || code === "auth/invalid-credential") {
-      return "닉네임 또는 비밀번호가 올바르지 않습니다.";
-    }
-    if (code === "auth/network-request-failed") return "서버에 연결할 수 없습니다. 네트워크 상태를 확인하세요.";
-    return (e && e.message) || "요청에 실패했습니다.";
+  async function apiRequest(path, options) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: "Bearer " + authToken } : {}),
+        ...((options && options.headers) || {}),
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "서버 요청에 실패했습니다.");
+    return data;
   }
 
   // 6성 이상(6/7/8/카미)이 연구로 부스트됐을 때 지나치게 자주 등장하던 문제 —
@@ -485,13 +471,13 @@
 
   // 로컬 저장(save())은 매 tick 그대로 유지하되, 네트워크 요청은 스팸이 되지 않도록
   // SERVER_SYNC_INTERVAL_MS 간격으로만 보낸다. force=true는 로그인 직후처럼 즉시 반영이
-  // 필요한 순간에만 사용. 실제 저장은 saveState 콜러블(anticheat 검증 포함)이 담당한다.
+  // 필요한 순간에만 사용. 실제 저장은 PUT /api/state(anticheat 검증 포함)가 담당한다.
   function syncStateToServer(force) {
-    if (!currentPlayer) return;
+    if (!authToken) return;
     const now = Date.now();
     if (!force && now - lastServerSyncAt < SERVER_SYNC_INTERVAL_MS) return;
     lastServerSyncAt = now;
-    callFn("saveState", { state }).catch(() => {});
+    apiRequest("/api/state", { method: "PUT", body: JSON.stringify({ state }) }).catch(() => {});
   }
 
   function renderAccountBadge() {
@@ -501,13 +487,14 @@
     document.getElementById("player-nickname-label").textContent = currentPlayer.nickname;
   }
 
-  async function afterLogin(user, nickname) {
-    currentPlayer = { id: user.uid, nickname };
+  async function afterLogin(data) {
+    authToken = data.token;
+    currentPlayer = data.player;
+    localStorage.setItem(AUTH_TOKEN_KEY, authToken);
     try {
-      const snap = await fbDb.collection("players").doc(user.uid).get();
-      const remoteState = snap.exists ? snap.data().state : null;
-      if (remoteState) {
-        const migrated = migrateState(remoteState);
+      const remote = await apiRequest("/api/state");
+      if (remote.state) {
+        const migrated = migrateState(remote.state);
         if (migrated) state = migrated;
       } else {
         // 이 계정은 서버에 저장된 진행 상황이 아직 없다 — 이 브라우저에 남아있던
@@ -519,7 +506,8 @@
   }
 
   function logout() {
-    fbAuth.signOut().finally(() => location.reload());
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    location.reload();
   }
   // 예전 상호배타성 버그 등으로 세이브에 이미 남아있을 수 있는 "같은 영웅이
   // 부대와 건물에 동시에 배치된" 상태를 정리한다. 진행 중인 원정이 있는 부대를
@@ -2161,18 +2149,14 @@
   async function refreshConquestItemsInfo() {
     if (!currentPlayer) return;
     try {
-      // playerItems/{uid}는 본인만 읽을 수 있게 허용돼 있어(firestore.rules) 콜러블 없이
-      // 직접 조회한다. costs는 서버(functions/src/lib/items.js)와 동일한 고정값이라 상수로 둔다.
-      const snap = await fbDb.collection("playerItems").doc(currentPlayer.id).get();
-      const items = snap.exists ? snap.data() : { shield30: 0, shield60: 0, shield120: 0, teleport: 0 };
-      conquestItemsInfo = { items, costs: CONQUEST_ITEM_COSTS };
+      conquestItemsInfo = await apiRequest("/api/items/me");
     } catch (e) {}
     renderInventoryModal();
   }
   function buyConquestItem(item) {
-    callFn("itemsBuy", { item })
+    apiRequest("/api/items/buy", { method: "POST", body: JSON.stringify({ item }) })
       .then((res) => {
-        conquestItemsInfo = { items: res.items, costs: CONQUEST_ITEM_COSTS };
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
         // 서버가 골드를 즉시 차감하지만 그 사실을 클라이언트는 모르므로, 다음 자동저장이
         // (구매 이전의) 로컬 골드값으로 서버 값을 덮어쓰지 않도록 여기서 바로 반영한다.
         if (typeof res.goldLeft === "number") state.res.gold = res.goldLeft;
@@ -2183,9 +2167,9 @@
       .catch((e) => toast(e.message || "구매에 실패했습니다."));
   }
   function useConquestShield(tier) {
-    callFn("itemsUseShield", { tier })
+    apiRequest("/api/items/use-shield", { method: "POST", body: JSON.stringify({ tier }) })
       .then((res) => {
-        conquestItemsInfo = { items: res.items, costs: CONQUEST_ITEM_COSTS };
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
         toast("🛡️ 보호막을 사용했습니다.");
         lastConquestFetchAt = 0;
         renderInventoryModal();
@@ -2193,9 +2177,9 @@
       .catch((e) => toast(e.message || "사용에 실패했습니다."));
   }
   function useConquestTeleport() {
-    callFn("itemsUseTeleport")
+    apiRequest("/api/items/use-teleport", { method: "POST" })
       .then((res) => {
-        conquestItemsInfo = { items: res.items, costs: CONQUEST_ITEM_COSTS };
+        conquestItemsInfo = { items: res.items, costs: (conquestItemsInfo || {}).costs || {} };
         toast("🌀 정복 맵의 새로운 위치로 이동했습니다.");
         lastConquestFetchAt = 0;
         renderInventoryModal();
@@ -2607,36 +2591,16 @@
     const x1 = conquestCamera.x + CONQUEST_VIEW_W - 1 + pad;
     const y1 = conquestCamera.y + CONQUEST_VIEW_H - 1 + pad;
     try {
-      // worldTiles는 로그인한 사용자에게 전체 공개 읽기라(firestore.rules) Firestore에서
-      // 직접 범위 쿼리한다. nickname은 스폰 시점에 타일 문서에 복사돼 있어 추가 조회가 없다.
-      const snap = await fbDb
-        .collection("worldTiles")
-        .where("x", ">=", x0).where("x", "<=", x1)
-        .where("y", ">=", y0).where("y", "<=", y1)
-        .get();
-      snap.forEach((doc) => {
-        const t = doc.data();
-        conquestTiles.set(t.x + "," + t.y, { x: t.x, y: t.y, playerId: t.playerId, nickname: t.nickname, protectedUntil: t.protectedUntil });
-      });
+      const res = await apiRequest(`/api/conquest/tiles?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
+      res.tiles.forEach((t) => conquestTiles.set(t.x + "," + t.y, t));
       renderConquestBody();
     } catch (e) {}
-  }
-
-  async function fetchMyConquestTile() {
-    const snap = await fbDb.collection("worldTiles").where("playerId", "==", currentPlayer.id).limit(1).get();
-    if (snap.empty) return null;
-    const d = snap.docs[0].data();
-    return { x: d.x, y: d.y, spawnedAt: d.spawnedAt, protectedUntil: d.protectedUntil };
   }
 
   async function refreshConquestInfo() {
     conquestLoading = true;
     try {
-      // GET /api/conquest/me 대응 — 해금 여부는 이미 로컬 state.tiles.castle.level로 알 수
-      // 있고(성 레벨은 100% 클라이언트 소유 값), 내 타일은 worldTiles를 직접 조회한다.
-      const tile = currentPlayer ? await fetchMyConquestTile() : null;
-      const unlocked = !!(state.tiles.castle && state.tiles.castle.level >= CONQUEST_UNLOCK_CASTLE_LEVEL);
-      conquestInfo = { tile, unlocked, mapWidth: CONQUEST_MAP_SIZE, mapHeight: CONQUEST_MAP_SIZE };
+      conquestInfo = await apiRequest("/api/conquest/me");
       if (conquestInfo.unlocked) maybeShowConquestTutorial();
       if (conquestInfo.tile && !conquestCamera) {
         conquestCamera = clampConquestCamera(conquestInfo.tile.x - Math.floor(CONQUEST_VIEW_W / 2), conquestInfo.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
@@ -2663,12 +2627,12 @@
   }
   async function refreshConquestMissions() {
     try {
-      const res = await callFn("pvpMissionsMine");
+      const res = await apiRequest("/api/conquest/missions");
       const snap = missionsSnapshot(res.missions);
       if (lastMissionSnapshot && snap !== lastMissionSnapshot) {
         try {
-          const fresh = await fbDb.collection("players").doc(currentPlayer.id).get();
-          if (fresh.exists && fresh.data().state) adoptServerDeltaFields(fresh.data().state);
+          const fresh = await apiRequest("/api/state");
+          if (fresh.state) adoptServerDeltaFields(fresh.state);
         } catch (e) {}
       }
       lastMissionSnapshot = snap;
@@ -2678,7 +2642,7 @@
   }
   async function recallConquestMission(missionId) {
     try {
-      await callFn("pvpRecall", { missionId });
+      await apiRequest("/api/conquest/recall", { method: "POST", body: JSON.stringify({ missionId }) });
       toast("🛡️ 지원군을 철수시켰습니다.");
       lastMissionSnapshot = "";
       refreshConquestMissions();
@@ -2703,7 +2667,7 @@
       return "";
     }).filter(Boolean);
     wrap.innerHTML = rows.join("");
-    wrap.querySelectorAll(".btn-recall-mission").forEach((btn) => btn.addEventListener("click", () => recallConquestMission(btn.dataset.id)));
+    wrap.querySelectorAll(".btn-recall-mission").forEach((btn) => btn.addEventListener("click", () => recallConquestMission(Number(btn.dataset.id))));
   }
 
   // 정복이 해금된 계정마다 딱 한 번만 보여주는 이미지(이모지) 시각화 튜토리얼.
@@ -2736,7 +2700,7 @@
 
   async function doConquestSpawn() {
     try {
-      const res = await callFn("conquestSpawn");
+      const res = await apiRequest("/api/conquest/spawn", { method: "POST" });
       conquestInfo.tile = res.tile;
       conquestCamera = clampConquestCamera(res.tile.x - Math.floor(CONQUEST_VIEW_W / 2), res.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
       lastConquestFetchAt = 0;
@@ -2891,7 +2855,10 @@
     const squadIndex = Number(infoEl.querySelector(".ctf-squad-select").value);
     const comp = readCompFromForm(infoEl);
     try {
-      const res = await callFn(kind === "attack" ? "pvpAttack" : "pvpReinforce", { targetPlayerId, squadIndex, comp });
+      const res = await apiRequest(`/api/conquest/${kind}`, {
+        method: "POST",
+        body: JSON.stringify({ targetPlayerId, squadIndex, comp }),
+      });
       toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}`);
       lastMissionSnapshot = ""; // 다음 폴링에서 무조건 최신 상태를 반영하도록
       infoEl.hidden = true;
@@ -2918,7 +2885,7 @@
     infoEl.innerHTML = `${header}<div class="ctf-line">이동 시간 계산 중...</div>`;
     let travelHTML = "";
     try {
-      const res = await callFn("conquestTravelTime", { x, y });
+      const res = await apiRequest(`/api/conquest/travel-time?x=${x}&y=${y}`);
       travelHTML = `
         <div class="ctf-line">거리 ${res.distance}칸</div>
         <div class="ctf-line">최저 속도 기준(편도): ${formatCountdownShort(res.baseSeconds * 1000)}</div>
@@ -3033,52 +3000,45 @@
     showLoginError(null);
     document.getElementById("login-hint").textContent = "처리 중...";
     try {
-      // Firebase Auth는 createUserWithEmailAndPassword/signInWithEmailAndPassword가 반환하는
-      // 프로미스가 풀리기도 전에 onAuthStateChanged를 먼저 통지할 수 있다 — 아래 호출 이후에
-      // 구독 해지하면 그 사이에 부팅 리스너가 먼저 끼어들어(아직 registerProfile을 못 불러
-      // players 문서가 비어있는 상태로) 임시 닉네임으로 afterLogin을 실행해버릴 수 있다.
-      // 그래서 실제 인증 호출 전에 미리 구독을 해지해 둔다.
-      authBootHandled = true;
-      if (unsubscribeAuthBoot) unsubscribeAuthBoot();
-      const email = nicknameToEmail(nickname);
-      const cred =
-        kind === "register"
-          ? await fbAuth.createUserWithEmailAndPassword(email, password)
-          : await fbAuth.signInWithEmailAndPassword(email, password);
-      if (kind === "register") await callFn("registerProfile", { nickname });
-      await afterLogin(cred.user, nickname);
+      const data = await apiRequest(kind === "register" ? "/api/auth/register" : "/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ nickname, password }),
+      });
+      await afterLogin(data);
       document.getElementById("login-hint").textContent = "";
       document.getElementById("screen-login").hidden = true;
       document.getElementById("screen-title").hidden = false;
     } catch (e) {
       document.getElementById("login-hint").textContent = "";
-      showLoginError(firebaseErrorMessage(e));
+      showLoginError(e instanceof TypeError ? "서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인하세요." : (e.message || "요청에 실패했습니다."));
     }
   }
   document.getElementById("login-form").addEventListener("submit", (e) => { e.preventDefault(); handleAuthSubmit("login"); });
   document.getElementById("btn-register-submit").addEventListener("click", () => handleAuthSubmit("register"));
   document.getElementById("btn-logout").addEventListener("click", logout);
 
-  // 브라우저를 새로 열었을 때 이미 로그인된 세션이 있으면(Firebase Auth가 자체적으로
-  // 세션을 저장해 둔다) 조용히 진행 상황을 불러오고 바로 타이틀 화면으로 넘어간다.
-  // handleAuthSubmit이 명시적으로 로그인/가입을 처리한 경우와 중복 실행되지 않도록
-  // 최초 1회만 반응하고 곧바로 구독을 해지한다.
-  let authBootHandled = false;
-  const unsubscribeAuthBoot = fbAuth.onAuthStateChanged(async (user) => {
-    if (authBootHandled) return;
-    authBootHandled = true;
-    unsubscribeAuthBoot();
-    if (user) {
+  // 이미 로그인 토큰이 있으면 조용히 검증 + 서버 진행 상황을 불러오고 바로 타이틀
+  // 화면으로 넘어간다(매번 재로그인할 필요 없게). 실패하면(토큰 만료 등) 로그인 화면을 보여준다.
+  (async function bootAuth() {
+    if (authToken) {
       try {
-        const snap = await fbDb.collection("players").doc(user.uid).get();
-        const nickname = snap.exists ? snap.data().nickname : (user.email || "").split("@")[0];
-        await afterLogin(user, nickname);
+        const me = await apiRequest("/api/auth/me");
+        currentPlayer = me.player;
+        const remote = await apiRequest("/api/state");
+        if (remote.state) {
+          const migrated = migrateState(remote.state);
+          if (migrated) state = migrated;
+        }
+        renderAccountBadge();
         document.getElementById("screen-login").hidden = true;
         document.getElementById("screen-title").hidden = false;
         return;
-      } catch (e) {}
+      } catch (e) {
+        authToken = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
     }
     document.getElementById("screen-login").hidden = false;
     document.getElementById("screen-title").hidden = true;
-  });
+  })();
 })();

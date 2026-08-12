@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "olympus-sng",
+  "main": "src/index.js",
+  // 저장소 루트(index.html/game.js/style.css/data/assets)를 그대로 정적 자산으로 서빙한다 —
+  // 어떤 파일을 뺄지는 ../.assetsignore(assets.directory 기준 상대 경로)에서 정한다.
+  "assets": {
+    "directory": "../",
+    "binding": "ASSETS"
+  },
+  "compatibility_date": "2026-08-11",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "olympus-sng-db",
+      "database_id": "REPLACE_WITH_REAL_D1_DATABASE_ID",
+      "migrations_dir": "./migrations"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "PVP_COORDINATOR", "class_name": "PvpCoordinator" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PvpCoordinator"] }
+  ],
+
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,23 @@
+# Cloudflare Workers 정적 자산(assets.directory가 레포 루트를 가리킴)에서 제외할 것들.
+# 클라이언트가 실제로 쓰는 index.html/game.js/style.css/data/assets만 서빙되면 된다.
+.git
+.github
+node_modules
+functions
+server-legacy
+workers
+design
+scripts
+tools
+hello-score
+emulator-seed-data
+*.md
+package.json
+package-lock.json
+.gitignore
+.firebaserc
+firebase.json
+firebase-config.js
+firestore.rules
+firestore.indexes.json
+.wrangler
