@@ -2408,7 +2408,7 @@
       const power = armyPowerScore(army.heroIds, army.lastComp);
       const capacity = armyCarryCapacity(army.heroIds, army.lastComp);
       body.innerHTML = `
-        <h2>⚔️ 군대 편성 (부대 ${SQUAD_COUNT}개, 각 영웅 최대 3명)</h2>
+        <h2>⚔️ 군대 편성 (부대 ${SQUAD_COUNT}개, 각 영웅 최대 3명) <button id="do-auto-compose" class="btn-small">🤖 자동 편성</button></h2>
         <p>보유 병사: ${totalTroops}</p>
         <div class="squad-tabs">
           ${state.armies.map((a, i) => `<button class="squad-tab ${i === activeSquad ? "active" : ""} ${a.mission ? "busy" : ""}" data-idx="${i}">부대 ${i + 1}${a.mission ? " 🪖" : ""} <span class="squad-power">⚔️${armyPowerScore(a.heroIds, a.lastComp || {}).toLocaleString()}</span></button>`).join("")}
@@ -2464,6 +2464,30 @@
           }).join("")}
         </div>
       `;
+      body.querySelector("#do-auto-compose").addEventListener("click", () => {
+        // 현재 부대의 빈 슬롯만 채운다(이미 배치된 영웅은 건드리지 않는다) — 어떤 부대에도
+        // 없는 보유 영웅 중 전투력(armyPowerScore) 상위 순으로 채우고, 병사 구성은 미리보기
+        // 겸 기본값으로 현재 보유한 병사 전량을 채운다(실제 파병 수량은 출정 폼에서 별도
+        // 입력하므로 여기서 병력을 소모하지 않는다).
+        const inAnyArmy = new Set(state.armies.flatMap((a) => a.heroIds.filter(Boolean)));
+        const candidates = Object.keys(state.owned).map(Number)
+          .filter((id) => HERO_BY_ID[id] && !inAnyArmy.has(id))
+          .sort((a, b) => armyPowerScore([b], {}) - armyPowerScore([a], {}));
+        let filled = 0;
+        for (let i = 0; i < 3 && candidates.length; i++) {
+          if (army.heroIds[i]) continue;
+          army.heroIds[i] = candidates.shift();
+          filled += 1;
+        }
+        TROOP_TYPES.forEach((t) => {
+          const avail = state.troopsByType[t.key] || 0;
+          if (avail > 0) army.lastComp[t.key] = avail;
+        });
+        save();
+        renderBoard();
+        render();
+        toast(filled > 0 ? `🤖 영웅 ${filled}명을 부대에 자동 편성했습니다` : "자동 편성할 여유 영웅이 없습니다(모두 다른 부대에 배치됨)");
+      });
       body.querySelectorAll(".squad-tab").forEach((btn) => btn.addEventListener("click", () => { activeSquad = Number(btn.dataset.idx); render(); }));
       body.querySelectorAll(".do-unassign-army").forEach((btn) => {
         btn.addEventListener("click", (e) => { e.stopPropagation(); army.heroIds[Number(btn.dataset.idx)] = null; save(); render(); });
@@ -2686,6 +2710,46 @@
   });
 
   document.getElementById("btn-army").addEventListener("click", openArmyModal);
+
+  // 영웅 자동 배치 — 아직 어떤 건물에도 배치되지 않은 보유 영웅만 대상으로 한다(수동으로
+  // 이미 배치해둔 곳은 건드리지 않는다). (영웅, 건물) 조합 중 보너스가 있는 것만 골라
+  // 보너스 % 내림차순으로 그리디하게 채운다 — 전역 최적은 아니지만 직관적이고 되돌리기
+  // 쉬운 결과를 준다.
+  function autoAssignHeroes() {
+    const unplaced = Object.keys(state.owned).map(Number).filter((id) => HERO_BY_ID[id] && !heroBuildingLocation(id));
+    const candidateTiles = Object.entries(state.tiles).filter(([, t]) => {
+      const bdef = BUILDING_TYPES[t.type];
+      return t.built && bdef && !bdef.noHeroBonus && t.heroIds.length < MAX_HEROES_PER_BUILDING;
+    });
+    const pairs = [];
+    unplaced.forEach((heroId) => {
+      const hero = HERO_BY_ID[heroId];
+      candidateTiles.forEach(([tileId, tile]) => {
+        const bonus = heroBuildingBonusFor(hero, tile.type);
+        if (bonus > 0) pairs.push({ heroId, tileId, bonus });
+      });
+    });
+    pairs.sort((a, b) => b.bonus - a.bonus);
+    const slotsLeft = {};
+    candidateTiles.forEach(([tileId, tile]) => { slotsLeft[tileId] = MAX_HEROES_PER_BUILDING - tile.heroIds.length; });
+    const placedHero = new Set();
+    let count = 0;
+    pairs.forEach(({ heroId, tileId }) => {
+      if (placedHero.has(heroId) || slotsLeft[tileId] <= 0) return;
+      state.tiles[tileId].heroIds.push(heroId);
+      slotsLeft[tileId] -= 1;
+      placedHero.add(heroId);
+      count += 1;
+    });
+    if (count > 0) {
+      save();
+      renderBoard();
+      toast(`🤖 영웅 ${count}명을 특성에 맞는 건물에 자동 배치했습니다`);
+    } else {
+      toast("자동 배치할 수 있는 영웅이 없습니다(이미 배치되었거나 맞는 건물이 없음)");
+    }
+  }
+  document.getElementById("btn-auto-assign").addEventListener("click", autoAssignHeroes);
   document.getElementById("wall-frame").addEventListener("click", (e) => {
     if (e.target.closest("#board")) return;
     const wall = state.tiles.wall;

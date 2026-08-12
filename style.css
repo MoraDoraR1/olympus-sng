@@ -108,6 +108,7 @@ button:active { transform: scale(.96); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 #btn-reset-game { background: #b0463f; color: #fff; }
 .btn-danger { display: block; background: #b0463f; color: #fff; margin-top: 10px; }
+.btn-small { font-size: .78rem; padding: 4px 10px; margin-left: 8px; vertical-align: middle; }
 #btn-worldmap { background: #5b7a8f; color: #fff; }
 #btn-end-game { background: #8a7a63; color: #fff; }
 
