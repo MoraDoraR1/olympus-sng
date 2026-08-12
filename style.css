@@ -933,6 +933,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .raid-name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; }
 .raid-level { font-size: .85rem; color: var(--ink-soft); font-weight: 700; }
 .raid-stats { font-size: .84rem; font-weight: 600; color: var(--ink-soft); margin-top: 2px; }
+.raid-recommend { font-size: .84rem; font-weight: 700; margin-top: 2px; }
+.raid-recommend b { color: var(--roof); font-size: .95rem; font-weight: 800; }
 .raid-reward { font-size: .82rem; font-weight: 600; margin-top: 2px; }
 .raid-action { flex-shrink: 0; text-align: right; }
 .raid-action button.do-raid-attack { background: #b0463f; color: #fff; font-size: .92rem; padding: 7px 14px; }

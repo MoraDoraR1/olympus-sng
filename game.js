@@ -52,10 +52,11 @@
 
   // 성(castle)만의 특정 레벨 구간 특별 해금 조건 — LEVEL_REQUIREMENTS(다른 건물의
   // "목표 레벨 기준 상대 오프셋")와 달리, 여기는 특정 절대 레벨 도달 시에만 걸리는
-  // 이질적인 조건들(건물 절대 레벨, 몬스터 누적 처치 수 등)이라 별도 표로 둔다.
-  // key: 도달하려는 성 레벨. kind:"buildingLevel"은 해당 타입 건물 중 하나라도
-  // need 이상이면 충족(maxLevelOfType 기준). kind:"monsterKills"는
+  // 이질적인 조건들(건물 절대 레벨, 몬스터 누적 처치 수, 레이드 보스 처치 등)이라
+  // 별도 표로 둔다. key: 도달하려는 성 레벨. kind:"buildingLevel"은 해당 타입 건물
+  // 중 하나라도 need 이상이면 충족(maxLevelOfType 기준). kind:"monsterKills"는
   // state.monsterKillsSinceGate(직전 몬스터 조건을 소모한 뒤부터 누적) 기준.
+  // kind:"raidBossDefeated"는 state.raids[bossId].defeated(영구 플래그) 기준.
   const CASTLE_UNLOCK_GATES = {
     6: [{ kind: "monsterKills", need: 5 }],
     11: [
@@ -69,7 +70,13 @@
       { kind: "buildingLevel", type: "채석장", need: 13 },
       { kind: "monsterKills", need: 10 },
     ],
-    // 20(최종 레벨) 조건은 별도 승인 후 채운다.
+    // 최종 레벨(20) — 지금까지 조건에 쓰이지 않은 병영·여관과, 별도 컨텐츠 축인
+    // 레이드 보스를 조합해 앞 단계 조건들과 겹치지 않게 했다.
+    20: [
+      { kind: "buildingLevel", type: "병영", need: 15 },
+      { kind: "buildingLevel", type: "여관", need: 15 },
+      { kind: "raidBossDefeated", bossId: "medusa" },
+    ],
   };
 
   // ---------- 왕도풍 타일 배치 (10열 그리드, 20타일 + 성벽) ----------
@@ -396,6 +403,13 @@
       atk: Math.round(base.atk * boss.powerMult),
       def: Math.round(base.def * boss.powerMult),
     };
+  }
+  // 유저에게 보여줄 "권장 전투력" — armyPowerScore(atk+def+hp 합산)와 동일한 산식을
+  // 보스 스탯에 그대로 적용해, 군대 편성 화면에 상시 표시되는 내 부대 전투력 수치와
+  // 같은 단위로 직접 비교(목표 삼기)할 수 있게 한다.
+  function raidBossRecommendedPower(boss) {
+    const s = raidBossStats(boss);
+    return Math.round(s.atk + s.def + s.hp);
   }
   // 선행 보스를 처치해야 다음 보스에 도전할 수 있다(requires:null이면 항상 도전 가능)
   function raidBossUnlocked(boss) {
@@ -910,6 +924,10 @@
           const cur = Math.min(state.monsterKillsSinceGate, g.need);
           const ok = state.monsterKillsSinceGate >= g.need;
           rows.push({ label: "몬스터 처치", cur, need: g.need, ok, missingLabel: `몬스터 처치 ${g.need}마리`, progressLabel: `${cur}/${g.need}마리` });
+        } else if (g.kind === "raidBossDefeated") {
+          const boss = RAID_BOSSES.find((b) => b.id === g.bossId);
+          const ok = !!(state.raids[g.bossId] && state.raids[g.bossId].defeated);
+          rows.push({ label: `${boss.name} 처치`, cur: ok ? 1 : 0, need: 1, ok, missingLabel: `레이드 보스 ${boss.name} 처치`, progressLabel: ok ? "처치 완료" : "미처치" });
         }
       });
     }
@@ -2354,6 +2372,7 @@
             <div class="raid-info">
               <div class="raid-name">${boss.name} 👑 <span class="raid-level">Lv.${boss.level}</span></div>
               <div class="raid-stats">⚔️${s.atk.toLocaleString()} 🛡️${s.def.toLocaleString()} ❤️${s.hp.toLocaleString()}</div>
+              <div class="raid-recommend">🎯 권장 전투력 <b>${raidBossRecommendedPower(boss).toLocaleString()}</b></div>
               <div class="raid-reward">보상: 자원 1종 ${r.resourceAmount.toLocaleString()} + 🪙${r.goldBonus.toLocaleString()} · 조각 ${r.shards} · ★${r.ticketRarity}+ 소환권 ${r.ticketCount}장</div>
             </div>
             <div class="raid-action">${raidActionHTML(boss)}</div>
