@@ -3409,6 +3409,47 @@
     if (!tickHandle) tickHandle = setInterval(tick, 1000);
   }
   document.getElementById("btn-start-game").addEventListener("click", startGame);
+
+  // ---------- 메인 튜토리얼(타이틀 화면) — 주요 콘텐츠를 한 번씩 훑어보는 캐러셀 ----------
+  // 정복 해금 시 뜨는 modal-conquest-tutorial과 달리, 게임을 시작하기 전에 원할 때
+  // 언제든 다시 볼 수 있는 개요용이라 localStorage로 "한 번만" 제한하지 않는다.
+  const MAIN_TUTORIAL_STEPS = [
+    { visual: "🌱 → 🏠 → 🏛️", title: "도시 건설", desc: "빈 부지를 눌러 건물을 짓고 레벨업하세요. 성(🏛️)이 도시의 중심이며, 레벨이 오를수록 더 많은 것을 할 수 있게 됩니다." },
+    { visual: "🌾 🪵 🪨 🪙", title: "자원 생산과 유지비", desc: "농장·벌목장·채석장·성이 자원을 생산합니다. 병사를 보유하면 매초 식량을 소모하니(유지비), 감당할 수 있는 만큼만 훈련하세요." },
+    { visual: "⚔️ 병영 → 🪖🪖🪖", title: "병영과 부대", desc: "병영에서 병사를 훈련하고, 상단의 '군대' 메뉴에서 부대를 편성하세요. 부대는 필드 몬스터 사냥·보스 레이드·정복 원정에 모두 쓰입니다." },
+    { visual: "🍺 여관 → 🦸 영웅", title: "영웅", desc: "여관에 일정 시간마다 영웅 후보가 등장합니다. 영웅을 건물이나 부대에 배치하면 생산·전투·이동에 보너스를 받습니다." },
+    { visual: "🗺️ 왕국 주변 → 🐍", title: "필드 몬스터 사냥", desc: "왕국을 둘러싼 야생 지역에 몬스터가 등장합니다. 부대를 보내 처치하면 자원을 얻을 수 있습니다." },
+    { visual: "👑 강력한 보스", title: "보스 레이드", desc: "조건을 만족하면 강력한 보스에게 도전할 수 있습니다. 큰 보상과 영웅 강화에 쓰이는 파편을 얻습니다." },
+    { visual: "🏰 성 Lv.5 → 🗺️", title: "정복 맵", desc: "성 레벨 5부터 정복 맵에 참가할 수 있습니다. 거대한 지도의 무작위 위치에 성이 배정되고, 처음 30분은 보호받습니다." },
+    { visual: "⚔️ 공격 → 🛡️ 해제", title: "공격과 수성", desc: "다른 플레이어를 공격하면 내 보호막이 즉시 사라집니다. 신중히 결정하세요. 방어탑·성벽을 미리 준비해두면 공격받을 때 유리합니다." },
+    { visual: "🎒 🛡️ · 🌀", title: "인벤토리와 아이템", desc: "인벤토리에서 보호막이나 성 이동 아이템을 얻고 사용할 수 있습니다. 정복 맵에서 전략적으로 활용하세요." },
+  ];
+  let tutorialStepIndex = 0;
+  function renderTutorialStep() {
+    const step = MAIN_TUTORIAL_STEPS[tutorialStepIndex];
+    document.getElementById("tutorial-step-body").innerHTML = `
+      <div class="tutorial-step tutorial-step-solo">
+        <div class="tutorial-visual">${step.visual}</div>
+        <h3>${step.title}</h3>
+        <p>${step.desc}</p>
+      </div>
+    `;
+    document.getElementById("tutorial-progress").textContent = `${tutorialStepIndex + 1} / ${MAIN_TUTORIAL_STEPS.length}`;
+    document.getElementById("tutorial-prev").disabled = tutorialStepIndex === 0;
+    document.getElementById("tutorial-next").textContent = tutorialStepIndex === MAIN_TUTORIAL_STEPS.length - 1 ? "완료 ✓" : "다음 ▶";
+  }
+  document.getElementById("btn-tutorial").addEventListener("click", () => {
+    tutorialStepIndex = 0;
+    renderTutorialStep();
+    openModal("modal-tutorial");
+  });
+  document.getElementById("tutorial-prev").addEventListener("click", () => {
+    if (tutorialStepIndex > 0) { tutorialStepIndex--; renderTutorialStep(); }
+  });
+  document.getElementById("tutorial-next").addEventListener("click", () => {
+    if (tutorialStepIndex < MAIN_TUTORIAL_STEPS.length - 1) { tutorialStepIndex++; renderTutorialStep(); }
+    else closeModal("modal-tutorial");
+  });
   // 탭이 백그라운드에 있는 동안 브라우저가 타이머를 강하게 절전(throttle)시킬 수 있어
   // 다시 활성화될 때 경과 시간만큼 한 번 더 따라잡는다(게임이 이미 시작된 뒤에만)
   document.addEventListener("visibilitychange", () => {

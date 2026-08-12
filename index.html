@@ -95,7 +95,24 @@
     <div class="title-card">
       <div class="title-logo">🏛️ 올림포스 도시</div>
       <p class="title-tagline">신들이 지켜보는 땅에, 첫 도시를 세운다.</p>
-      <button id="btn-start-game">▶ 게임 시작</button>
+      <div class="title-actions">
+        <button id="btn-start-game">▶ 게임 시작</button>
+        <button id="btn-tutorial" class="btn-secondary">📖 튜토리얼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 튜토리얼(타이틀 화면) — 주요 콘텐츠를 한 번씩 훑어보는 안내 캐러셀 -->
+  <div class="modal-overlay" id="modal-tutorial" hidden>
+    <div class="modal modal-narrow">
+      <button class="modal-close" data-close>✕</button>
+      <h2>📖 게임 둘러보기</h2>
+      <div id="tutorial-step-body"></div>
+      <div class="tutorial-nav">
+        <button id="tutorial-prev" class="btn-secondary">◀ 이전</button>
+        <span id="tutorial-progress" class="tutorial-progress"></span>
+        <button id="tutorial-next">다음 ▶</button>
+      </div>
     </div>
   </div>
 
