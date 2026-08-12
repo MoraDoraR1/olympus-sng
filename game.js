@@ -516,28 +516,34 @@
     localStorage.removeItem(AUTH_TOKEN_KEY);
     location.reload();
   }
-  // 예전 상호배타성 버그 등으로 세이브에 이미 남아있을 수 있는 "같은 영웅이
-  // 부대와 건물에 동시에 배치된" 상태를 정리한다. 진행 중인 원정이 있는 부대를
-  // 최우선으로 지키고, 그다음은 먼저 발견되는 배치 하나만 남기고 나머지를 비운다.
+  // 건물 배치와 군대 편성은 서로 독립이라(동시 배치 허용) 두 종류를 한 세트로
+  // 합쳐서 정리하지 않는다 — 대신 "같은 종류 안에서만" 중복을 정리한다: 부대는
+  // 부대끼리(진행 중인 원정이 있는 부대를 최우선으로 지킨다), 건물은 건물끼리.
   // 매 로드마다 실행해도 이미 깨끗한 데이터에는 아무 영향이 없다(멱등).
   function dedupeHeroPlacements(parsed) {
-    const seen = new Set();
-    const claim = (heroId) => {
-      if (heroId == null || seen.has(heroId)) return false;
-      seen.add(heroId);
+    const seenArmy = new Set();
+    const claimArmy = (heroId) => {
+      if (heroId == null || seenArmy.has(heroId)) return false;
+      seenArmy.add(heroId);
       return true;
     };
     parsed.armies.forEach((a) => {
       if (!a.mission) return;
-      a.heroIds = a.heroIds.map((h) => (claim(h) ? h : null));
+      a.heroIds = a.heroIds.map((h) => (claimArmy(h) ? h : null));
     });
     parsed.armies.forEach((a) => {
       if (a.mission) return;
-      a.heroIds = a.heroIds.map((h) => (claim(h) ? h : null));
+      a.heroIds = a.heroIds.map((h) => (claimArmy(h) ? h : null));
     });
+    const seenBuilding = new Set();
+    const claimBuilding = (heroId) => {
+      if (heroId == null || seenBuilding.has(heroId)) return false;
+      seenBuilding.add(heroId);
+      return true;
+    };
     Object.values(parsed.tiles).forEach((t) => {
       if (!Array.isArray(t.heroIds)) return;
-      t.heroIds = t.heroIds.filter((h) => claim(h));
+      t.heroIds = t.heroIds.filter((h) => claimBuilding(h));
     });
   }
   function load() {
@@ -1141,20 +1147,33 @@
   // 건물/부대 어느 한쪽에 배치하면 다른 모든 곳에서 자동으로 해제되는 상호배타 규칙이라,
   // 배치 후보 목록에 뜬 영웅을 유저가 "지금 비어있는 줄" 착각하고 눌러 다른 곳의 배치를
   // 조용히 풀어버리는 일이 없도록, 목록에서 미리 위치를 보여주는 데 쓴다.
+  // 정보 표시용 — 건물/부대 어느 쪽이든 지금 배치돼 있는 곳을 보여준다(둘 다에
+  // 동시에 배치될 수 있으므로 부대가 우선 표시된다는 뜻은 아니고, 목록 뱃지에는
+  // 하나만 보여주면 충분해 부대 쪽을 먼저 확인한다).
   function heroPlacementLocation(heroId) {
     const armyIdx = state.armies.findIndex((a) => a.heroIds.includes(heroId));
     if (armyIdx !== -1) return `부대 ${armyIdx + 1}`;
     const tile = Object.values(state.tiles).find((t) => Array.isArray(t.heroIds) && t.heroIds.includes(heroId));
     return tile ? tile.type : null;
   }
-  // 영웅을 모든 부대·모든 건물에서 제거한다 — 건물 배치(assignHero)와 군대
-  // 편성(hero-row 클릭) 두 경로가 각자 따로 "다른 곳 정리" 로직을 구현하다
-  // 한쪽만 놓치는 일이 없도록, 재배치 직전에 반드시 이 함수 하나만 거치게 한다.
-  function clearHeroEverywhere(heroId) {
-    state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
+  function heroBuildingLocation(heroId) {
+    const tile = Object.values(state.tiles).find((t) => Array.isArray(t.heroIds) && t.heroIds.includes(heroId));
+    return tile ? tile.type : null;
+  }
+  function heroArmyLocation(heroId) {
+    const armyIdx = state.armies.findIndex((a) => a.heroIds.includes(heroId));
+    return armyIdx !== -1 ? `부대 ${armyIdx + 1}` : null;
+  }
+  // 건물 배치와 군대 편성은 서로 독립이다 — 같은 영웅을 건물에도, 부대에도
+  // 동시에 배치할 수 있다. 단, 같은 종류 안에서는 한 곳에만 있을 수 있으므로
+  // (건물↔건물, 부대↔부대) 재배치 직전에 "같은 종류"에서만 정리한다.
+  function clearHeroFromBuildings(heroId) {
     Object.values(state.tiles).forEach((t) => {
       if (Array.isArray(t.heroIds)) t.heroIds = t.heroIds.filter((h) => h !== heroId);
     });
+  }
+  function clearHeroFromArmies(heroId) {
+    state.armies.forEach((a) => { a.heroIds = a.heroIds.map((h) => (h === heroId ? null : h)); });
   }
   function assignHero(tileId, heroId) {
     if (state.armies.some((a) => a.mission && a.heroIds.includes(heroId))) {
@@ -1167,8 +1186,8 @@
       toast(`한 건물에는 최대 ${MAX_HEROES_PER_BUILDING}명까지 배치할 수 있습니다`);
       return;
     }
-    const prevLocation = heroPlacementLocation(heroId);
-    clearHeroEverywhere(heroId);
+    const prevLocation = heroBuildingLocation(heroId);
+    clearHeroFromBuildings(heroId);
     tile.heroIds.push(heroId);
     toast(prevLocation
       ? `${HERO_BY_ID[heroId].name}의 ${prevLocation} 배치가 해제되고 ${tile.type}에 배치되었습니다`
@@ -2360,8 +2379,8 @@
           let idx = selectedSlot;
           if (idx === -1 || army.heroIds[idx]) idx = army.heroIds.findIndex((h) => !h);
           if (idx === -1) { toast("부대 슬롯이 가득 찼습니다 (최대 3명)"); return; }
-          const prevLocation = heroPlacementLocation(heroId);
-          clearHeroEverywhere(heroId);
+          const prevLocation = heroArmyLocation(heroId);
+          clearHeroFromArmies(heroId);
           army.heroIds[idx] = heroId;
           save();
           renderBoard();
