@@ -121,7 +121,7 @@ export async function dispatch(db, playerId, kind, { targetPlayerId, squadIndex,
   const travelSeconds = travelTimeSeconds(distance, speed);
   const arriveAt = now + travelSeconds * 1000;
 
-  const [insertResult] = await db.batch([
+  const stmts = [
     db
       .prepare(
         `INSERT INTO pvp_missions
@@ -130,9 +130,15 @@ export async function dispatch(db, playerId, kind, { targetPlayerId, squadIndex,
       )
       .bind(kind, playerId, squadIdx, targetId, JSON.stringify(cleanComp), JSON.stringify(heroIds), now, arriveAt, now),
     db.prepare("UPDATE game_states SET state_json = ? WHERE player_id = ?").bind(JSON.stringify(originState), playerId),
-  ]);
+  ];
+  // 공격을 보내면 내 보호막도 함께 사라진다(지원군 파병은 해당 없음) — 클라이언트가
+  // 확인창을 띄우긴 하지만, 실제 해제는 서버가 최종 권위로 처리한다.
+  if (kind === "attack") {
+    stmts.push(db.prepare("UPDATE world_tiles SET protected_until = 0 WHERE player_id = ?").bind(playerId));
+  }
+  const [insertResult] = await db.batch(stmts);
 
-  return { missionId: insertResult.meta.last_row_id, arriveAt, travelSeconds, distance };
+  return { missionId: insertResult.meta.last_row_id, arriveAt, travelSeconds, distance, shieldCleared: kind === "attack" };
 }
 
 // 주둔 중인 지원군을 보낸 사람이 자진 철수시킨다(전투 참여 전이라면 언제든 가능).

@@ -3048,6 +3048,14 @@
     return comp;
   }
   async function submitConquestDispatch(kind, targetPlayerId, infoEl) {
+    // 공격은 되돌릴 수 없고 내 보호막도 함께 사라지므로, 지금 보호 중일 때만 2단계로
+    // 확인을 받는다(보호막이 없으면 다른 출정과 동일하게 바로 진행). 실제 해제는
+    // 서버(pvp.js dispatch())가 최종 권위로 처리하지만, 사용자가 그 결과를 미리 알고
+    // 동의하게 하는 게 목적이다.
+    if (kind === "attack" && conquestInfo.tile && conquestInfo.tile.protectedUntil > Date.now()) {
+      if (!confirm("⚠️ 공격을 보내면 나를 지켜주던 보호막이 즉시 사라집니다. 계속하시겠습니까?")) return;
+      if (!confirm("정말로 공격을 보내시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+    }
     const squadIndex = Number(infoEl.querySelector(".ctf-squad-select").value);
     const comp = readCompFromForm(infoEl);
     try {
@@ -3055,9 +3063,11 @@
         method: "POST",
         body: JSON.stringify({ targetPlayerId, squadIndex, comp }),
       });
-      toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}`);
+      toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}${res.shieldCleared ? " · 🛡️ 내 보호막이 해제되었습니다" : ""}`);
+      if (res.shieldCleared && conquestInfo.tile) conquestInfo.tile.protectedUntil = 0;
       lastMissionSnapshot = ""; // 다음 폴링에서 무조건 최신 상태를 반영하도록
       infoEl.hidden = true;
+      renderConquestBody();
     } catch (e) {
       toast(e.message || "출정에 실패했습니다.");
     }
