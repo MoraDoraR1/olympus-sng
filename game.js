@@ -2401,7 +2401,7 @@
     openModal("modal-raid");
   });
 
-  // ---------- 월드맵 성(NPC 20개, PvE) ----------
+  // ---------- 침략(월드맵 성 NPC 20개, PvE) ----------
   // "정복"(btn-worldmap/#screen-worldmap)이 실제 플레이어끼리 겨루는 PvP 맵으로 개편되며
   // 그 화면/버튼을 그대로 물려받는 바람에, 원래 있던 이 NPC 성 침공 기능이 진입 경로 없이
   // 붕 떠버렸었다(state.worldCastles는 tick()에서 계속 자원을 쌓고 있었지만 어디서도
@@ -2418,7 +2418,7 @@
   function renderWorldCastlesModal() {
     const body = document.getElementById("worldcastles-modal-body");
     body.innerHTML = `
-      <h2>🏯 월드맵 성</h2>
+      <h2>🏯 침략</h2>
       <p class="raid-intro">Lv.1~20 NPC 성 20개입니다. 승리하면 그 성이 그동안 모아둔 자원을 전액 약탈합니다 — 점령 개념은 없어 자원이 0으로 초기화된 뒤 다시 쌓이고, 언제든 재도전할 수 있습니다.</p>
       <div class="raid-list">
         ${state.worldCastles.map((c) => {
