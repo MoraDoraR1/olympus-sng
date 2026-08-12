@@ -8,7 +8,7 @@
   // 25% 낮췄다(병사 유지비 도입과 함께 — tick()의 troopUpkeepFoodPerSecond 참고).
   const BUILDING_TYPES = {
     "성": { icon: "🏰", base: { gold: 0.26 }, buildCostGold: null, upgradeCost: { wood: 60, stone: 60 }, fixedOnly: true, desc: "도시의 중심. 전체 건물 슬롯을 해금하고 금화를 생산한다." },
-    "병영": { icon: "⚔️", base: {}, buildCostGold: 60, upgradeCost: { wood: 80, food: 40 }, selectable: true, desc: "병사를 훈련한다. 레벨이 오르면 더 강한 병종이 해금된다." },
+    "병영": { icon: "⚔️", base: {}, buildCostGold: 60, upgradeCost: { wood: 80, food: 40 }, selectable: true, desc: "병사를 훈련한다. 레벨이 오르면 더 강한 병종이 해금된다. 배치된 영웅 특성만큼 훈련 시간이 줄어든다." },
     "농장": { icon: "🌾", base: { food: 0.9 }, buildCostGold: 40, upgradeCost: { wood: 50 }, selectable: true, desc: "식량을 생산한다." },
     "벌목장": { icon: "🪵", base: { wood: 0.9 }, buildCostGold: 40, upgradeCost: { food: 50 }, selectable: true, desc: "목재를 생산한다." },
     "채석장": { icon: "⛏️", base: { stone: 0.68 }, buildCostGold: 70, upgradeCost: { wood: 60, food: 40 }, selectable: true, desc: "석재를 생산한다." },
@@ -724,6 +724,12 @@
   function heroBuildingBonusFor(hero, buildingType) {
     return heroBuildingTraitsFor(hero, buildingType).reduce((sum, t) => sum + heroTraitPercent(hero, t), 0);
   }
+  // 건물 배치 목록에서 보여줄 부호 있는 문구 — 병영은 훈련 시간 "감소"라 다른 건물의
+  // "+X%"(생산/수비 증가)와 반대 부호로 보여줘야 헷갈리지 않는다.
+  function heroBuildingBonusLabel(hero, buildingType) {
+    const pct = heroBuildingBonusFor(hero, buildingType).toFixed(1);
+    return buildingType === "병영" ? `-${pct}%` : `+${pct}%`;
+  }
   // 특성 한 줄(⚔️/🏛️ + 이름 + 수치)을 그려주는 공용 HTML — 카드/목록/상세 어디서나 재사용
   function traitLineHTML(hero, trait) {
     const pct = heroTraitPercent(hero, trait).toFixed(1);
@@ -736,6 +742,9 @@
     }
     if (trait.type === "cargo") {
       return `🚚 ${trait.name}${trait.signature ? " ✨" : ""}: 수송량 +${pct}%`;
+    }
+    if (trait.building === "병영") {
+      return `🕒 ${trait.name}${trait.signature ? " ✨" : ""}: 훈련 시간 -${pct}%`;
     }
     return `🏛️ ${trait.name}${trait.signature ? " ✨" : ""}: ${trait.building} +${pct}%`;
   }
@@ -1251,7 +1260,11 @@
     Object.entries(type.cost).forEach(([r, v]) => { cost[r] = v * count; });
     if (!canAfford(cost)) { toast("자원이 부족합니다"); return; }
     pay(cost);
-    tile.training = { type: typeKey, count, timeLeft: type.trainSeconds * count, total: type.trainSeconds * count };
+    // 병영에 배치된 영웅의 "병영" 특성만큼 훈련 시간을 단축한다(예전엔 base가 비어있어
+    // 죽어있던 효과 — 이제 쿨감소로 실제 작동한다).
+    const baseSeconds = type.trainSeconds * count;
+    const seconds = Math.max(1, Math.round(baseSeconds / (1 + bonusPercentFor(tileId) / 100)));
+    tile.training = { type: typeKey, count, timeLeft: seconds, total: seconds };
     toast(`🪖 ${type.name} ${count}명 훈련 시작`);
     openBuildingModal(tileId);
     renderBoard();
@@ -1714,11 +1727,13 @@
     Object.entries(type.cost).forEach(([r, v]) => { max = Math.min(max, Math.floor((state.res[r] || 0) / v)); });
     return Math.max(0, max);
   }
-  // 병종 1명 비용×count, 시간(초)×count를 합산한 "지금 슬라이더 값 기준 총량" 문구
-  function trainTotalText(type, count) {
+  // 병종 1명 비용×count, 시간(초)×count(배치된 영웅의 쿨감소 반영)를 합산한
+  // "지금 슬라이더 값 기준 총량" 문구
+  function trainTotalText(type, count, cooldownPercent) {
     const totalCost = {};
     Object.entries(type.cost).forEach(([r, v]) => { totalCost[r] = v * count; });
-    return `${costText(totalCost)} · ${type.trainSeconds * count}s`;
+    const seconds = Math.max(1, Math.round((type.trainSeconds * count) / (1 + (cooldownPercent || 0) / 100)));
+    return `${costText(totalCost)} · ${seconds}s`;
   }
   function renderTroopTrainingHTML(tileId) {
     const tile = state.tiles[tileId];
@@ -1727,8 +1742,10 @@
       const pct = Math.round(100 * (1 - tile.training.timeLeft / tile.training.total));
       return `<div class="training-status">🪖 ${t.name} ${tile.training.count}명 훈련 중 — ${tile.training.timeLeft}s 남음 (${pct}%)</div>`;
     }
+    const cooldownPercent = bonusPercentFor(tileId);
     return `
       <div class="troop-types">
+        ${cooldownPercent > 0 ? `<div class="tt-cooldown-note">🕒 배치된 영웅 효과로 훈련 시간 -${cooldownPercent.toFixed(1)}%</div>` : ""}
         ${TROOP_TYPES.map((t) => {
           const locked = t.unlockLevel > tile.level;
           const maxAfford = locked ? 0 : maxAffordableTrainCount(t);
@@ -1746,7 +1763,7 @@
               <span class="tt-count-val" data-key-val="${t.key}">${startVal}</span>
               <button class="do-train" data-key="${t.key}" ${maxAfford < 1 ? "disabled" : ""}>훈련</button>
             </div>
-            <div class="tt-total" data-key-total="${t.key}">총 ${trainTotalText(t, startVal)}</div>
+            <div class="tt-total" data-key-total="${t.key}">총 ${trainTotalText(t, startVal, cooldownPercent)}</div>
             ${maxAfford < 1 ? `<small class="tt-warn">자원이 부족해 지금은 훈련할 수 없습니다</small>` : ""}
             ` : ""}
           </div>`;
@@ -1779,6 +1796,7 @@
       parts.push(`🛡️ 수성 방어력 +${Math.round(level * bdef.base.defense * researchMult * 10) / 10}%`);
     }
     if (tile.type === "성벽") parts.push(`🛡️ 수성 방어력 +${Math.round(level * bdef.base.defense * mult)}`);
+    if (tile.type === "병영" && bonusPercentFor(tileId) > 0) parts.push(`🕒 훈련 시간 -${bonusPercentFor(tileId).toFixed(1)}%`);
     if (bdef.isTavern) parts.push(`슬롯 ${tavernSlotsForLevel(level)}`);
     return parts.join(" · ");
   }
@@ -1835,7 +1853,7 @@
             ${tile.heroIds.map((heroId) => {
               const h = HERO_BY_ID[heroId];
               return `<div class="assigned-hero-row">
-                <span>${h.name} (★${h.rarity}${heroEnhance(h.id) > 0 ? ` +${heroEnhance(h.id)}강` : ""}) <span class="hr-note">+${heroBuildingBonusFor(h, tile.type).toFixed(1)}%</span></span>
+                <span>${h.name} (★${h.rarity}${heroEnhance(h.id) > 0 ? ` +${heroEnhance(h.id)}강` : ""}) <span class="hr-note">${heroBuildingBonusLabel(h, tile.type)}</span></span>
                 <button class="do-unassign" data-hero="${heroId}">해제</button>
               </div>`;
             }).join("")}
@@ -1850,7 +1868,7 @@
                 <div class="hero-row" data-hero="${h.id}">
                   ${heroBadgeHTML(h.id)}
                   <span>${h.name}</span>
-                  <span class="hr-note">+${heroBuildingBonusFor(h, tile.type).toFixed(1)}%</span>
+                  <span class="hr-note">${heroBuildingBonusLabel(h, tile.type)}</span>
                   ${loc ? `<span class="hero-elsewhere-badge">📍 ${loc}에 배치됨</span>` : ""}
                 </div>`;
               }).join("")
@@ -1874,7 +1892,7 @@
       const label = body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`);
       if (label) label.textContent = input.value;
       const totalEl = body.querySelector(`.tt-total[data-key-total="${input.dataset.key}"]`);
-      if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value));
+      if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value), bonusPercentFor(tileId));
     });
     body.querySelectorAll(".do-unassign").forEach((b) => {
       b.addEventListener("click", () => unassignHero(tileId, Number(b.dataset.hero)));
@@ -1897,7 +1915,7 @@
       input.addEventListener("input", () => {
         body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`).textContent = input.value;
         const totalEl = body.querySelector(`.tt-total[data-key-total="${input.dataset.key}"]`);
-        if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value));
+        if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value), bonusPercentFor(tileId));
       });
     });
     if (tile.type === "아카데미") {
