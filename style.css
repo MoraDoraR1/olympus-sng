@@ -43,7 +43,13 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
+  /* 모바일 브라우저는 주소창이 나타났다 사라졌다 할 때마다 100vh 자체가 재계산돼
+     화면이 흔들리는 것처럼 보인다("왔다갔다" 버그의 원인) — 지원하는 브라우저에서는
+     주소창 상태와 무관하게 고정되는 100dvh(동적 뷰포트 높이)로 덮어써서 해결한다.
+     100dvh를 모르는 구형 브라우저는 이 줄 자체가 무효 선언으로 무시되고 위의
+     100vh가 그대로 유지된다(표준 CSS 캐스케이드 동작 — 별도 @supports 불필요). */
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }

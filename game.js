@@ -3159,10 +3159,17 @@
     fitStageToViewport(document.getElementById("worldmap-field"), document.getElementById("worldmap-viewport"));
   }
   let fitRaf = null;
-  window.addEventListener("resize", () => {
+  function scheduleFitActiveScreen() {
     if (fitRaf) cancelAnimationFrame(fitRaf);
     fitRaf = requestAnimationFrame(fitActiveScreen);
-  });
+  }
+  window.addEventListener("resize", scheduleFitActiveScreen);
+  // 모바일 브라우저의 주소창 표시/숨김 애니메이션 중에는 window의 resize 이벤트보다
+  // visualViewport의 resize가 더 안정적으로 발생하는 경우가 있어 방어적으로 함께 건다
+  // (100dvh CSS 수정이 주된 해결책이고, 이건 남는 엣지 케이스를 위한 보조 장치).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleFitActiveScreen);
+  }
 
   function showScreen(name) {
     document.getElementById("city-viewport").hidden = name !== "city";
