@@ -184,17 +184,25 @@ export async function dispatch(db, playerId, kind, { targetPlayerId, squadIndex,
   return { missionId: insertResult.meta.last_row_id, arriveAt, travelSeconds, distance, shieldCleared: kind === "attack" };
 }
 
-// 주둔 중인 지원군을 보낸 사람이 자진 철수시킨다(전투 참여 전이라면 언제든 가능).
+// 보낸 사람이 자진 회군/철수시킨다. kind 상관없이(공격/지원 모두) 아직 목적지에
+// 도착하지 않은(outbound) 부대는 회군시킬 수 있고, 도착해서 주둔 중인(stationed)
+// 지원군도 철수시킬 수 있다 — 이미 도착해 전투가 끝난(attack의 경우 phase가 곧바로
+// returning으로 넘어감) 부대는 회군 개념이 성립하지 않아 대상에서 제외된다.
+// UPDATE에 "AND phase = ?"를 걸어두는 이유: 회군 요청과 거의 동시에 DO 알람이
+// resolveAttack()을 실행해 이미 전투가 끝나버렸을 수 있다(위 SELECT 이후의 경합) —
+// 그 사이 phase가 바뀌었다면 0행이 바뀌고, 이미 벌어진 전투를 "회군 성공"으로
+// 잘못 알리지 않도록 에러로 처리한다.
 export async function recall(db, playerId, missionId) {
   const row = await db.prepare("SELECT * FROM pvp_missions WHERE id = ?").bind(Number(missionId)).first();
   if (!row || row.origin_player_id !== playerId) return { error: "그런 임무를 찾을 수 없습니다." };
-  if (row.kind !== "reinforce" || row.phase !== "stationed") return { error: "지금은 철수시킬 수 없습니다." };
+  if (row.phase !== "outbound" && row.phase !== "stationed") return { error: "지금은 회군시킬 수 없습니다." };
   const now = Date.now();
   const oneWay = row.arrive_at - row.depart_at;
-  await db
-    .prepare("UPDATE pvp_missions SET phase = 'returning', return_arrive_at = ? WHERE id = ?")
-    .bind(now + oneWay, row.id)
+  const result = await db
+    .prepare("UPDATE pvp_missions SET phase = 'returning', return_arrive_at = ? WHERE id = ? AND phase = ?")
+    .bind(now + oneWay, row.id, row.phase)
     .run();
+  if (!result.meta.changes) return { error: "이미 전투가 시작되어 회군시킬 수 없습니다." };
   return { ok: true, returnArriveAt: now + oneWay };
 }
 

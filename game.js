@@ -90,14 +90,16 @@
   // 약하지만 capacity가 훨씬 커서, "전투 특화" 병종과 "약탈 특화" 병종으로 역할이 갈린다.
   // 마차는 speed가 가장 낮아(0.9) 부대에 섞으면 전체 이동속도가 느려지는 대가가 있다
   // (armySpeedMultiplier가 편성된 병종 중 최저 속도를 쓰기 때문).
+  // trainSeconds는 훈련 시간이 너무 길다는 피드백으로 전 병종 일괄 80% 단축(×0.2)했다
+  // — 서버 사본(workers/src/lib/troops.js)도 반드시 같은 값으로 맞춰야 한다.
   const TROOP_TYPES = [
-    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6, speed: 1, capacity: 20 },
-    { key: "transport", name: "수송병", unlockLevel: 3, cost: { food: 12, wood: 4 }, trainSeconds: 5, atk: 1, def: 1, hp: 8, speed: 1.05, capacity: 150 },
-    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5, speed: 1.1, capacity: 35 },
-    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21, speed: 1.25, capacity: 55 },
-    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31, speed: 1.4, capacity: 80 },
-    { key: "wagon", name: "마차", unlockLevel: 18, cost: { food: 40, gold: 35, stone: 20 }, trainSeconds: 45, atk: 3, def: 3, hp: 40, speed: 0.9, capacity: 600 },
-    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50, speed: 1.6, capacity: 110 },
+    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 0.6, atk: 2, def: 1.5, hp: 6, speed: 1, capacity: 20 },
+    { key: "transport", name: "수송병", unlockLevel: 3, cost: { food: 12, wood: 4 }, trainSeconds: 1, atk: 1, def: 1, hp: 8, speed: 1.05, capacity: 150 },
+    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 1.2, atk: 4.5, def: 4, hp: 12.5, speed: 1.1, capacity: 35 },
+    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 2, atk: 8, def: 6.5, hp: 21, speed: 1.25, capacity: 55 },
+    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 3.2, atk: 13, def: 10, hp: 31, speed: 1.4, capacity: 80 },
+    { key: "wagon", name: "마차", unlockLevel: 18, cost: { food: 40, gold: 35, stone: 20 }, trainSeconds: 9, atk: 3, def: 3, hp: 40, speed: 0.9, capacity: 600 },
+    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 4.8, atk: 22, def: 16, hp: 50, speed: 1.6, capacity: 110 },
   ];
   const TROOP_TYPES_BY_KEY = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, t]));
   // 병사 유지비 — 자원이 무한정 쌓이고 군대를 무제한 훈련할 수 있던 문제를 완화하려고
@@ -2944,11 +2946,11 @@
   async function recallConquestMission(missionId) {
     try {
       await apiRequest("/api/conquest/recall", { method: "POST", body: JSON.stringify({ missionId }) });
-      toast("🛡️ 지원군을 철수시켰습니다.");
+      toast("🔙 부대를 회군시켰습니다.");
       lastMissionSnapshot = "";
       refreshConquestMissions();
     } catch (e) {
-      toast(e.message || "철수에 실패했습니다.");
+      toast(e.message || "회군에 실패했습니다.");
     }
   }
   function renderConquestMissions() {
@@ -2962,7 +2964,7 @@
         ? ` <span class="mission-result-tag ${(m.isMine ? m.result.attackerWins : !m.result.attackerWins) ? "win" : "lose"}">${(m.isMine ? m.result.attackerWins : !m.result.attackerWins) ? "승리" : "패배"}</span>`
         : "";
       if (m.isMine) {
-        if (m.phase === "outbound") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 도착까지 ${formatCountdownShort(m.arriveAt - now)}</div>`;
+        if (m.phase === "outbound") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 도착까지 ${formatCountdownShort(m.arriveAt - now)} <button class="btn-recall-mission" data-id="${m.id}">회군</button></div>`;
         if (m.phase === "stationed") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 주둔 중 <button class="btn-recall-mission" data-id="${m.id}">철수</button></div>`;
         if (m.phase === "returning") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 귀환 중 ${formatCountdownShort(m.returnArriveAt - now)}${resultTag}</div>`;
       } else if (m.kind === "attack" && m.phase === "outbound") {
@@ -3332,6 +3334,23 @@
     const x = Number(cell.dataset.x), y = Number(cell.dataset.y);
     const occ = cell.classList.contains("occupied") ? conquestTiles.get(x + "," + y) : null;
     showConquestTileInfo(x, y, occ);
+  });
+  // 미니맵 클릭 → 그 좌표가 뷰포트 중앙에 오도록 카메라를 즉시 이동한다(먼 곳으로 이동할
+  // 때 드래그로 여러 번 끌 필요 없이 한 번에 갈 수 있게). frame은 렌더마다 innerHTML만
+  // 바뀌고 엘리먼트 자체는 그대로라 리스너를 한 번만 붙이면 된다.
+  document.getElementById("conquest-minimap-frame").addEventListener("click", (e) => {
+    if (!conquestInfo || !conquestInfo.tile) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fracX = (e.clientX - rect.left) / rect.width;
+    const fracY = (e.clientY - rect.top) / rect.height;
+    const mapW = conquestInfo.mapWidth || CONQUEST_VIEW_W;
+    const mapH = conquestInfo.mapHeight || CONQUEST_VIEW_H;
+    conquestCamera = clampConquestCamera(
+      fracX * mapW - Math.floor(CONQUEST_VIEW_W / 2),
+      fracY * mapH - Math.floor(CONQUEST_VIEW_H / 2)
+    );
+    lastConquestFetchAt = 0;
+    loadConquestViewportTiles().then(renderConquestBody);
   });
   // ---------- 화면 꽉 채우기(스케일-투-핏) ----------
   // 도시맵/월드맵은 내부 요소를 고정 px로 설계하고(뷰포트 단위 사용 안 함), 여기서

@@ -263,9 +263,13 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   pointer-events: none;
 }
 
-/* ---------- 미니맵: 전체 지도에서 지금 보고 있는 위치·다른 플레이어 성을 한눈에 ---------- */
+/* ---------- 미니맵: 전체 지도에서 지금 보고 있는 위치·다른 플레이어 성을 한눈에 ----------
+   예전엔 좌하단(bottom:16px)에 있었는데, 화면 하단 중앙에 뜨는 토스트 알림(.toast,
+   bottom:20px)이 길어지면(예: 전투 결과 알림) 폭이 넓어져 좌하단까지 가리는 일이 잦았다
+   — 토스트가 닿지 않는 상단으로 옮기고, 이미 상단 우측을 쓰는 .conquest-tile-info와
+   대칭되게 좌측에 둔다. */
 .conquest-minimap {
-  position: absolute; left: 20px; bottom: 16px; z-index: 15;
+  position: absolute; left: 20px; top: 70px; z-index: 15;
   width: 150px; height: 150px; padding: 6px;
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
@@ -274,6 +278,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   position: relative; width: 100%; height: 100%;
   background: color-mix(in srgb, var(--panel) 55%, #4a7a4f);
   border-radius: 8px; overflow: hidden;
+  cursor: pointer;
 }
 .minimap-dot {
   position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px;

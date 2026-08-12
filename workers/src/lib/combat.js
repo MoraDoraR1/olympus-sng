@@ -62,15 +62,17 @@ export function armyCarryCapacity(comp, heroIds, ownedById) {
   return Math.round(base * (1 + bonus / 100));
 }
 
-// 이긴 쪽은 최대 60%까지만, 진 쪽은 최대 100%까지 손실.
+// 이긴 쪽은 최대 60%까지만, 진 쪽은 최대 90%까지 손실(원래 100%였으나, 크게 밀린
+// 수성전에서 홈 병력이 통째로 0명이 되면 반격은커녕 아무 부대도 보낼 수 없는 상태가
+// 되어버려 90%로 낮췄다 — 항상 소수의 잔존 병력은 남아 재건/역공을 시도할 수 있다).
 export function pvpVerdict(attackerStats, defenderStats, duration) {
   const dmgToDefender = Math.max(1, attackerStats.atk - defenderStats.def * 0.5) * duration;
   const dmgToAttacker = Math.max(1, defenderStats.atk - attackerStats.def * 0.3) * duration;
   const attackerRatio = dmgToDefender / Math.max(1, defenderStats.hp);
   const defenderRatio = dmgToAttacker / Math.max(1, attackerStats.hp);
   const attackerWins = attackerRatio >= 1;
-  const attackerLossRatio = attackerWins ? Math.min(0.6, defenderRatio) : Math.min(1, defenderRatio);
-  const defenderLossRatio = attackerWins ? Math.min(1, attackerRatio) : Math.min(0.6, attackerRatio);
+  const attackerLossRatio = attackerWins ? Math.min(0.6, defenderRatio) : Math.min(0.9, defenderRatio);
+  const defenderLossRatio = attackerWins ? Math.min(0.9, attackerRatio) : Math.min(0.6, attackerRatio);
   return { attackerWins, attackerRatio, defenderRatio, attackerLossRatio, defenderLossRatio };
 }
 
