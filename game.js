@@ -3,17 +3,20 @@
   "use strict";
 
   // ---------- 건물 종류 정의 ----------
+  // 자원 생산 기준치는 업그레이드 비용 곡선(levelCostRateForLevel)이 훨씬 빠르게
+  // 따라잡히던 문제(자원이 무한정 쌓이고 레벨업에 막힘이 없음)를 완화하기 위해 전반적으로
+  // 25% 낮췄다(병사 유지비 도입과 함께 — tick()의 troopUpkeepFoodPerSecond 참고).
   const BUILDING_TYPES = {
-    "성": { icon: "🏰", base: { gold: 0.35 }, buildCostGold: null, upgradeCost: { wood: 60, stone: 60 }, fixedOnly: true, desc: "도시의 중심. 전체 건물 슬롯을 해금하고 금화를 생산한다." },
+    "성": { icon: "🏰", base: { gold: 0.26 }, buildCostGold: null, upgradeCost: { wood: 60, stone: 60 }, fixedOnly: true, desc: "도시의 중심. 전체 건물 슬롯을 해금하고 금화를 생산한다." },
     "병영": { icon: "⚔️", base: {}, buildCostGold: 60, upgradeCost: { wood: 80, food: 40 }, selectable: true, desc: "병사를 훈련한다. 레벨이 오르면 더 강한 병종이 해금된다." },
-    "농장": { icon: "🌾", base: { food: 1.2 }, buildCostGold: 40, upgradeCost: { wood: 50 }, selectable: true, desc: "식량을 생산한다." },
-    "벌목장": { icon: "🪵", base: { wood: 1.2 }, buildCostGold: 40, upgradeCost: { food: 50 }, selectable: true, desc: "목재를 생산한다." },
-    "채석장": { icon: "⛏️", base: { stone: 0.9 }, buildCostGold: 70, upgradeCost: { wood: 60, food: 40 }, selectable: true, desc: "석재를 생산한다." },
+    "농장": { icon: "🌾", base: { food: 0.9 }, buildCostGold: 40, upgradeCost: { wood: 50 }, selectable: true, desc: "식량을 생산한다." },
+    "벌목장": { icon: "🪵", base: { wood: 0.9 }, buildCostGold: 40, upgradeCost: { food: 50 }, selectable: true, desc: "목재를 생산한다." },
+    "채석장": { icon: "⛏️", base: { stone: 0.68 }, buildCostGold: 70, upgradeCost: { wood: 60, food: 40 }, selectable: true, desc: "석재를 생산한다." },
     "자원보호소": { icon: "📦", base: { capBonus: 0.05 }, buildCostGold: 70, upgradeCost: { wood: 60, stone: 40 }, fixedOnly: true, noHeroBonus: true, desc: "자원 저장 상한을 늘린다. 정복 맵에서 공격받아도 레벨에 비례한 일정량의 자원은 약탈당하지 않는다. 영웅 배치 대상이 아니다." },
     "아카데미": { icon: "📜", base: {}, buildCostGold: 90, upgradeCost: { wood: 80, stone: 80 }, unlocksAscend: true, fixedOnly: true, desc: "연구를 통해 생산·전투·영웅 획득에 영구적인 배율 효과를 얻는다." },
     "방어탑": { icon: "🛡️", base: { defense: 4 }, buildCostGold: 90, upgradeCost: { stone: 100 }, fixedOnly: true, noHeroBonus: true, desc: "영웅 배치 대상이 아니다. 대신 레벨마다 %만큼 정복 맵에서 내가 공격받을 때(수성) 방어력을 강화한다." },
     "감시탑": { icon: "🔭", base: {}, buildCostGold: 70, upgradeCost: { stone: 60, wood: 40 }, fixedOnly: true, noHeroBonus: true, desc: "야생 지역 몬스터의 정보(레벨→상세 스탯)를 공개한다. 영웅 배치 대상이 아니다." },
-    "여관": { icon: "🍺", base: { gold: 0.6 }, buildCostGold: 100, upgradeCost: { wood: 50, food: 50 }, isTavern: true, fixedOnly: true, desc: "일정 시간마다 영웅 후보가 등장한다. 금화로 즉시 초기화할 수 있다." },
+    "여관": { icon: "🍺", base: { gold: 0.45 }, buildCostGold: 100, upgradeCost: { wood: 50, food: 50 }, isTavern: true, fixedOnly: true, desc: "일정 시간마다 영웅 후보가 등장한다. 금화로 즉시 초기화할 수 있다." },
     "성벽": { icon: "🧱", base: { defense: 15 }, buildCostGold: 120, upgradeCost: { wood: 100, stone: 100 }, fixedOnly: true, desc: "정복 맵에서 내가 공격받을 때(수성) 방어 스탯에 고정 수치로 더해진다." },
   };
   const SELECTABLE_TYPES = Object.keys(BUILDING_TYPES).filter((t) => BUILDING_TYPES[t].selectable);
@@ -97,6 +100,13 @@
     { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50, speed: 1.6, capacity: 110 },
   ];
   const TROOP_TYPES_BY_KEY = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, t]));
+  // 병사 유지비 — 자원이 무한정 쌓이고 군대를 무제한 훈련할 수 있던 문제를 완화하려고
+  // 도입했다. 전투 스탯(공+방+체)에 비례해서 매초 식량을 소모하므로, 강한 병종을 대군으로
+  // 유지할수록 부담이 커진다(tick()에서 매초 차감, 0 아래로는 내려가지 않는다).
+  const TROOP_UPKEEP_RATE = 0.01;
+  function troopUpkeepFoodPerSecond(t) {
+    return (t.atk + t.def + t.hp) * TROOP_UPKEEP_RATE;
+  }
 
   // ---------- 여관 레벨별 슬롯 수 ----------
   function tavernSlotsForLevel(level) {
@@ -394,7 +404,7 @@
     if (targetLevel <= 5) return 1.18;
     if (targetLevel <= 10) return 1.32;
     if (targetLevel <= 15) return 1.58;
-    return 2.0;
+    return 2.4; // 생산량 하향(-25%) + 병사 유지비 도입과 함께, 후반 정체감을 더 강하게 준다
   }
   function levelCostFactor(level) {
     let f = 1;
@@ -864,6 +874,14 @@
         }
       }
     });
+    // 병사 유지비 — 보유한 모든 병사가 매초 식량을 소모한다(0 아래로는 내려가지 않음,
+    // 강제 이탈 없음 — 자원이 부족하면 그냥 식량 생산이 유지비에 잠식될 뿐).
+    let totalUpkeep = 0;
+    Object.entries(state.troopsByType).forEach(([key, count]) => {
+      const t = TROOP_TYPES_BY_KEY[key];
+      if (t && count) totalUpkeep += troopUpkeepFoodPerSecond(t) * count;
+    });
+    if (totalUpkeep > 0) state.res.food = Math.max(0, state.res.food - totalUpkeep);
     Object.keys(state.tiles).forEach((tileId) => {
       const tile = state.tiles[tileId];
       if (!tile.upgrading) return;
@@ -1545,10 +1563,15 @@
     document.getElementById("troop-count").textContent = totalTroops;
     ["food", "wood", "stone", "gold"].forEach((r) => {
       const el = document.getElementById(`rate-${r}`);
-      if (el) el.textContent = "+" + productionRatePerSecond(r).toFixed(1) + "/s";
+      if (el) {
+        const rate = productionRatePerSecond(r);
+        el.textContent = (rate >= 0 ? "+" : "") + rate.toFixed(1) + "/s";
+        el.classList.toggle("rate-negative", rate < 0);
+      }
     });
   }
-  // 자원 종류별 초당 총 생산량(건물 레벨·영웅 보너스·연구 배율 반영) — renderTopbar와 renderBoard에서 공용으로 사용
+  // 자원 종류별 초당 순생산량(건물 레벨·영웅 보너스·연구 배율 반영) — 상단바 표시용.
+  // food는 병사 유지비(troopUpkeepFoodPerSecond)를 뺀 실질 순증감을 보여준다.
   function productionRatePerSecond(res) {
     const prodBonus = 1 + researchPercent("productionPercent") / 100;
     const goldBonus = 1 + researchPercent("goldPercent") / 100;
@@ -1563,6 +1586,12 @@
       const bonus = res === "gold" ? goldBonus : prodBonus;
       total += base * tile.level * mult * bonus;
     });
+    if (res === "food") {
+      Object.entries(state.troopsByType).forEach(([key, count]) => {
+        const t = TROOP_TYPES_BY_KEY[key];
+        if (t && count) total -= troopUpkeepFoodPerSecond(t) * count;
+      });
+    }
     return total;
   }
 

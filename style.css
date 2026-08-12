@@ -106,6 +106,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 #btn-end-game { background: #8a7a63; color: #fff; }
 
 .res .rate { font-size: .72rem; color: var(--ink-soft); font-weight: 800; margin-left: 2px; }
+.res .rate.rate-negative { color: var(--hard); }
 
 /* ---------- 타이틀/종료 화면 ---------- */
 .screen-title {
