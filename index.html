@@ -12,10 +12,26 @@
 </head>
 <body>
   <header id="topbar">
-    <div class="brand">🏛️ 올림포스 도시</div>
-    <div class="account-badge" id="account-badge" hidden>
-      <span class="icon">👤</span><span id="player-nickname-label"></span>
-      <button id="btn-logout" title="로그아웃">로그아웃</button>
+    <div class="topbar-row topbar-row-top">
+      <div class="topbar-left">
+        <div class="brand">🏛️ 올림포스 도시</div>
+        <div class="account-badge" id="account-badge" hidden>
+          <span class="icon">👤</span><span id="player-nickname-label"></span>
+          <button id="btn-logout" title="로그아웃">로그아웃</button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-worldmap">⚔️ 정복</button>
+        <button id="btn-raid">👑 보스 레이드</button>
+        <button id="btn-inventory">🎒 인벤토리</button>
+        <button id="btn-army">⚔️ 군대</button>
+        <button id="btn-auto-assign" title="아직 어떤 건물에도 배치되지 않은 영웅을 특성에 맞는 건물에 자동으로 배치합니다">🤖 영웅 자동 배치</button>
+        <button id="btn-heroes">🦸 보유 영웅</button>
+        <button id="btn-codex">📖 영웅 도감</button>
+        <button id="btn-help">📖 설명서</button>
+        <button id="btn-end-game" title="게임 종료">🚪 종료</button>
+        <button id="btn-reset-game" title="게임 데이터 초기화">↺</button>
+      </div>
     </div>
     <div class="resources">
       <div class="res" data-res="food"><span class="icon">🌾</span><span class="amt" id="res-food">0</span><span class="cap">/<span id="cap-food">0</span></span><span class="rate" id="rate-food">+0.0/s</span></div>
@@ -24,18 +40,6 @@
       <div class="res" data-res="gold"><span class="icon">🪙</span><span class="amt" id="res-gold">0</span><span class="rate" id="rate-gold">+0.0/s</span></div>
       <div class="res stat" title="수성 방어력(방어탑)"><span class="icon">🛡️</span><span class="amt" id="defense-score">+0%</span></div>
       <div class="res stat"><span class="icon">🪖</span><span class="amt" id="troop-count">0</span></div>
-    </div>
-    <div class="topbar-actions">
-      <button id="btn-worldmap">⚔️ 정복</button>
-      <button id="btn-raid">👑 보스 레이드</button>
-      <button id="btn-inventory">🎒 인벤토리</button>
-      <button id="btn-army">⚔️ 군대</button>
-      <button id="btn-auto-assign" title="아직 어떤 건물에도 배치되지 않은 영웅을 특성에 맞는 건물에 자동으로 배치합니다">🤖 영웅 자동 배치</button>
-      <button id="btn-heroes">🦸 보유 영웅</button>
-      <button id="btn-codex">📖 영웅 도감</button>
-      <button id="btn-help">📖 설명서</button>
-      <button id="btn-end-game" title="게임 종료">🚪 종료</button>
-      <button id="btn-reset-game" title="게임 데이터 초기화">↺</button>
     </div>
   </header>
 
