@@ -103,7 +103,8 @@
   // 병사 유지비 — 자원이 무한정 쌓이고 군대를 무제한 훈련할 수 있던 문제를 완화하려고
   // 도입했다. 전투 스탯(공+방+체)에 비례해서 매초 식량을 소모하므로, 강한 병종을 대군으로
   // 유지할수록 부담이 커진다(tick()에서 매초 차감, 0 아래로는 내려가지 않는다).
-  const TROOP_UPKEEP_RATE = 0.01;
+  // 최초 도입값(0.01)이 실제 플레이에서 너무 부담스럽다는 피드백을 받아 20분의 1로 낮췄다.
+  const TROOP_UPKEEP_RATE = 0.0005;
   function troopUpkeepFoodPerSecond(t) {
     return (t.atk + t.def + t.hp) * TROOP_UPKEEP_RATE;
   }

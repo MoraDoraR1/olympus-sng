@@ -30,10 +30,12 @@ async function main() {
   }).then((r) => r.json());
   const token = reg.token;
 
-  // 생산 건물 없음(성만 built) + 아레스의 대전사 20명(유지비 0.88/s/명 = 17.6/s) → 식량이
+  // 생산 건물 없음(성만 built) + 아레스의 대전사 20명(유지비 0.044/s/명 = 0.88/s) → 식량이
   // 확실히 순감소해야 함. (신규 계정 anticheat 유예 한도 내에서 검증하기 위해 소규모로 구성)
+  // food는 500으로 둔다 — 1000 이상은 화면에 "K" 단위(0.1K=100 단위 반올림)로 표시돼
+  // 5초간의 -4.4 정도 변화가 표시상 묻혀버린다(1000 미만은 정수 그대로 표시).
   const state = {
-    res: { food: 15000, wood: 80, stone: 60, gold: 150 },
+    res: { food: 500, wood: 80, stone: 60, gold: 150 },
     tiles: fullTiles({}),
     troopsByType: { militia: 0, transport: 0, hoplite: 0, spartan: 0, myrmidon: 0, wagon: 0, ares_champion: 20 },
     owned: {}, research: {}, tavern: { timer: 600, candidates: [null, null, null, null, null], resetCost: 30 },
@@ -60,7 +62,7 @@ async function main() {
   const foodBefore = Number((await page.locator("#res-food").innerText()).replace(/[^\d.]/g, ""));
   await page.waitForTimeout(5000);
   const foodAfter = Number((await page.locator("#res-food").innerText()).replace(/[^\d.]/g, ""));
-  console.log(`5초 대기 — 식량 ${foodBefore} → ${foodAfter} (감소해야 함, 예상 -17.6/s×5 ≈ -88 → 0에서 멈춤)`);
+  console.log(`5초 대기 — 식량 ${foodBefore} → ${foodAfter} (감소해야 함, 예상 -0.88/s×5 ≈ -4.4)`);
 
   const pass = rateText.startsWith("-") && rateClass.includes("rate-negative") && foodAfter < foodBefore;
   console.log(pass ? "\n✅ PASS: 병사 유지비가 실제로 식량을 깎고 있음" : "\n❌ FAIL");
