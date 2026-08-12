@@ -50,6 +50,28 @@
     "성벽": [{ type: "방어탑", offset: -2 }],
   };
 
+  // 성(castle)만의 특정 레벨 구간 특별 해금 조건 — LEVEL_REQUIREMENTS(다른 건물의
+  // "목표 레벨 기준 상대 오프셋")와 달리, 여기는 특정 절대 레벨 도달 시에만 걸리는
+  // 이질적인 조건들(건물 절대 레벨, 몬스터 누적 처치 수 등)이라 별도 표로 둔다.
+  // key: 도달하려는 성 레벨. kind:"buildingLevel"은 해당 타입 건물 중 하나라도
+  // need 이상이면 충족(maxLevelOfType 기준). kind:"monsterKills"는
+  // state.monsterKillsSinceGate(직전 몬스터 조건을 소모한 뒤부터 누적) 기준.
+  const CASTLE_UNLOCK_GATES = {
+    6: [{ kind: "monsterKills", need: 5 }],
+    11: [
+      { kind: "buildingLevel", type: "아카데미", need: 8 },
+      { kind: "buildingLevel", type: "감시탑", need: 5 },
+      { kind: "buildingLevel", type: "방어탑", need: 5 },
+    ],
+    16: [
+      { kind: "buildingLevel", type: "농장", need: 13 },
+      { kind: "buildingLevel", type: "벌목장", need: 13 },
+      { kind: "buildingLevel", type: "채석장", need: 13 },
+      { kind: "monsterKills", need: 10 },
+    ],
+    // 20(최종 레벨) 조건은 별도 승인 후 채운다.
+  };
+
   // ---------- 왕도풍 타일 배치 (10열 그리드, 20타일 + 성벽) ----------
   // 실사용 폭은 3~8열(6칸)로 좁혀 좌우 1~2열을 잔디 여백으로 남기고, 4개 행에
   // 골고루 나눠 배치한다(이전 버전은 1·3행이 텅 비고 4행에만 몰려 배경과 어긋나 보였다).
@@ -512,6 +534,7 @@
       raids: freshRaidsState(),
       raidShards: 0, // 레이드 보상으로 받는 "만능 조각" — 보유 영웅 아무에게나 배분 가능
       raidTickets: { t5: 0, t6: 0 }, // 확정 등급 이상 소환권 개수
+      monsterKillsSinceGate: 0, // 성 레벨업의 "몬스터 처치" 조건용 — 조건을 소모할 때마다 0으로 리셋
       lastActiveAt: Date.now(),
     };
   }
@@ -668,6 +691,7 @@
           parsed.raids[b.id].lastDefeatedAt = null;
         }
       });
+      if (typeof parsed.monsterKillsSinceGate !== "number") parsed.monsterKillsSinceGate = 0;
       if (typeof parsed.raidShards !== "number") parsed.raidShards = 0;
       if (!parsed.raidTickets) parsed.raidTickets = { t5: 0, t6: 0 };
       if (typeof parsed.raidTickets.t5 !== "number") parsed.raidTickets.t5 = 0;
@@ -860,35 +884,40 @@
   function upgradeSecondsFor(level) {
     return Math.min(TAVERN_CYCLE, 15 + level * 10);
   }
-  // 레벨업 선행조건: 성이 항상 상한선 + 건물별 기본 연관 건물 레벨
-  function levelUpMissing(tileId) {
-    const tile = state.tiles[tileId];
-    const target = tile.level + 1;
-    const missing = [];
-    if (tile.type !== "성" && state.tiles.castle.level < target) missing.push(`성 Lv.${target}`);
-    (LEVEL_REQUIREMENTS[tile.type] || []).forEach((r) => {
-      const need = target + r.offset;
-      if (need > 1 && maxLevelOfType(r.type) < need) missing.push(`${r.type} Lv.${need}`);
-    });
-    return missing;
-  }
-  // 레벨업 조건을 체크리스트 형태(충족/미충족)로 반환 — 항상 표시되는 시각화용
+  // 레벨업 조건을 체크리스트 형태(충족/미충족)로 반환 — 항상 표시되는 시각화용.
+  // missingLabel까지 여기서 만들어서 levelUpMissing과 절대 서로 어긋나지 않게 한다.
   function levelUpRequirementRows(tileId) {
     const tile = state.tiles[tileId];
     const target = tile.level + 1;
     const rows = [];
     if (tile.type !== "성") {
       const cur = state.tiles.castle.level;
-      rows.push({ label: "성", cur, need: target, ok: cur >= target });
+      rows.push({ label: "성", cur, need: target, ok: cur >= target, missingLabel: `성 Lv.${target}`, progressLabel: `Lv.${cur}/${target}` });
     }
     (LEVEL_REQUIREMENTS[tile.type] || []).forEach((r) => {
       const need = target + r.offset;
       if (need > 1) {
         const cur = maxLevelOfType(r.type);
-        rows.push({ label: r.type, cur, need, ok: cur >= need });
+        rows.push({ label: r.type, cur, need, ok: cur >= need, missingLabel: `${r.type} Lv.${need}`, progressLabel: `Lv.${cur}/${need}` });
       }
     });
+    if (tileId === "castle") {
+      (CASTLE_UNLOCK_GATES[target] || []).forEach((g) => {
+        if (g.kind === "buildingLevel") {
+          const cur = maxLevelOfType(g.type);
+          rows.push({ label: g.type, cur, need: g.need, ok: cur >= g.need, missingLabel: `${g.type} Lv.${g.need}`, progressLabel: `Lv.${cur}/${g.need}` });
+        } else if (g.kind === "monsterKills") {
+          const cur = Math.min(state.monsterKillsSinceGate, g.need);
+          const ok = state.monsterKillsSinceGate >= g.need;
+          rows.push({ label: "몬스터 처치", cur, need: g.need, ok, missingLabel: `몬스터 처치 ${g.need}마리`, progressLabel: `${cur}/${g.need}마리` });
+        }
+      });
+    }
     return rows;
+  }
+  // 레벨업 선행조건: 성이 항상 상한선 + 건물별 기본 연관 건물 레벨 + 성 전용 특별 조건
+  function levelUpMissing(tileId) {
+    return levelUpRequirementRows(tileId).filter((r) => !r.ok).map((r) => r.missingLabel);
   }
   function renderReqChecklistHTML(tileId) {
     const tile = state.tiles[tileId];
@@ -898,7 +927,7 @@
       <div class="req-list">
         <div class="req-title">🔒 다음 레벨(Lv.${tile.level + 1}) 조건</div>
         ${rows.length
-          ? rows.map((r) => `<div class="req-row ${r.ok ? "ok" : "blocked"}">${r.ok ? "✅" : "❌"} ${r.label} Lv.${r.cur}/${r.need}</div>`).join("")
+          ? rows.map((r) => `<div class="req-row ${r.ok ? "ok" : "blocked"}">${r.ok ? "✅" : "❌"} ${r.label} ${r.progressLabel}</div>`).join("")
           : `<div class="req-row ok">✅ 조건 없음</div>`}
       </div>
     `;
@@ -1234,6 +1263,10 @@
     if (!cost) return;
     if (!canAfford(cost)) { toast("자원이 부족합니다"); return; }
     pay(cost);
+    // 몬스터 처치 조건을 소모하는 성 레벨업이 확정되는 순간, 다음 조건을 위해 카운트를 비운다.
+    if (tileId === "castle" && (CASTLE_UNLOCK_GATES[tile.level + 1] || []).some((g) => g.kind === "monsterKills")) {
+      state.monsterKillsSinceGate = 0;
+    }
     const seconds = upgradeSecondsFor(tile.level);
     tile.upgrading = { targetLevel: tile.level + 1, timeLeft: seconds, total: seconds };
     toast(`🏗️ ${tile.type} 레벨업 시작! (${seconds}s 후 Lv.${tile.upgrading.targetLevel})`);
@@ -1519,6 +1552,7 @@
         bonusMsg = ` 만능 조각 +${boss.reward.shards}, ★${boss.reward.ticketRarity}+ 확정 소환권 +${boss.reward.ticketCount}장!`;
       } else {
         reward = monsterReward(enemy.level, enemy.elite);
+        state.monsterKillsSinceGate += 1;
       }
       Object.entries(reward).forEach(([r, v]) => addRes(r, v));
       toast(`⚔️ 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level}) 처치!${totalLost > 0 ? ` 병사 ${totalLost}명 손실.` : ""} 보상: ${costText(reward)}${bonusMsg}`);
