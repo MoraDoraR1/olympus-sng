@@ -105,6 +105,14 @@ export async function travelTimePreview(db, playerId, targetX, targetY) {
   return { distance, baseSeconds, bestSeconds, bestHeroBonus };
 }
 
+// 미니맵용 — 뷰포트 범위 제한 없이 지도 전체에서 성이 있는 좌표만 가볍게 가져온다.
+// 닉네임은 필요 없으므로(점 하나로만 표시) 조인하지 않는다 — 등록 플레이어 수가
+// 많지 않은 게임 규모상 전체 스캔도 가볍다.
+export async function allOccupiedTiles(db) {
+  const { results } = await db.prepare("SELECT x, y, player_id FROM world_tiles").all();
+  return results.map((r) => ({ x: r.x, y: r.y, playerId: r.player_id }));
+}
+
 export async function tilesInViewport(db, x0, y0, x1, y1) {
   let loX = Math.max(0, Math.min(x0, x1));
   let hiX = Math.min(MAP_WIDTH - 1, Math.max(x0, x1));

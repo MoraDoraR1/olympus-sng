@@ -204,9 +204,13 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   flex: 0 0 auto;
   padding: 10px;
   border: 3px dashed var(--line); border-radius: 20px;
+  /* background.svg를 카메라 좌표에 맞춰 반복 타일링한다(아래 두 줄) — 실제 크기는
+     game.js가 렌더/드래그마다 background-position을 조정해 채워준다. background-size는
+     칸 크기(72px)에 맞춘 배수로 고정해 카메라 이동 방향과 배경이 정확히 같은 비율로 흐르게 한다. */
   background-image: linear-gradient(160deg, rgba(231,162,107,0.08), transparent), url("assets/worldmap/background.svg");
-  background-size: cover;
-  background-position: center;
+  background-repeat: no-repeat, repeat;
+  background-size: cover, 480px 300px;
+  background-position: center, 0 0;
   transform-origin: center center;
   user-select: none;
 }
@@ -215,7 +219,15 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   background: color-mix(in srgb, var(--panel) 55%, #4a7a4f);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px; overflow: hidden;
+  position: relative;
 }
+/* 좌표 해시로 배정되는 지형 색조 변형(terrain-0~4) — 완전히 동일해 보이던 타일에
+   미세한 구분을 줘서 "여긴 아까 지나온 곳과 다르다"는 시각적 단서를 준다. */
+.conquest-cell.terrain-0 { background: color-mix(in srgb, var(--panel) 55%, #4a7a4f); }
+.conquest-cell.terrain-1 { background: color-mix(in srgb, var(--panel) 55%, #6b8f4a); }
+.conquest-cell.terrain-2 { background: color-mix(in srgb, var(--panel) 55%, #4a7a6a); }
+.conquest-cell.terrain-3 { background: color-mix(in srgb, var(--panel) 55%, #8a8a4a); }
+.conquest-cell.terrain-4 { background: color-mix(in srgb, var(--panel) 55%, #5a6f8a); }
 .conquest-cell.occupied { background: color-mix(in srgb, var(--panel) 55%, var(--roof)); }
 .conquest-cell.me { outline: 3px solid var(--gold); outline-offset: -3px; }
 .conquest-cell.protected { box-shadow: inset 0 0 0 2px #6bd4ff; }
@@ -223,6 +235,36 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .conquest-cell-name {
   font-family: var(--font-display); font-size: .64rem; font-weight: 700;
   max-width: 66px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.conquest-cell-coord {
+  position: absolute; bottom: 2px; right: 3px;
+  font-size: .55rem; font-weight: 700; color: rgba(0,0,0,.35);
+  pointer-events: none;
+}
+
+/* ---------- 미니맵: 전체 지도에서 지금 보고 있는 위치·다른 플레이어 성을 한눈에 ---------- */
+.conquest-minimap {
+  position: absolute; left: 20px; bottom: 16px; z-index: 15;
+  width: 150px; height: 150px; padding: 6px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.conquest-minimap-frame {
+  position: relative; width: 100%; height: 100%;
+  background: color-mix(in srgb, var(--panel) 55%, #4a7a4f);
+  border-radius: 8px; overflow: hidden;
+}
+.minimap-dot {
+  position: absolute; width: 4px; height: 4px; margin: -2px 0 0 -2px;
+  border-radius: 50%; background: var(--roof);
+}
+.minimap-me {
+  position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 1.5px rgba(0,0,0,.4);
+}
+.minimap-viewport {
+  position: absolute; border: 1.5px solid var(--gold); border-radius: 2px;
+  pointer-events: none;
 }
 
 /* 화면 아래쪽 남은 공간을 전부 차지하고, 그 안에서 kingdom-stage를 실제 크기 그대로

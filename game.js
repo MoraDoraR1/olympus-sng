@@ -2601,9 +2601,16 @@
   const CONQUEST_VIEW_W = 15;
   const CONQUEST_VIEW_H = 9;
   const CONQUEST_FETCH_INTERVAL_MS = 4000;
+  // 배경을 카메라 좌표에 맞춰 흐르게 하는 비율(패럴랙스) — style.css .worldmap-field의
+  // background-size(480x300 = 칸 크기 72px x 6.67/4.17배)와 맞춰, 카메라가 1칸 움직일 때
+  // 배경도 딱 그만큼(칸 크기 절반 속도로) 흐르는 것처럼 보이게 조정한 값이다.
+  const CONQUEST_BG_PARALLAX = CONQUEST_TILE_PX * 0.5;
+  const CONQUEST_ALL_TILES_INTERVAL_MS = 15000; // 미니맵은 전체 지도를 훑으므로 뷰포트 타일보다 뜸하게 갱신
   let conquestInfo = null; // GET /api/conquest/me 캐시: { tile, unlocked, mapWidth, mapHeight }
   let conquestCamera = null; // 뷰포트 좌상단 타일 좌표
   const conquestTiles = new Map(); // "x,y" -> { x, y, nickname, protectedUntil }
+  let conquestAllTiles = []; // 미니맵용 — 전체 지도의 성 좌표(닉네임 없이 가볍게)
+  let lastConquestAllTilesFetchAt = 0;
   let conquestLoading = false;
   let lastConquestFetchAt = 0;
   let conquestMissions = []; // GET /api/conquest/missions 캐시
@@ -2631,6 +2638,15 @@
     } catch (e) {}
   }
 
+  // 미니맵용 — 뷰포트 밖에 있는 성까지 포함해 지도 전체를 훑어온다(닉네임 없이 좌표만).
+  async function loadConquestAllTiles() {
+    try {
+      const res = await apiRequest("/api/conquest/all-tiles");
+      conquestAllTiles = res.tiles;
+      renderMinimap();
+    } catch (e) {}
+  }
+
   async function refreshConquestInfo() {
     conquestLoading = true;
     try {
@@ -2640,6 +2656,11 @@
         conquestCamera = clampConquestCamera(conquestInfo.tile.x - Math.floor(CONQUEST_VIEW_W / 2), conquestInfo.tile.y - Math.floor(CONQUEST_VIEW_H / 2));
       }
       if (conquestInfo.tile) await loadConquestViewportTiles();
+      const now = Date.now();
+      if (conquestInfo.tile && now - lastConquestAllTilesFetchAt > CONQUEST_ALL_TILES_INTERVAL_MS) {
+        lastConquestAllTilesFetchAt = now;
+        loadConquestAllTiles();
+      }
     } catch (e) {}
     if (conquestInfo && conquestInfo.tile) await refreshConquestMissions();
     conquestLoading = false;
@@ -2757,10 +2778,21 @@
     return `${s}초`;
   }
 
+  // 좌표를 5가지 색조 변형 중 하나로 결정론적으로 배정 — 같은 칸은 항상 같은 색이라
+  // "여긴 아까 그 자리다/아니다"를 색으로 구분할 수 있게 한다.
+  function conquestTerrainClass(x, y) {
+    return "terrain-" + (((x * 31 + y * 17) % 5) + 5) % 5;
+  }
   function renderConquestGrid() {
     const field = document.getElementById("worldmap-field");
     field.style.gridTemplateColumns = `repeat(${CONQUEST_VIEW_W}, ${CONQUEST_TILE_PX}px)`;
     field.style.gridTemplateRows = `repeat(${CONQUEST_VIEW_H}, ${CONQUEST_TILE_PX}px)`;
+    // 배경(두 번째 레이어)을 카메라 좌표에 비례해 흘려서, 드래그/재조회로 화면이 바뀔 때
+    // 배경도 같이 움직이는 것처럼 보이게 한다(카메라가 고정된 채 타일만 바뀌면 "이동했다"는
+    // 느낌이 전혀 없었던 문제).
+    const bgX = -(conquestCamera.x * CONQUEST_BG_PARALLAX) % 480;
+    const bgY = -(conquestCamera.y * CONQUEST_BG_PARALLAX) % 300;
+    field.style.backgroundPosition = `center, ${bgX}px ${bgY}px`;
     field.innerHTML = "";
     const now = Date.now();
     for (let dy = 0; dy < CONQUEST_VIEW_H; dy++) {
@@ -2768,10 +2800,11 @@
         const x = conquestCamera.x + dx;
         const y = conquestCamera.y + dy;
         const cell = document.createElement("div");
-        cell.className = "conquest-cell";
+        cell.className = "conquest-cell " + conquestTerrainClass(x, y);
         cell.title = `(${x}, ${y})`;
         cell.dataset.x = x;
         cell.dataset.y = y;
+        const isCorner = (dx === 0 || dx === CONQUEST_VIEW_W - 1) && (dy === 0 || dy === CONQUEST_VIEW_H - 1);
         const occ = conquestTiles.get(x + "," + y);
         const isMe = conquestInfo.tile && conquestInfo.tile.x === x && conquestInfo.tile.y === y;
         if (isMe) cell.classList.add("me");
@@ -2781,9 +2814,33 @@
           cell.innerHTML = `<span class="conquest-cell-icon">🏰</span><span class="conquest-cell-name"></span>`;
           cell.querySelector(".conquest-cell-name").textContent = occ.nickname;
         }
+        // 네 모서리 칸에만 좌표를 표시해 화면 안에서도 대략 어디쯤인지 감을 잡게 한다
+        // (칸마다 다 표시하면 너무 어지러워진다).
+        if (isCorner) cell.insertAdjacentHTML("beforeend", `<span class="conquest-cell-coord">${x},${y}</span>`);
         field.appendChild(cell);
       }
     }
+  }
+
+  // 미니맵: 지도 전체(0~mapWidth, 0~mapHeight)를 축소해 내 위치·다른 플레이어 성·
+  // 현재 뷰포트 범위를 점/사각형으로 표시한다.
+  function renderMinimap() {
+    const wrap = document.getElementById("conquest-minimap");
+    const frame = document.getElementById("conquest-minimap-frame");
+    if (!conquestInfo || !conquestInfo.tile) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    const mapW = conquestInfo.mapWidth || CONQUEST_VIEW_W;
+    const mapH = conquestInfo.mapHeight || CONQUEST_VIEW_H;
+    const pct = (v, total) => `${Math.min(100, Math.max(0, (v / total) * 100))}%`;
+    const dots = conquestAllTiles
+      .filter((t) => !(conquestInfo.tile && t.x === conquestInfo.tile.x && t.y === conquestInfo.tile.y))
+      .map((t) => `<div class="minimap-dot" style="left:${pct(t.x, mapW)};top:${pct(t.y, mapH)}"></div>`)
+      .join("");
+    const meDot = `<div class="minimap-me" style="left:${pct(conquestInfo.tile.x, mapW)};top:${pct(conquestInfo.tile.y, mapH)}"></div>`;
+    const viewportRect = conquestCamera
+      ? `<div class="minimap-viewport" style="left:${pct(conquestCamera.x, mapW)};top:${pct(conquestCamera.y, mapH)};width:${pct(CONQUEST_VIEW_W, mapW)};height:${pct(CONQUEST_VIEW_H, mapH)}"></div>`
+      : "";
+    frame.innerHTML = dots + meDot + viewportRect;
   }
 
   function renderConquestBody() {
@@ -2793,6 +2850,7 @@
       statusEl.innerHTML = `<p class="conquest-msg">불러오는 중...</p>`;
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-minimap").hidden = true;
       document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
@@ -2800,6 +2858,7 @@
       statusEl.innerHTML = `<p class="conquest-msg">🔒 정복은 성 레벨 5부터 참가할 수 있습니다 (현재 성 레벨 ${state.tiles.castle.level} / 5)</p>`;
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-minimap").hidden = true;
       document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
@@ -2811,12 +2870,16 @@
       document.getElementById("btn-conquest-spawn").addEventListener("click", doConquestSpawn);
       field.innerHTML = "";
       document.getElementById("conquest-tile-info").hidden = true;
+      document.getElementById("conquest-minimap").hidden = true;
       document.getElementById("conquest-missions").innerHTML = "";
       return;
     }
     const protectedLeft = conquestInfo.tile.protectedUntil - Date.now();
-    statusEl.innerHTML = `<p class="conquest-msg">내 위치 (${conquestInfo.tile.x}, ${conquestInfo.tile.y})${protectedLeft > 0 ? ` · 🛡️ 보호 중 (${formatCountdownShort(protectedLeft)} 남음)` : ""} — 드래그해서 지도를 둘러보세요</p>`;
+    const cx = conquestCamera ? conquestCamera.x + Math.floor(CONQUEST_VIEW_W / 2) : conquestInfo.tile.x;
+    const cy = conquestCamera ? conquestCamera.y + Math.floor(CONQUEST_VIEW_H / 2) : conquestInfo.tile.y;
+    statusEl.innerHTML = `<p class="conquest-msg">내 성 (${conquestInfo.tile.x}, ${conquestInfo.tile.y})${protectedLeft > 0 ? ` · 🛡️ 보호 중 (${formatCountdownShort(protectedLeft)} 남음)` : ""} · 📍 지금 보는 곳 (${cx}, ${cy}) — 드래그해서 지도를 둘러보세요</p>`;
     renderConquestGrid();
+    renderMinimap();
   }
 
   function renderWorldMap() {

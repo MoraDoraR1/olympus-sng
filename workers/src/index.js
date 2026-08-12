@@ -127,6 +127,11 @@ app.get("/api/conquest/tiles", requireAuth, async (c) => {
   return c.json({ tiles });
 });
 
+app.get("/api/conquest/all-tiles", requireAuth, async (c) => {
+  const tiles = await conquest.allOccupiedTiles(c.env.DB);
+  return c.json({ tiles });
+});
+
 app.get("/api/conquest/travel-time", requireAuth, async (c) => {
   const player = c.get("player");
   const x = parseInt(c.req.query("x"), 10);
