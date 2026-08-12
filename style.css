@@ -629,36 +629,62 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 @media (max-width: 700px) { .tavern-grid { grid-template-columns: repeat(2, 1fr); } }
 
+/* ---------- 영웅 가챠 카드(여관 뽑기) — 일러스트가 카드 전체를 채우는 형식.
+   등급 색은 이제 배경 전체를 칠하는 대신 테두리/발광으로만 표현해 일러스트가
+   가려지지 않게 한다. 등급별 색은 --r1~--r8을 그대로 --rc로 매핑해서 쓴다. */
 .hero-card {
-  border-radius: 12px; padding: 10px; text-align: center;
-  display: flex; flex-direction: column; gap: 6px; align-items: center;
-  position: relative; color: #241c12;
+  border-radius: 14px; padding: 8px; text-align: center;
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  position: relative; color: var(--ink);
   background: var(--bg);
-  border: 1px solid rgba(0,0,0,.12);
+  border: 1px solid var(--line);
+  --rc: var(--r1);
 }
 .hero-card.card-fresh { animation: card-in .35s cubic-bezier(.34,1.56,.64,1); }
 @keyframes card-in { 0% { transform: scale(.7) translateY(10px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
-.hero-card.kami { animation: kami-shimmer 1.4s ease-in-out infinite; }
-@keyframes kami-shimmer { 0%,100% { box-shadow: 0 0 6px 2px #ffd93d; } 50% { box-shadow: 0 0 16px 6px #ff6b6b; } }
-.hero-card .portrait { font-size: 2.4rem; }
-/* ★6 이상은 신화 속 실존 인물 중에서도 상급 — 초상 크기를 한 단계 더 키워 체감 등급차를 준다 */
-.hero-card.hc-r6 .portrait, .hero-card.hc-r7 .portrait, .hero-card.hc-r8 .portrait { font-size: 3.1rem; }
-.codex-cell.hc-r6 .portrait, .codex-cell.hc-r7 .portrait, .codex-cell.hc-r8 .portrait { font-size: 2.3rem; }
-.hero-card .hname { font-family: var(--font-display); font-size: .9rem; }
-.hero-card .hdomain { font-size: .7rem; font-weight: 600; opacity: .82; min-height: 2em; }
+.hero-card.kami .hc-portrait { animation: kami-shimmer 1.4s ease-in-out infinite; }
+@keyframes kami-shimmer {
+  0%,100% { box-shadow: 0 0 0 2px #ffd93d, 0 0 14px 3px #ffd93d; }
+  50% { box-shadow: 0 0 0 2px #ff6b6b, 0 0 22px 7px #ff6b6b; }
+}
+.hero-card.hc-r1 { --rc: var(--r1); } .hero-card.hc-r2 { --rc: var(--r2); } .hero-card.hc-r3 { --rc: var(--r3); }
+.hero-card.hc-r4 { --rc: var(--r4); } .hero-card.hc-r5 { --rc: var(--r5); } .hero-card.hc-r6 { --rc: var(--r6); }
+.hero-card.hc-r7 { --rc: var(--r7); }
+/* --r8은 conic-gradient(별 배지 배경용)라 box-shadow 색으로 못 쓴다 — 카미는 항상
+   kami-shimmer 애니메이션이 덮어써서 실제로는 안 보이지만, 무효 선언을 남기지
+   않기 위해 유효한 금색 단색으로 대신 지정한다. */
+.hero-card.hc-r8 { --rc: #ffd93d; }
+
+.hc-portrait {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; border-radius: 12px;
+  overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #453a6b, #1c1730 78%);
+  box-shadow: 0 0 0 2px var(--rc), 0 0 16px -2px var(--rc), var(--shadow);
+}
+/* ★6 이상은 신화 속 실존 인물 중에서도 상급 — 발광을 한 단계 더 키워 체감 등급차를 준다 */
+.hero-card.hc-r6 .hc-portrait, .hero-card.hc-r7 .hc-portrait, .hero-card.hc-r8 .hc-portrait {
+  box-shadow: 0 0 0 2px var(--rc), 0 0 22px 0px var(--rc), var(--shadow);
+}
+.hc-portrait img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center;
+}
+.hc-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(10,8,20,.85) 0%, rgba(10,8,20,.35) 34%, transparent 62%);
+}
+.hc-stars {
+  position: absolute; top: 5px; left: 0; right: 0; text-align: center;
+  font-size: .82rem; letter-spacing: 1px; pointer-events: none;
+}
+.hc-star-filled { color: #ffd93d; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 6px rgba(255,217,61,.6); }
+.hc-plate { position: absolute; left: 0; right: 0; bottom: 6px; padding: 0 8px; pointer-events: none; }
+.hc-domain { font-size: .62rem; font-weight: 700; color: #e8e2ff; opacity: .85; text-shadow: 0 1px 2px rgba(0,0,0,.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-name { font-family: var(--font-display); font-size: .95rem; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.85); }
+.hc-info { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
 .hero-card .empty-slot { opacity: .55; font-size: .8rem; padding: 20px 0; color: var(--ink); }
 .hero-card .hstats { font-size: .7rem; font-weight: 700; }
 .hero-card .htrait { font-size: .68rem; opacity: .9; font-weight: 700; }
 .hero-card .recruit-cost { font-size: .74rem; font-weight: 700; }
 .hero-card .owned-tag { font-size: .68rem; font-weight: 800; }
-.hero-card.hc-r1 { background: var(--r1); color: #fff; }
-.hero-card.hc-r2 { background: var(--r2); color: #fff; }
-.hero-card.hc-r3 { background: var(--r3); color: #fff; }
-.hero-card.hc-r4 { background: var(--r4); color: #241c12; }
-.hero-card.hc-r5 { background: var(--r5); color: #2b1c00; }
-.hero-card.hc-r6 { background: var(--r6); color: #fff; }
-.hero-card.hc-r7 { background: var(--r7); color: #fff; }
-.hero-card.hc-r8 { background: var(--r8); color: #241c12; }
 
 .odds-note { font-size: .82rem; color: var(--ink-soft); font-weight: 600; margin: 2px 0 14px; }
 .odds-table { display: flex; flex-direction: column; gap: 8px; }
@@ -773,10 +799,23 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 }
 .codex-cell {
   background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px; text-align: center; cursor: pointer;
-  font-size: .72rem; font-weight: 700; display: flex; flex-direction: column; gap: 2px; align-items: center;
+  font-size: .72rem; font-weight: 700; display: flex; flex-direction: column; gap: 4px; align-items: center;
+  position: relative;
+  --rc: var(--r1);
 }
+.codex-cell.hc-r1 { --rc: var(--r1); } .codex-cell.hc-r2 { --rc: var(--r2); } .codex-cell.hc-r3 { --rc: var(--r3); }
+.codex-cell.hc-r4 { --rc: var(--r4); } .codex-cell.hc-r5 { --rc: var(--r5); } .codex-cell.hc-r6 { --rc: var(--r6); }
+.codex-cell.hc-r7 { --rc: var(--r7); } .codex-cell.hc-r8 { --rc: #ffd93d; }
 .codex-cell.locked { opacity: .45; }
-.codex-cell .portrait { font-size: 1.8rem; }
+.cc-portrait {
+  width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; position: relative;
+  display: flex; align-items: center; justify-content: center; font-size: 1.7rem;
+  background: radial-gradient(ellipse at 50% 30%, #453a6b, #1c1730 78%);
+  box-shadow: 0 0 0 2px var(--rc);
+}
+.cc-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.codex-cell .star-badge { position: absolute; top: 4px; right: 4px; font-size: .58rem; min-width: 22px; height: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.cc-name { font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 #codex-detail { margin-top: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 #codex-progress { font-size: .82rem; color: var(--ink-soft); font-weight: 700; }
 

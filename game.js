@@ -363,8 +363,15 @@
   });
 
   const RES_LABEL = { food: "🌾", wood: "🪵", stone: "🪨", gold: "🪙" };
+  // 코덱스로 새로 뽑은 일러스트는 .png로 들어온다 — 아직 그리지 않은 영웅은 예전
+  // 절차적 SVG 초상으로 자동 대체된다(onerror 폴백이라 전원분을 한꺼번에 교체할
+  // 필요 없이 그린 만큼씩 순차 반영 가능).
   function heroPortraitHTML(hero) {
-    return `<img src="assets/heroes/${hero.id}.svg" alt="${hero.name}" />`;
+    return `<img src="assets/heroes/${hero.id}.png" loading="lazy" alt="${hero.name}" onerror="this.onerror=null;this.src='assets/heroes/${hero.id}.svg';" />`;
+  }
+  // 가챠 카드 상단 별줄 — 등급(1~8)만큼 별을 채운다.
+  function heroStarRowHTML(rarity) {
+    return `<span class="hc-star-filled">${"★".repeat(rarity)}</span>`;
   }
   const KAMI = HEROES.find((h) => h.secret) || null;
   const HERO_BY_ID = Object.fromEntries(HEROES.map((h) => [h.id, h]));
@@ -1852,15 +1859,22 @@
         const traitLine = hero.traits.map((t) => traitLineHTML(hero, t)).join("<br>");
         cell.className = `hero-card card-fresh hc-r${hero.rarity}` + (isKami ? " kami" : "");
         cell.innerHTML = `
-          <span class="star-badge r${hero.rarity}">★${hero.rarity}</span>
-          <div class="portrait">${heroPortraitHTML(hero)}</div>
-          <div class="hname">${hero.name}</div>
-          <div class="hdomain">${hero.domain}</div>
-          <div class="hstats">⚔️${hero.atk} 🛡️${hero.def} ❤️${hero.hp}</div>
-          <div class="htrait">${isKami ? "🐱 모든 것을 압도하는 조커 카드" : traitLine}</div>
-          ${already ? `<div class="owned-tag">보유중 ✓ (중복 영입 시 조각)</div>` : ""}
-          <div class="recruit-cost">🪙 ${recruitCost(hero)}</div>
-          <button class="do-recruit">영입</button>
+          <div class="hc-portrait">
+            ${heroPortraitHTML(hero)}
+            <div class="hc-scrim"></div>
+            <div class="hc-stars">${heroStarRowHTML(hero.rarity)}</div>
+            <div class="hc-plate">
+              <div class="hc-domain">${hero.domain}</div>
+              <div class="hc-name">${hero.name}</div>
+            </div>
+          </div>
+          <div class="hc-info">
+            <div class="hstats">⚔️${hero.atk} 🛡️${hero.def} ❤️${hero.hp}</div>
+            <div class="htrait">${isKami ? "🐱 모든 것을 압도하는 조커 카드" : traitLine}</div>
+            ${already ? `<div class="owned-tag">보유중 ✓ (중복 영입 시 조각)</div>` : ""}
+            <div class="recruit-cost">🪙 ${recruitCost(hero)}</div>
+            <button class="do-recruit">영입</button>
+          </div>
         `;
         cell.querySelector(".do-recruit").addEventListener("click", () => recruit(idx));
       }
@@ -2402,9 +2416,9 @@
       const cell = document.createElement("div");
       cell.className = `codex-cell hc-r${hero.rarity}` + (owned ? "" : " locked");
       cell.innerHTML = `
-        <div class="portrait">${owned ? heroPortraitHTML(hero) : "❔"}</div>
-        <div>${owned ? hero.name : "???"}</div>
-        <span class="star-badge r${hero.rarity}" style="font-size:.6rem;">★${hero.rarity}</span>
+        <div class="cc-portrait">${owned ? heroPortraitHTML(hero) : "❔"}</div>
+        <div class="cc-name">${owned ? hero.name : "???"}</div>
+        <span class="star-badge r${hero.rarity}">★${hero.rarity}</span>
       `;
       cell.addEventListener("click", () => renderCodexDetail(hero.id));
       grid.appendChild(cell);
@@ -2479,9 +2493,9 @@
       const cell = document.createElement("div");
       cell.className = `codex-cell hc-r${hero.rarity}`;
       cell.innerHTML = `
-        <div class="portrait">${heroPortraitHTML(hero)}</div>
-        <div>${hero.name}</div>
-        <span class="star-badge r${hero.rarity}" style="font-size:.6rem;">★${hero.rarity}</span>
+        <div class="cc-portrait">${heroPortraitHTML(hero)}</div>
+        <div class="cc-name">${hero.name}</div>
+        <span class="star-badge r${hero.rarity}">★${hero.rarity}</span>
       `;
       cell.addEventListener("click", () => renderOwnedHeroDetail(hero.id));
       grid.appendChild(cell);
