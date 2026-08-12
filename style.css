@@ -771,6 +771,8 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .troop-type-row.locked { opacity: .45; }
 .troop-type-row button { font-size: .75rem; padding: 6px 10px; }
 .troop-type-row .tt-warn { color: var(--hard); font-weight: 700; }
+.troop-type-row .tt-stats { font-size: .74rem; color: var(--ink-soft); font-weight: 700; }
+.troop-type-row .tt-total { font-size: .74rem; color: var(--ink-soft); font-weight: 700; text-align: right; }
 .training-status { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 8px 0; font-size: .87rem; font-weight: 600; }
 .troops-owned-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; font-size: .8rem; font-weight: 700; }
 .troops-owned-list span { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
@@ -786,6 +788,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   padding: 8px 14px; margin: 10px 0; font-family: var(--font-display); font-size: 1rem;
 }
 .army-power-bar .power-num { color: var(--roof); font-size: 1.2rem; font-weight: 800; }
+.army-power-bar .capacity-num { color: var(--gold); font-size: 1.1rem; font-weight: 800; }
 .army-power-bar .hr-note { font-family: var(--font-body); font-size: .8rem; color: var(--ink-soft); font-weight: 700; }
 .army-slots { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
 .troop-comp-grid {

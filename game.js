@@ -83,12 +83,18 @@
   // speed: 이동속도 배율 — 정복 맵 출정/귀환 시간 계산의 기준(낮을수록 느림).
   // 최하급 병종(민병대)·이동속도 특성 없는 영웅 기준 인접 타일 편도 18초가 되도록
   // BASE_SECONDS_PER_TILE(아래)과 함께 맞춰뒀다(200x200 맵 대각선 199칸 이동해도 1시간 이내).
+  // capacity: 병종 1명당 수송량(약탈 시 운반 가능한 자원량) — 수송병/마차는 전투력은
+  // 약하지만 capacity가 훨씬 커서, "전투 특화" 병종과 "약탈 특화" 병종으로 역할이 갈린다.
+  // 마차는 speed가 가장 낮아(0.9) 부대에 섞으면 전체 이동속도가 느려지는 대가가 있다
+  // (armySpeedMultiplier가 편성된 병종 중 최저 속도를 쓰기 때문).
   const TROOP_TYPES = [
-    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6, speed: 1 },
-    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5, speed: 1.1 },
-    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21, speed: 1.25 },
-    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31, speed: 1.4 },
-    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50, speed: 1.6 },
+    { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6, speed: 1, capacity: 20 },
+    { key: "transport", name: "수송병", unlockLevel: 3, cost: { food: 12, wood: 4 }, trainSeconds: 5, atk: 1, def: 1, hp: 8, speed: 1.05, capacity: 150 },
+    { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5, speed: 1.1, capacity: 35 },
+    { key: "spartan", name: "스파르타 전사", unlockLevel: 10, cost: { food: 15, stone: 7 }, trainSeconds: 10, atk: 8, def: 6.5, hp: 21, speed: 1.25, capacity: 55 },
+    { key: "myrmidon", name: "미르미돈 전사", unlockLevel: 15, cost: { food: 16, gold: 10 }, trainSeconds: 16, atk: 13, def: 10, hp: 31, speed: 1.4, capacity: 80 },
+    { key: "wagon", name: "마차", unlockLevel: 18, cost: { food: 40, gold: 35, stone: 20 }, trainSeconds: 45, atk: 3, def: 3, hp: 40, speed: 0.9, capacity: 600 },
+    { key: "ares_champion", name: "아레스의 대전사", unlockLevel: 20, cost: { food: 15, gold: 12, stone: 7 }, trainSeconds: 24, atk: 22, def: 16, hp: 50, speed: 1.6, capacity: 110 },
   ];
   const TROOP_TYPES_BY_KEY = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, t]));
 
@@ -571,6 +577,8 @@
         delete t.heroId;
       });
       if (!parsed.troopsByType) parsed.troopsByType = Object.fromEntries(TROOP_TYPES.map((t) => [t.key, 0]));
+      // 수송병/마차 추가 이전 세이브에는 이 두 키가 아예 없을 수 있다 — 0으로 채워둔다.
+      TROOP_TYPES.forEach((t) => { if (!(t.key in parsed.troopsByType)) parsed.troopsByType[t.key] = 0; });
       if (!parsed.armies) parsed.armies = Array.from({ length: SQUAD_COUNT }, () => ({ heroIds: [null, null, null], mission: null, lastComp: {} }));
       parsed.armies.forEach((a) => { if (!a.lastComp) a.lastComp = {}; });
       dedupeHeroPlacements(parsed);
@@ -696,6 +704,9 @@
   function heroMovementTraits(hero) {
     return hero.traits.filter((t) => t.type === "movement");
   }
+  function heroCargoTraits(hero) {
+    return hero.traits.filter((t) => t.type === "cargo");
+  }
   function heroBuildingTraitsFor(hero, buildingType) {
     return hero.traits.filter((t) => t.type === "building" && t.building === buildingType);
   }
@@ -712,6 +723,9 @@
     }
     if (trait.type === "movement") {
       return `🐎 ${trait.name}${trait.signature ? " ✨" : ""}: 이동 속도 +${pct}%`;
+    }
+    if (trait.type === "cargo") {
+      return `🚚 ${trait.name}${trait.signature ? " ✨" : ""}: 수송량 +${pct}%`;
     }
     return `🏛️ ${trait.name}${trait.signature ? " ✨" : ""}: ${trait.building} +${pct}%`;
   }
@@ -1276,6 +1290,24 @@
     });
     return baseSpeed * (1 + bonus / 100);
   }
+  // 부대의 총 수송력 = 병종별 capacity×인원 합산 x (1 + 영웅 cargo 특성 합산%/100).
+  // 정복 맵 공격 시 이 값이 실제 약탈 가능한 자원 총량의 상한이 된다(서버
+  // workers/src/lib/combat.js의 armyCarryCapacity와 동일한 공식).
+  function armyCarryCapacity(heroIds, comp) {
+    let base = 0;
+    Object.entries(comp || {}).forEach(([key, count]) => {
+      const t = TROOP_TYPES_BY_KEY[key];
+      if (!t || !count) return;
+      base += t.capacity * count;
+    });
+    let bonus = 0;
+    (heroIds || []).filter(Boolean).forEach((id) => {
+      const hero = HERO_BY_ID[id];
+      if (!hero) return;
+      heroCargoTraits(hero).forEach((t) => { bonus += heroTraitPercent(hero, t); });
+    });
+    return Math.round(base * (1 + bonus / 100));
+  }
   function travelTimeSeconds(distanceTiles, speedMultiplier) {
     return Math.max(1, Math.round((distanceTiles * BASE_SECONDS_PER_TILE) / Math.max(0.01, speedMultiplier)));
   }
@@ -1653,6 +1685,12 @@
     Object.entries(type.cost).forEach(([r, v]) => { max = Math.min(max, Math.floor((state.res[r] || 0) / v)); });
     return Math.max(0, max);
   }
+  // 병종 1명 비용×count, 시간(초)×count를 합산한 "지금 슬라이더 값 기준 총량" 문구
+  function trainTotalText(type, count) {
+    const totalCost = {};
+    Object.entries(type.cost).forEach(([r, v]) => { totalCost[r] = v * count; });
+    return `${costText(totalCost)} · ${type.trainSeconds * count}s`;
+  }
   function renderTroopTrainingHTML(tileId) {
     const tile = state.tiles[tileId];
     if (tile.training) {
@@ -1673,11 +1711,13 @@
               <span class="tt-cost">${costText(t.cost)}/명 · ${t.trainSeconds}s/명</span>
             </div>
             ${!locked ? `
+            <div class="tt-stats">⚔️${t.atk} 🛡️${t.def} ❤️${t.hp} 🚚${t.capacity} 🐎${t.speed}x</div>
             <div class="tt-controls">
               <input type="range" min="1" max="${Math.max(1, maxAfford)}" value="${startVal}" class="tt-count" data-key="${t.key}" ${maxAfford < 1 ? "disabled" : ""} />
               <span class="tt-count-val" data-key-val="${t.key}">${startVal}</span>
               <button class="do-train" data-key="${t.key}" ${maxAfford < 1 ? "disabled" : ""}>훈련</button>
             </div>
+            <div class="tt-total" data-key-total="${t.key}">총 ${trainTotalText(t, startVal)}</div>
             ${maxAfford < 1 ? `<small class="tt-warn">자원이 부족해 지금은 훈련할 수 없습니다</small>` : ""}
             ` : ""}
           </div>`;
@@ -1804,6 +1844,8 @@
       input.value = saved; // 범위를 벗어나면 브라우저가 자동으로 min/max에 맞춰 클램프한다
       const label = body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`);
       if (label) label.textContent = input.value;
+      const totalEl = body.querySelector(`.tt-total[data-key-total="${input.dataset.key}"]`);
+      if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value));
     });
     body.querySelectorAll(".do-unassign").forEach((b) => {
       b.addEventListener("click", () => unassignHero(tileId, Number(b.dataset.hero)));
@@ -1825,6 +1867,8 @@
     body.querySelectorAll(".tt-count").forEach((input) => {
       input.addEventListener("input", () => {
         body.querySelector(`.tt-count-val[data-key-val="${input.dataset.key}"]`).textContent = input.value;
+        const totalEl = body.querySelector(`.tt-total[data-key-total="${input.dataset.key}"]`);
+        if (totalEl) totalEl.textContent = "총 " + trainTotalText(TROOP_TYPES_BY_KEY[input.dataset.key], Number(input.value));
       });
     });
     if (tile.type === "아카데미") {
@@ -2315,13 +2359,14 @@
       let selectedSlot = army.heroIds.findIndex((h) => !h);
       const totalTroops = Object.entries(state.troopsByType).map(([k, v]) => `${TROOP_TYPES_BY_KEY[k].name} ${v}`).join(" · ");
       const power = armyPowerScore(army.heroIds, army.lastComp);
+      const capacity = armyCarryCapacity(army.heroIds, army.lastComp);
       body.innerHTML = `
         <h2>⚔️ 군대 편성 (부대 ${SQUAD_COUNT}개, 각 영웅 최대 3명)</h2>
         <p>보유 병사: ${totalTroops}</p>
         <div class="squad-tabs">
           ${state.armies.map((a, i) => `<button class="squad-tab ${i === activeSquad ? "active" : ""} ${a.mission ? "busy" : ""}" data-idx="${i}">부대 ${i + 1}${a.mission ? " 🪖" : ""} <span class="squad-power">⚔️${armyPowerScore(a.heroIds, a.lastComp || {}).toLocaleString()}</span></button>`).join("")}
         </div>
-        <div class="army-power-bar">🏆 이 부대의 전투력 <span class="power-num">${power.toLocaleString()}</span>${army.mission ? `<span class="hr-note">현재 출정 중 — 배치를 바꿔도 진행 중인 원정에는 영향이 없습니다</span>` : ""}</div>
+        <div class="army-power-bar">🏆 이 부대의 전투력 <span class="power-num">${power.toLocaleString()}</span> · 🚚 수송력 <span class="capacity-num">${capacity.toLocaleString()}</span>${army.mission ? `<span class="hr-note">현재 출정 중 — 배치를 바꿔도 진행 중인 원정에는 영향이 없습니다</span>` : ""}</div>
         <div class="modal-cols">
           <div class="col narrow">
             <h3>영웅 배치</h3>
@@ -2403,6 +2448,7 @@
           body.querySelector(`#army-comp-list .tc-num[data-key-val="${input.dataset.key}"]`).textContent = val;
           const p = armyPowerScore(army.heroIds, army.lastComp);
           body.querySelector(".power-num").textContent = p.toLocaleString();
+          body.querySelector(".capacity-num").textContent = armyCarryCapacity(army.heroIds, army.lastComp).toLocaleString();
           const tabPower = body.querySelector(`.squad-tab[data-idx="${activeSquad}"] .squad-power`);
           if (tabPower) tabPower.textContent = `⚔️${p.toLocaleString()}`;
         };
@@ -2976,9 +3022,24 @@
         <div class="ctf-line">${label}</div>
         <select class="ctf-squad-select">${freeSquadOptionsHTML()}</select>
         ${troopCompInputsHTML()}
+        ${kind === "attack" ? `<div class="ctf-line">🚚 예상 수송력(약탈 자원 상한): <span class="ctf-capacity-num">0</span></div>` : ""}
         <button class="ctf-submit" data-kind="${kind}" data-target="${targetPlayerId}">${kind === "attack" ? "공격 출정" : "지원 출정"}</button>
       </div>
     `;
+  }
+  // 공격 부대 편성 폼에서 병사 수/부대를 바꿀 때마다 예상 수송력을 즉시 갱신한다.
+  function attachDispatchCapacityPreview(infoEl) {
+    const capacityEl = infoEl.querySelector(".ctf-capacity-num");
+    if (!capacityEl) return;
+    const update = () => {
+      const squadIdx = Number(infoEl.querySelector(".ctf-squad-select").value);
+      const army = state.armies[squadIdx];
+      const comp = readCompFromForm(infoEl);
+      capacityEl.textContent = armyCarryCapacity(army ? army.heroIds : [], comp).toLocaleString();
+    };
+    infoEl.querySelector(".ctf-squad-select").addEventListener("change", update);
+    infoEl.querySelectorAll("[data-troop]").forEach((input) => input.addEventListener("input", update));
+    update();
   }
   async function showConquestTileInfo(x, y, occ) {
     const infoEl = document.getElementById("conquest-tile-info");
@@ -3016,6 +3077,7 @@
     if (openAttack) openAttack.addEventListener("click", () => {
       infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("attack", occ.playerId)}`;
       infoEl.querySelector(".ctf-submit").addEventListener("click", () => submitConquestDispatch("attack", occ.playerId, infoEl));
+      attachDispatchCapacityPreview(infoEl);
     });
     if (openReinforce) openReinforce.addEventListener("click", () => {
       infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("reinforce", occ.playerId)}`;

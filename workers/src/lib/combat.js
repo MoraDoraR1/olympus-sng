@@ -43,6 +43,25 @@ export function sumStats(list) {
   return list.reduce((s, a) => ({ atk: s.atk + a.atk, def: s.def + a.def, hp: s.hp + a.hp }), { atk: 0, def: 0, hp: 0 });
 }
 
+// 부대의 총 수송력 — game.js의 armyCarryCapacity()와 동일한 공식(병종별 capacity×인원
+// 합산 x (1 + 영웅 cargo 특성 합산%/100)). PvP 약탈량의 상한으로 쓰인다.
+export function armyCarryCapacity(comp, heroIds, ownedById) {
+  let base = 0;
+  Object.entries(comp || {}).forEach(([key, count]) => {
+    const t = TROOP_BY_KEY[key];
+    if (!t || !count) return;
+    base += t.capacity * count;
+  });
+  let bonus = 0;
+  (heroIds || []).filter(Boolean).forEach((id) => {
+    const hero = HERO_BY_ID[id];
+    if (!hero) return;
+    const enhance = ((ownedById || {})[id] || {}).enhance || 0;
+    hero.traits.filter((t) => t.type === "cargo").forEach((t) => { bonus += t.percent * (1 + 0.15 * enhance); });
+  });
+  return Math.round(base * (1 + bonus / 100));
+}
+
 // 이긴 쪽은 최대 60%까지만, 진 쪽은 최대 100%까지 손실.
 export function pvpVerdict(attackerStats, defenderStats, duration) {
   const dmgToDefender = Math.max(1, attackerStats.atk - defenderStats.def * 0.5) * duration;

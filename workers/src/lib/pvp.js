@@ -6,6 +6,7 @@ import * as conquest from "./conquest.js";
 import { chebyshevDistance, travelTimeSeconds, armySpeedMultiplier } from "./movement.js";
 import {
   armyCombatStats,
+  armyCarryCapacity,
   sumStats,
   pvpVerdict,
   applyCasualties,
@@ -201,19 +202,30 @@ async function resolveAttack(db, missionId) {
 
   let loot = null;
   if (verdict.attackerWins) {
-    loot = {};
     attackerState.res = attackerState.res || {};
     defenderState.res = defenderState.res || {};
     // 자원보호소는 레벨에 비례한 일정량을 약탈 대상에서 아예 제외한다(그 이하 자원은
     // 손대지 않음) — 10% 약탈은 "보호되지 않는 나머지"에만 적용된다.
     const protectedAmount = shelterProtectedAmount(defenderState);
+    const uncapped = {};
+    let uncappedTotal = 0;
     ["food", "wood", "stone", "gold"].forEach((res) => {
       const have = Math.max(0, Math.floor(defenderState.res[res] || 0));
       const exposed = Math.max(0, have - protectedAmount);
       const taken = Math.floor(exposed * LOOT_PERCENT);
+      uncapped[res] = taken;
+      uncappedTotal += taken;
+    });
+    // 공격 부대의 수송력을 넘는 만큼은 비율대로 줄인다 — "얼마나 약탈 가능한가"가 아니라
+    // "얼마나 가져올 수 있는가"의 상한이므로, 자원 종류별로 균등한 비율로 깎는다.
+    const capacity = armyCarryCapacity(attackerComp, attackerHeroIds, attackerState.owned || {});
+    const scale = uncappedTotal > capacity && uncappedTotal > 0 ? capacity / uncappedTotal : 1;
+    loot = {};
+    ["food", "wood", "stone", "gold"].forEach((res) => {
+      const taken = Math.floor(uncapped[res] * scale);
       if (taken > 0) {
         loot[res] = taken;
-        defenderState.res[res] = have - taken;
+        defenderState.res[res] = Math.max(0, Math.floor(defenderState.res[res] || 0) - taken);
         attackerState.res[res] = (attackerState.res[res] || 0) + taken;
       }
     });
