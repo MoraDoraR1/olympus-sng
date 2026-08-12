@@ -21,6 +21,24 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+
+      - name: Resolve D1 database_id
+        run: |
+          DB_ID=$(npx wrangler d1 list --json | node -e "
+            let d='';
+            process.stdin.on('data', c => d += c);
+            process.stdin.on('end', () => {
+              const list = JSON.parse(d || '[]');
+              const db = list.find(x => x.name === 'olympus-sng-db');
+              console.log(db ? db.uuid : '');
+            });
+          ")
+          if [ -z "$DB_ID" ]; then
+            echo "::error::olympus-sng-db의 database_id를 확인하지 못했습니다."
+            exit 1
+          fi
+          sed -i "s/REPLACE_WITH_REAL_D1_DATABASE_ID/$DB_ID/" wrangler.jsonc
+
       - name: Delete deploycheck1 (id=4) and related rows
         run: |
           npx wrangler d1 execute olympus-sng-db --remote --command "DELETE FROM pvp_missions WHERE origin_player_id = 4 OR target_player_id = 4"
