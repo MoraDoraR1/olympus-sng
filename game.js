@@ -81,8 +81,8 @@
   // 아레스의 대전사(2.59)로 상위 등급일수록 확실히 이득이면서, 절대 비용도
   // 함께 올라 경제 규모가 못 따라가면 못 뽑는다(특히 상위 두 등급은 금 비중 확대).
   // speed: 이동속도 배율 — 정복 맵 출정/귀환 시간 계산의 기준(낮을수록 느림).
-  // 최하급 병종(민병대)·이동속도 특성 없는 영웅 기준 인접 타일 편도 1분이 되도록
-  // BASE_SECONDS_PER_TILE(아래)과 함께 맞춰뒀다.
+  // 최하급 병종(민병대)·이동속도 특성 없는 영웅 기준 인접 타일 편도 18초가 되도록
+  // BASE_SECONDS_PER_TILE(아래)과 함께 맞춰뒀다(200x200 맵 대각선 199칸 이동해도 1시간 이내).
   const TROOP_TYPES = [
     { key: "militia", name: "민병대", unlockLevel: 1, cost: { food: 9 }, trainSeconds: 3, atk: 2, def: 1.5, hp: 6, speed: 1 },
     { key: "hoplite", name: "호플리테스", unlockLevel: 5, cost: { food: 11, wood: 5 }, trainSeconds: 6, atk: 4.5, def: 4, hp: 12.5, speed: 1.1 },
@@ -427,7 +427,7 @@
     return data;
   }
 
-  // 6성 이상(6/7/8/카미)이 연구로 부스트됐을 때 지나치게 자주 등장하던 문제 —
+  // 6성 이상(6/7/8/까미)이 연구로 부스트됐을 때 지나치게 자주 등장하던 문제 —
   // 기본 확률 자체를 낮추고(6+7+8 합계 1.95%→0.5%), 그만큼 1성 쪽으로 되돌려
   // 전체 합은 100%를 유지한다. 연구 부스트 공식(currentRollTable)도 함께
   // 하향 조정해서, 연구를 전부 최대로 올려도 옛 기본 확률(2.0%)을 살짝 밑도는
@@ -957,7 +957,7 @@
   }
   // 레이드 확정 소환권용 — 평소 확률표(currentRollTable, 연구 보너스 포함)에서
   // floorRarity 미만인 등급만 잘라내고 남은 등급끼리 비율을 재조정해서 뽑는다.
-  // 그래서 "5성 이상 확정"이어도 5성이 압도적으로 많고 카미/8성은 여전히 희귀하다.
+  // 그래서 "5성 이상 확정"이어도 5성이 압도적으로 많고 까미/8성은 여전히 희귀하다.
   function rollHeroIdAtLeast(floorRarity) {
     const table = currentRollTable().filter((r) => r.rarity === "kami" || r.rarity >= floorRarity);
     const total = table.reduce((s, r) => s + r.p, 0);
@@ -1252,8 +1252,9 @@
     return { atk: heroAtk + troopAtk, def: (heroDef + troopDef) * expedition, hp: heroHp + troopHp };
   }
   // 정복 맵 출정/귀환 시간의 기준. 이동속도 특성이 없는 최하급 병종(민병대, speed=1)
-  // 기준으로 인접 타일(거리 1) 편도가 정확히 60초가 되도록 잡았다.
-  const BASE_SECONDS_PER_TILE = 60;
+  // 기준으로 인접 타일(거리 1) 편도가 정확히 18초가 되도록 잡았다 — 200x200 맵의
+  // 대각선 최장 거리(199칸)를 이동해도 199×18=3,582초(59.7분)로 1시간을 넘지 않는다.
+  const BASE_SECONDS_PER_TILE = 18;
   // 부대의 이동속도 배율 = (편성된 병종 중 가장 느린 speed) x (1 + 영웅 이동속도 특성 합산%/100)
   // 실제 병력이 하나도 없는 경우(사전 미리보기 등)에는 최하급 병종 speed를 기본값으로 쓴다.
   function armySpeedMultiplier(heroIds, comp) {
@@ -1918,7 +1919,7 @@
         ${rows.map((row) => `
           <div class="odds-row ${row.rarity === "kami" ? "kami" : ""}">
             <span class="odds-label">
-              <span class="star-badge ${row.rarity === "kami" ? "r8" : `r${row.rarity}`}">${row.rarity === "kami" ? "🐱 카미" : `★${row.rarity}`}</span>
+              <span class="star-badge ${row.rarity === "kami" ? "r8" : `r${row.rarity}`}">${row.rarity === "kami" ? "🐱 까미" : `★${row.rarity}`}</span>
             </span>
             <span class="odds-percent">${Math.round(row.p * 1000) / 1000}%</span>
           </div>

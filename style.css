@@ -650,7 +650,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .hero-card.hc-r1 { --rc: var(--r1); } .hero-card.hc-r2 { --rc: var(--r2); } .hero-card.hc-r3 { --rc: var(--r3); }
 .hero-card.hc-r4 { --rc: var(--r4); } .hero-card.hc-r5 { --rc: var(--r5); } .hero-card.hc-r6 { --rc: var(--r6); }
 .hero-card.hc-r7 { --rc: var(--r7); }
-/* --r8은 conic-gradient(별 배지 배경용)라 box-shadow 색으로 못 쓴다 — 카미는 항상
+/* --r8은 conic-gradient(별 배지 배경용)라 box-shadow 색으로 못 쓴다 — 까미는 항상
    kami-shimmer 애니메이션이 덮어써서 실제로는 안 보이지만, 무효 선언을 남기지
    않기 위해 유효한 금색 단색으로 대신 지정한다. */
 .hero-card.hc-r8 { --rc: #ffd93d; }

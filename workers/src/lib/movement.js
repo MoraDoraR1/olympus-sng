@@ -1,8 +1,10 @@
-// server-legacy/src/movement.js ESM 이식 (공식 변경 없음).
+// server-legacy/src/movement.js ESM 이식.
 import { HERO_BY_ID } from "./heroes.js";
 import { TROOP_BY_KEY } from "./troops.js";
 
-export const BASE_SECONDS_PER_TILE = 60;
+// 정복 맵은 200x200이라 대각선 최장 거리가 199칸 — 최저속도(민병대, speed=1) 기준으로도
+// 맨 끝에서 맨 끝까지 1시간을 넘지 않도록 18초/칸으로 맞췄다(199×18=3,582초=59.7분).
+export const BASE_SECONDS_PER_TILE = 18;
 
 function heroTraitPercent(hero, trait, enhance) {
   return trait.percent * (1 + 0.15 * (enhance || 0));
