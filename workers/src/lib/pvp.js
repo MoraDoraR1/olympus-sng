@@ -35,10 +35,11 @@ function idleSquadHeroIds(state) {
 }
 
 function serializeMission(row, forPlayerId) {
+  const isMine = row.origin_player_id === forPlayerId;
   return {
     id: row.id,
     kind: row.kind,
-    isMine: row.origin_player_id === forPlayerId,
+    isMine,
     originPlayerId: row.origin_player_id,
     originNickname: row.origin_nickname,
     targetPlayerId: row.target_player_id,
@@ -50,7 +51,25 @@ function serializeMission(row, forPlayerId) {
     arriveAt: row.arrive_at,
     returnArriveAt: row.return_arrive_at,
     result: row.result_json ? JSON.parse(row.result_json) : null,
+    // 공격자/피공격자가 각자 이 결과를 이미 확인했는지 — 결과창/알림을 한 번만 띄우기 위함.
+    seen: !!(isMine ? row.attacker_seen : row.defender_seen),
   };
+}
+
+// 전투 결과 알림을 확인 처리한다(공격자/피공격자 각자 독립적으로). 미션이 이미
+// 귀환 완료로 삭제됐다면(result를 볼 기회를 놓친 것) 조용히 성공 처리한다 — 클라이언트
+// 입장에서 재시도할 이유가 없는 멱등 동작이어야 하기 때문.
+export async function ackMissionResult(db, playerId, missionId) {
+  const id = Number(missionId);
+  if (!Number.isInteger(id)) return { error: "잘못된 요청입니다." };
+  const mission = await db.prepare("SELECT origin_player_id, target_player_id FROM pvp_missions WHERE id = ?").bind(id).first();
+  if (!mission) return { ok: true };
+  if (mission.origin_player_id === playerId) {
+    await db.prepare("UPDATE pvp_missions SET attacker_seen = 1 WHERE id = ?").bind(id).run();
+  } else if (mission.target_player_id === playerId) {
+    await db.prepare("UPDATE pvp_missions SET defender_seen = 1 WHERE id = ?").bind(id).run();
+  }
+  return { ok: true };
 }
 
 // 미니맵/정복 맵에 "이동 중인 부대" 선을 그리기 위해, 뷰포트와 겹치는 진행 중(outbound/

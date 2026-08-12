@@ -208,6 +208,14 @@ app.post("/api/conquest/reinforce", requireAuth, async (c) => {
   return c.json(result);
 });
 
+app.post("/api/conquest/missions/ack", requireAuth, async (c) => {
+  const player = c.get("player");
+  const { missionId } = (await c.req.json().catch(() => ({}))) || {};
+  const result = await pvp.ackMissionResult(c.env.DB, player.id, missionId);
+  if (result.error) return c.json({ error: result.error }, 400);
+  return c.json(result);
+});
+
 app.post("/api/conquest/recall", requireAuth, async (c) => {
   const player = c.get("player");
   const { missionId } = (await c.req.json().catch(() => ({}))) || {};

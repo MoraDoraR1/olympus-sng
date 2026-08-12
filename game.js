@@ -929,6 +929,16 @@
     renderMonsterArea();
     renderWorldMap();
     renderWallFrame();
+    // 월드맵 화면이 열려 있을 땐 renderWorldMap()이 이미 4초마다 미션을 가져오며 결과를
+    // 확인하므로 중복 요청하지 않는다 — 다른 화면을 보고 있을 때만 이 뜸한 폴링이 필요하다.
+    const worldMapEl = document.getElementById("screen-worldmap");
+    if (currentPlayer && worldMapEl && worldMapEl.hidden) {
+      const nowTs = Date.now();
+      if (nowTs - lastPvpNotifyFetchAt > PVP_NOTIFY_INTERVAL_MS) {
+        lastPvpNotifyFetchAt = nowTs;
+        pollPvpNotificationsAmbient();
+      }
+    }
     if (!document.getElementById("modal-tavern").hidden) {
       renderTavernModal();
       if (tavernRerolled) renderTavernCards();
@@ -2786,6 +2796,10 @@
   let lastConquestFetchAt = 0;
   let conquestMissions = []; // GET /api/conquest/missions 캐시
   let lastMissionSnapshot = "";
+  // 정복 맵 화면을 보고 있지 않아도(성/영웅 화면 등) 전투 결과 알림은 받아야 하므로,
+  // 월드맵 갱신(4초 주기)과 별개로 훨씬 뜸한 주기로 미션 목록만 확인하는 백그라운드 폴링.
+  const PVP_NOTIFY_INTERVAL_MS = 15000;
+  let lastPvpNotifyFetchAt = 0;
 
   function clampConquestCamera(x, y) {
     const mapW = (conquestInfo && conquestInfo.mapWidth) || CONQUEST_VIEW_W;
@@ -2869,7 +2883,62 @@
       lastMissionSnapshot = snap;
       conquestMissions = res.missions;
       renderConquestMissions();
+      processPvpResultNotifications(res.missions);
     } catch (e) {}
+  }
+  // 월드맵 화면을 보고 있지 않을 때도 전투 결과를 알 수 있도록, 화면 렌더는 건드리지
+  // 않고 미션 목록만 가져와 새 결과가 있는지 확인한다(tick()에서 호출).
+  async function pollPvpNotificationsAmbient() {
+    try {
+      const res = await apiRequest("/api/conquest/missions");
+      processPvpResultNotifications(res.missions);
+    } catch (e) {}
+  }
+  // 공격/피공격 양측 모두 승패를 알아야 한다 — attack 미션 중 결과가 나왔는데(result)
+  // 아직 이 계정이 확인하지 않은(seen=false) 것을 찾아 토스트+로그+결과창으로 알린다.
+  function processPvpResultNotifications(missions) {
+    (missions || []).forEach((m) => {
+      if (m.kind !== "attack" || !m.result || m.seen) return;
+      showBattleReport(m);
+      ackMissionResult(m.id);
+    });
+  }
+  async function ackMissionResult(missionId) {
+    try { await apiRequest("/api/conquest/missions/ack", { method: "POST", body: JSON.stringify({ missionId }) }); } catch (e) {}
+  }
+  function formatLootText(loot) {
+    if (!loot) return "";
+    const parts = [];
+    if (loot.food) parts.push(`🌾${loot.food}`);
+    if (loot.wood) parts.push(`🪵${loot.wood}`);
+    if (loot.stone) parts.push(`🪨${loot.stone}`);
+    if (loot.gold) parts.push(`🪙${loot.gold}`);
+    return parts.join(" ");
+  }
+  function showBattleReport(m) {
+    const isAttacker = m.isMine;
+    const attackerWins = m.result.attackerWins;
+    const myOutcomeWin = isAttacker ? attackerWins : !attackerWins;
+    const otherName = isAttacker ? m.targetNickname : m.originNickname;
+    const lootText = formatLootText(m.result.loot);
+    let headline, detail;
+    if (isAttacker) {
+      headline = myOutcomeWin ? `⚔️ 승리! ${otherName}의 성을 약탈했습니다` : `⚔️ 패배… ${otherName}의 방어를 뚫지 못했습니다`;
+      detail = `아군 병력 ${m.result.attackerLost}명 손실` + (lootText ? ` · 약탈 ${lootText}` : "");
+    } else {
+      headline = myOutcomeWin ? `🛡️ 승리! ${otherName}의 공격을 막아냈습니다` : `🛡️ 패배… ${otherName}에게 성이 약탈당했습니다`;
+      detail = `아군 병력 ${m.result.defenderLost}명 손실` + (!myOutcomeWin && lootText ? ` · 약탈당함 ${lootText}` : "");
+    }
+    toast(`${headline}`);
+    logEvent(`${headline} — ${detail}`, myOutcomeWin ? "battle-win" : "battle-lose");
+    // 다른 모달이 이미 떠 있으면(예: 다른 작업 중) 굳이 덮어 열지 않는다 — 토스트+로그로도
+    // 결과는 이미 전달됐고, 모달끼리 겹쳐 뜨는 걸 피하기 위함.
+    if (document.querySelector(".modal-overlay:not([hidden])")) return;
+    const titleEl = document.getElementById("battle-report-title");
+    titleEl.textContent = headline;
+    titleEl.className = myOutcomeWin ? "battle-report-win" : "battle-report-lose";
+    document.getElementById("battle-report-body").innerHTML = `<p>${detail}</p>`;
+    openModal("modal-battle-report");
   }
   async function recallConquestMission(missionId) {
     try {
@@ -2888,12 +2957,17 @@
     const rows = conquestMissions.map((m) => {
       const other = m.isMine ? m.targetNickname : m.originNickname;
       const kindLabel = m.kind === "attack" ? "⚔️ 공격" : "🛡️ 지원";
+      const resultTag = m.kind === "attack" && m.result
+        ? ` <span class="mission-result-tag ${(m.isMine ? m.result.attackerWins : !m.result.attackerWins) ? "win" : "lose"}">${(m.isMine ? m.result.attackerWins : !m.result.attackerWins) ? "승리" : "패배"}</span>`
+        : "";
       if (m.isMine) {
         if (m.phase === "outbound") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 도착까지 ${formatCountdownShort(m.arriveAt - now)}</div>`;
         if (m.phase === "stationed") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 주둔 중 <button class="btn-recall-mission" data-id="${m.id}">철수</button></div>`;
-        if (m.phase === "returning") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 귀환 중 ${formatCountdownShort(m.returnArriveAt - now)}</div>`;
+        if (m.phase === "returning") return `<div class="conquest-mission-row">${kindLabel} → ${other} · 귀환 중 ${formatCountdownShort(m.returnArriveAt - now)}${resultTag}</div>`;
       } else if (m.kind === "attack" && m.phase === "outbound") {
         return `<div class="conquest-mission-row incoming">⚠️ ${other}의 공격이 오는 중! 도착까지 ${formatCountdownShort(m.arriveAt - now)}</div>`;
+      } else if (m.kind === "attack" && m.result) {
+        return `<div class="conquest-mission-row">${other}의 공격 결과${resultTag}</div>`;
       }
       return "";
     }).filter(Boolean);
