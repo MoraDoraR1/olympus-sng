@@ -30,9 +30,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # wrangler 4.x는 Node 22 이상을 요구한다.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm install
