@@ -38,6 +38,40 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # wrangler.jsonc의 database_id는 저장소에 실제 값이 커밋되어 있지 않다(플레이스홀더
+      # REPLACE_WITH_REAL_D1_DATABASE_ID) — 이 값은 비밀값은 아니지만 로컬 세션에서는
+      # 실제 Cloudflare 계정 정보를 조회할 방법이 없어서, CI가 매번 자기 자격증명으로
+      # 직접 조회(없으면 생성)해서 체크아웃된 파일에만 채워 넣는다(커밋하지 않음).
+      - name: Resolve D1 database_id
+        run: |
+          DB_ID=$(npx wrangler d1 list --json | node -e "
+            let d='';
+            process.stdin.on('data', c => d += c);
+            process.stdin.on('end', () => {
+              const list = JSON.parse(d || '[]');
+              const db = list.find(x => x.name === 'olympus-sng-db');
+              console.log(db ? db.uuid : '');
+            });
+          ")
+          if [ -z "$DB_ID" ]; then
+            echo "olympus-sng-db가 없어 새로 생성합니다."
+            npx wrangler d1 create olympus-sng-db
+            DB_ID=$(npx wrangler d1 list --json | node -e "
+              let d='';
+              process.stdin.on('data', c => d += c);
+              process.stdin.on('end', () => {
+                const list = JSON.parse(d || '[]');
+                const db = list.find(x => x.name === 'olympus-sng-db');
+                console.log(db ? db.uuid : '');
+              });
+            ")
+          fi
+          if [ -z "$DB_ID" ]; then
+            echo "::error::olympus-sng-db의 database_id를 확인하지 못했습니다."
+            exit 1
+          fi
+          sed -i "s/REPLACE_WITH_REAL_D1_DATABASE_ID/$DB_ID/" wrangler.jsonc
+
       # D1 스키마 변경(새 마이그레이션 파일 추가)도 배포와 함께 실제 DB에 반영한다.
       # 이미 적용된 마이그레이션은 건너뛰므로 매번 실행해도 안전하다.
       - name: Apply D1 migrations (remote)
