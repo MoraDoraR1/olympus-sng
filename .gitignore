@@ -1,18 +1,8 @@
 dist/
+node_modules/
 server-legacy/node_modules/
 server-legacy/data/
 server-legacy/.env
-
-# Firebase 백엔드(functions/)
-node_modules/
-functions/node_modules/
-functions/data/
-.firebase/
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-pubsub-debug.log
-emulator-data/
 
 # Cloudflare Workers 백엔드(workers/)
 workers/node_modules/
