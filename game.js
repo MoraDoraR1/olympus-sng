@@ -2401,6 +2401,54 @@
     openModal("modal-raid");
   });
 
+  // ---------- 월드맵 성(NPC 20개, PvE) ----------
+  // "정복"(btn-worldmap/#screen-worldmap)이 실제 플레이어끼리 겨루는 PvP 맵으로 개편되며
+  // 그 화면/버튼을 그대로 물려받는 바람에, 원래 있던 이 NPC 성 침공 기능이 진입 경로 없이
+  // 붕 떠버렸었다(state.worldCastles는 tick()에서 계속 자원을 쌓고 있었지만 어디서도
+  // 열람/공격할 방법이 없었음). openEngageModal("castle", id)/findEnemy/resolveBattle 쪽
+  // 로직은 이미 다 있어서, 레이드 모달과 같은 패턴으로 목록 모달만 새로 추가해 되살렸다.
+  function worldCastleActionHTML(c) {
+    const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "castle" && a.mission.targetId === c.id);
+    if (attackingIdx >= 0) {
+      const mission = state.armies[attackingIdx].mission;
+      return `<span class="raid-status inprogress">부대${attackingIdx + 1} ${mission.phase === "march" ? "진군 중" : "전투 중"}… ${mission.timeLeft}s</span>`;
+    }
+    return `<button class="do-castle-attack" data-id="${c.id}">⚔️ 공격</button>`;
+  }
+  function renderWorldCastlesModal() {
+    const body = document.getElementById("worldcastles-modal-body");
+    body.innerHTML = `
+      <h2>🏯 월드맵 성</h2>
+      <p class="raid-intro">Lv.1~20 NPC 성 20개입니다. 승리하면 그 성이 그동안 모아둔 자원을 전액 약탈합니다 — 점령 개념은 없어 자원이 0으로 초기화된 뒤 다시 쌓이고, 언제든 재도전할 수 있습니다.</p>
+      <div class="raid-list">
+        ${state.worldCastles.map((c) => {
+          const bank = Object.fromEntries(Object.entries(c.bank).filter(([, v]) => Math.round(v) >= 1).map(([k, v]) => [k, Math.round(v)]));
+          const hasBank = Object.keys(bank).length > 0;
+          return `
+          <div class="raid-row">
+            <div class="icon">${worldCastleIconHTML(c.level)}</div>
+            <div class="raid-info">
+              <div class="raid-name">${c.name} <span class="raid-level">Lv.${c.level}</span></div>
+              <div class="raid-stats">⚔️${c.atk.toLocaleString()} 🛡️${c.def.toLocaleString()} ❤️${c.hp.toLocaleString()}</div>
+              <div class="raid-reward">💰 약탈 가능: ${hasBank ? costText(bank) : "아직 모은 자원 없음"}</div>
+            </div>
+            <div class="raid-action">${worldCastleActionHTML(c)}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+    body.querySelectorAll(".do-castle-attack").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        closeModal("modal-worldcastles");
+        openEngageModal("castle", btn.dataset.id);
+      });
+    });
+  }
+  document.getElementById("btn-worldcastles").addEventListener("click", () => {
+    renderWorldCastlesModal();
+    openModal("modal-worldcastles");
+  });
+
   // ---------- 인벤토리(레이드 보상으로 받은 조각/소환권 보관·사용) ----------
   // ---------- 정복 아이템(보호막/성 이동) — 서버 인벤토리 ----------
   const SHIELD_TIER_LABEL = { shield30: "30분", shield60: "1시간", shield120: "2시간" };
