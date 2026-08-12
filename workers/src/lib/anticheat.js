@@ -16,7 +16,10 @@ const RES_MAX_PER_SECOND = {
 };
 const MISC_RES_GRACE = 20000;
 const TROOP_GRACE = 20;
-const OFFLINE_CAP_SECONDS = 12 * 3600;
+// game.js의 OFFLINE_CAP_SECONDS와 반드시 같은 값을 유지해야 한다 — 클라이언트가
+// 정당하게 재생한 24시간치 오프라인 진행이 이 서버 쪽 허용치보다 작으면 저장이
+// 거부된다.
+const OFFLINE_CAP_SECONDS = 24 * 3600;
 const FRESH_RES = { food: 80, wood: 80, stone: 60, gold: 150 };
 
 const RAID_REWARDS = {

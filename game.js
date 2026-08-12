@@ -245,9 +245,12 @@
       def: Math.round(5 * monsterStatFactor(level, "def") * m),
     };
   }
-  // 승리 시 실제로 얻는 자원량(레벨/엘리트로 결정, 결정론적) — 종류만 처치 시점에 무작위로 고른다
+  // 승리 시 실제로 얻는 자원량(레벨/엘리트로 결정, 결정론적) — 종류만 처치 시점에 무작위로 고른다.
+  // 경제 밸런스 조정(생산 -25%, 병사 유지비 도입)으로 팍팍해진 자원 수급을 필드 사냥이
+  // 보완하도록, 기준값과 성장률을 함께 올려 우상향 곡선을 더 가파르게 했다
+  // (기존 20×1.25^(lv-1) → 25×1.28^(lv-1): 저레벨은 +25% 정도지만 고레벨(Lv30)은 약 2.5배).
   function monsterRewardAmount(level, elite) {
-    const base = 20 * Math.pow(1.25, level - 1);
+    const base = 25 * Math.pow(1.28, level - 1);
     return Math.round(base * (elite ? 3.5 : 1));
   }
   function monsterReward(level, elite) {
@@ -416,7 +419,11 @@
   const SQUAD_COUNT = 3;
   const MIN_DEPLOY = 5;
   const SAVE_KEY = "olympusSngSave_v5";
-  const OFFLINE_CAP_SECONDS = 12 * 3600; // 오프라인 진행은 최대 12시간분까지만 한 번에 재생
+  // 오프라인/백그라운드 진행은 최대 이만큼만 한 번에 재생한다(방치 계정이 무한정
+  // 쌓이는 걸 막는 안전장치). 하루 한 번 정도만 확인해도 놓치는 시간이 없도록
+  // 12시간 -> 24시간으로 늘렸다(경제 밸런스 조정으로 생산량 자체는 이미 낮췄으므로,
+  // 상한을 늘려도 무제한 방치 축적 문제로 이어지지 않는다).
+  const OFFLINE_CAP_SECONDS = 24 * 3600;
 
   // ---------- 계정/서버 동기화 ----------
   // 클라이언트와 API가 같은 Cloudflare Worker(같은 오리진)에서 서빙되므로 API_BASE는
