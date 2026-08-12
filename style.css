@@ -54,15 +54,14 @@ body {
   flex-direction: column;
 }
 
-/* 이전엔 브랜드/계정/자원/버튼이 한 줄짜리 flex-wrap 컨테이너에 전부 섞여 있어서,
-   화면 폭이 좁아지면 줄바꿈 순서가 내용물 크기에 따라 뒤죽박죽 섞여 보였다
-   (예: 자원 일부가 브랜드보다 위로 올라가 버림). 두 줄로 구조를 명확히 나눈다 —
-   위 줄: 브랜드/계정(왼쪽 고정) + 버튼들(오른쪽), 아래 줄: 자원 전체. */
+/* 한 줄에 브랜드/계정/자원/버튼이 전부 들어가되, 각 조각을 작고 가볍게 만들어
+   부담스럽지 않게 한다(이전엔 요소들이 커서 줄바꿈되면 뒤죽박죽 섞여 보였다). */
 #topbar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 7px 16px;
   background: var(--panel);
   box-shadow: var(--shadow);
   position: sticky;
@@ -70,29 +69,28 @@ body {
   z-index: 20;
   flex: 0 0 auto;
 }
-.topbar-row-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.topbar-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; white-space: nowrap; letter-spacing: .02em; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 1rem; white-space: nowrap; letter-spacing: .02em; }
 .account-badge {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--bg); border-radius: 999px; padding: 4px 6px 4px 10px;
-  font-size: .85rem; font-weight: 700; white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg); border-radius: 999px; padding: 3px 5px 3px 8px;
+  font-size: .76rem; font-weight: 700; white-space: nowrap;
 }
 .account-badge[hidden] { display: none; }
-.account-badge #btn-logout { padding: 4px 10px; font-size: .78rem; background: var(--panel); color: var(--ink); }
-.resources { display: flex; gap: 12px; flex-wrap: wrap; }
+.account-badge #btn-logout { padding: 3px 8px; font-size: .7rem; background: var(--panel); color: var(--ink); box-shadow: none; }
+.resources { display: contents; }
 .res {
-  display: flex; align-items: center; gap: 5px;
-  background: var(--bg); border-radius: 999px; padding: 4px 10px;
-  font-size: 0.9rem; font-weight: 700;
+  display: flex; align-items: center; gap: 4px;
+  background: var(--bg); border-radius: 999px; padding: 3px 8px;
+  font-size: 0.76rem; font-weight: 700;
   transition: transform .15s ease;
 }
 .res .amt { font-family: var(--font-display); font-size: 1.02em; }
-.res .icon { font-size: 1.3rem; }
+.res .icon { font-size: 1.05rem; }
 .res.pulse { transform: scale(1.15); }
-.res .cap { color: var(--ink-soft); font-weight: 500; font-size: .8rem; }
+.res .cap { color: var(--ink-soft); font-weight: 500; font-size: .74rem; }
 .res.stat { background: transparent; }
-.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.topbar-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.topbar-actions button { padding: 5px 9px; font-size: .74rem; box-shadow: none; }
 
 button {
   font-family: var(--font-display);
