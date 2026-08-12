@@ -225,23 +225,27 @@
   // 수 없다(1인 기준 "1회성 정복" 컨텐츠). requires로 순서를 강제해 앞 보스를 먼저
   // 처치해야 다음 보스에 도전할 수 있는 6단계 체인을 이룬다.
   // powerMult: 필드 몬스터 최고 레벨(30)·월드맵 성 최고 레벨(20) 중 더 강한 쪽을
-  // 기준선으로 삼아 몇 배 더 강한지(raidBossBaselineStats/raidBossStats 참고).
+  // 기준선으로 삼아 몇 배인지(raidBossBaselineStats/raidBossStats 참고). 최초 설계값
+  // (4~17배, "항상 필드/월드맵보다 강해야 한다")이 실제로 붙어보니 권장 전투력이
+  // 유저가 도달 불가능할 정도로 높아 전체를 80% 하향(×0.2)했다 — 그 결과 메두사(첫
+  // 보스)는 기준선보다 오히려 낮고, 뒤로 갈수록 다시 기준선을 넘어서는 완만한
+  // 곡선이 됐다.
   // level은 이제 스탯과 무관 — 진군/전투 소요시간과 표시용으로만 쓰인다.
   // reward.shards는 처치 시 "만능 조각"(state.raidShards)으로 지급되어 보유 영웅
   // 아무에게나 나중에 배분할 수 있고, reward.ticketRarity/ticketCount는 여관에서
   // 해당 등급 이상을 확정 소환할 수 있는 티켓(state.raidTickets)으로 지급된다.
   const RAID_BOSSES = [
-    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, powerMult: 4, requires: null,
+    { id: "medusa", key: "medusa", name: "메두사", icon: "🗿", level: 12, powerMult: 0.8, requires: null,
       reward: { resourceAmount: 50000, goldBonus: 30000, shards: 5, ticketRarity: 5, ticketCount: 5 } },
-    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, powerMult: 5.5, requires: "medusa",
+    { id: "hydra", key: "hydra", name: "히드라", icon: "🐉", level: 20, powerMult: 1.1, requires: "medusa",
       reward: { resourceAmount: 120000, goldBonus: 72000, shards: 10, ticketRarity: 5, ticketCount: 10 } },
-    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, powerMult: 7, requires: "hydra",
+    { id: "cerberus", key: "cerberus", name: "케르베로스", icon: "🐺", level: 28, powerMult: 1.4, requires: "hydra",
       reward: { resourceAmount: 250000, goldBonus: 150000, shards: 20, ticketRarity: 5, ticketCount: 15 } },
-    { id: "echidna", key: "echidna", name: "에키드나", icon: "🐍", level: 30, powerMult: 10, requires: "cerberus",
+    { id: "echidna", key: "echidna", name: "에키드나", icon: "🐍", level: 30, powerMult: 2.0, requires: "cerberus",
       reward: { resourceAmount: 500000, goldBonus: 300000, shards: 30, ticketRarity: 6, ticketCount: 3 } },
-    { id: "typhon", key: "typhon", name: "티폰", icon: "🌪️", level: 35, powerMult: 13, requires: "echidna",
+    { id: "typhon", key: "typhon", name: "티폰", icon: "🌪️", level: 35, powerMult: 2.6, requires: "echidna",
       reward: { resourceAmount: 800000, goldBonus: 480000, shards: 40, ticketRarity: 6, ticketCount: 5 } },
-    { id: "cronus", key: "cronus", name: "크로노스", icon: "⏳", level: 40, powerMult: 17, requires: "typhon",
+    { id: "cronus", key: "cronus", name: "크로노스", icon: "⏳", level: 40, powerMult: 3.4, requires: "typhon",
       reward: { resourceAmount: 1200000, goldBonus: 720000, shards: 50, ticketRarity: 6, ticketCount: 7 } },
   ];
   const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 보스별 재도전 대기시간(하루 1회)
