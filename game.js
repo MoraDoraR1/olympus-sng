@@ -2774,6 +2774,7 @@
   const conquestTiles = new Map(); // "x,y" -> { x, y, nickname, protectedUntil }
   let conquestAllTiles = []; // 미니맵용 — 전체 지도의 성 좌표(닉네임 없이 가볍게)
   let lastConquestAllTilesFetchAt = 0;
+  let conquestMissionPaths = []; // 뷰포트와 겹치는 진행 중인 부대 이동 경로(내 것/남의 것 모두)
   let conquestLoading = false;
   let lastConquestFetchAt = 0;
   let conquestMissions = []; // GET /api/conquest/missions 캐시
@@ -2798,6 +2799,11 @@
       const res = await apiRequest(`/api/conquest/tiles?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
       res.tiles.forEach((t) => conquestTiles.set(t.x + "," + t.y, t));
       renderConquestBody();
+    } catch (e) {}
+    try {
+      const pathRes = await apiRequest(`/api/conquest/mission-paths?x0=${x0}&y0=${y0}&x1=${x1}&y1=${y1}`);
+      conquestMissionPaths = pathRes.paths;
+      renderConquestGrid();
     } catch (e) {}
   }
 
@@ -2983,6 +2989,39 @@
         field.appendChild(cell);
       }
     }
+    renderConquestMissionPaths(field);
+  }
+
+  // 카메라 기준 타일 좌표 -> .worldmap-field 안에서의 픽셀 중심점(border 3px + padding
+  // 10px + 칸 크기 72px + gap 3px, style.css .worldmap-field와 맞춰뒀다).
+  function conquestTileCenterPx(worldX, worldY) {
+    const cellStep = CONQUEST_TILE_PX + 3;
+    const originOffset = 13;
+    return {
+      x: originOffset + (worldX - conquestCamera.x) * cellStep + CONQUEST_TILE_PX / 2,
+      y: originOffset + (worldY - conquestCamera.y) * cellStep + CONQUEST_TILE_PX / 2,
+    };
+  }
+  // 진행 중인 부대 이동 경로를 그리드 위에 선으로 겹쳐 그린다 — 내 부대뿐 아니라 뷰포트를
+  // 지나는 다른 플레이어의 부대도 포함된다(conquestMissionPaths, 서버가 world_tiles를
+  // 조인해 알려줌). 화면 밖으로 나가는 좌표는 부모 .worldmap-viewport의 overflow:hidden에
+  // 의해 자연스럽게 잘린다.
+  function renderConquestMissionPaths(field) {
+    if (!conquestMissionPaths.length) return;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "mission-path-overlay");
+    conquestMissionPaths.forEach((p) => {
+      const a = conquestTileCenterPx(p.originX, p.originY);
+      const b = conquestTileCenterPx(p.targetX, p.targetY);
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+      line.setAttribute("class", "mission-path-line " + (p.kind === "attack" ? "attack" : "reinforce"));
+      svg.appendChild(line);
+    });
+    field.appendChild(svg);
   }
 
   // 미니맵: 지도 전체(0~mapWidth, 0~mapHeight)를 축소해 내 위치·다른 플레이어 성·

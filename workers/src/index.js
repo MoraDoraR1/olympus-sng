@@ -132,6 +132,18 @@ app.get("/api/conquest/all-tiles", requireAuth, async (c) => {
   return c.json({ tiles });
 });
 
+app.get("/api/conquest/mission-paths", requireAuth, async (c) => {
+  const x0 = parseInt(c.req.query("x0"), 10);
+  const y0 = parseInt(c.req.query("y0"), 10);
+  const x1 = parseInt(c.req.query("x1"), 10);
+  const y1 = parseInt(c.req.query("y1"), 10);
+  if ([x0, y0, x1, y1].some((n) => !Number.isFinite(n))) {
+    return c.json({ error: "x0,y0,x1,y1 쿼리 파라미터가 필요합니다." }, 400);
+  }
+  const paths = await pvp.missionsCrossingViewport(c.env.DB, x0, y0, x1, y1);
+  return c.json({ paths });
+});
+
 app.get("/api/conquest/travel-time", requireAuth, async (c) => {
   const player = c.get("player");
   const x = parseInt(c.req.query("x"), 10);

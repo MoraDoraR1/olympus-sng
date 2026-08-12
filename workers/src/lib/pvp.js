@@ -53,6 +53,30 @@ function serializeMission(row, forPlayerId) {
   };
 }
 
+// 미니맵/정복 맵에 "이동 중인 부대" 선을 그리기 위해, 뷰포트와 겹치는 진행 중(outbound/
+// returning) 미션의 출발·도착 좌표를 가져온다. pvp_missions에는 좌표가 없어서(플레이어당
+// world_tiles 좌표 1개) 조회 시점에 조인한다 — 마이그레이션 없이 기존 데이터로 충분하다.
+// 한계: 미션 도중 대상이 성 이동(텔레포트) 아이템을 쓰면 좌표가 즉시 바뀌어 선이 순간
+// 이동한 것처럼 보일 수 있다(디스패치 시점의 좌표를 스냅샷하지 않기 때문 — 1차 구현에서는
+// 감수한다).
+export async function missionsCrossingViewport(db, x0, y0, x1, y1) {
+  const loX = Math.min(x0, x1), hiX = Math.max(x0, x1);
+  const loY = Math.min(y0, y1), hiY = Math.max(y0, y1);
+  const { results } = await db
+    .prepare(
+      `SELECT pm.id, pm.kind, pm.phase, wo.x AS ox, wo.y AS oy, wt.x AS tx, wt.y AS ty
+       FROM pvp_missions pm
+       JOIN world_tiles wo ON wo.player_id = pm.origin_player_id
+       JOIN world_tiles wt ON wt.player_id = pm.target_player_id
+       WHERE pm.phase IN ('outbound', 'returning')
+         AND MIN(wo.x, wt.x) <= ? AND MAX(wo.x, wt.x) >= ?
+         AND MIN(wo.y, wt.y) <= ? AND MAX(wo.y, wt.y) >= ?`
+    )
+    .bind(hiX, loX, hiY, loY)
+    .all();
+  return results.map((r) => ({ id: r.id, kind: r.kind, phase: r.phase, originX: r.ox, originY: r.oy, targetX: r.tx, targetY: r.ty }));
+}
+
 export async function myMissions(db, playerId) {
   const { results } = await db
     .prepare(
