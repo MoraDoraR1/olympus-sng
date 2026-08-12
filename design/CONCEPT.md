@@ -4,10 +4,12 @@
 > 관련 문서: [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) (시스템 상세) · [DEV_PLAN.md](DEV_PLAN.md) (개발 계획) ·
 > [ART_DIRECTION.md](ART_DIRECTION.md) (아트) · [ASSET_LIST.md](ASSET_LIST.md) (리소스)
 
-> ⚠️ **2026-08-11 갱신**: 2번 표의 "기술 구성" 중 백엔드 부분은 작성 당시(Node.js+SQLite)
-> 기준이다. 그 서버는 이후 `server-legacy/`로 옮기고, 현재는 Firebase(Firestore + Cloud
-> Functions + Firebase Auth)가 백엔드다. 자세한 내용은 [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)
-> 11절과 `functions/README.md`를 본다.
+> ⚠️ **2026-08-12 갱신**: 2번 표의 "기술 구성" 중 백엔드 부분은 작성 당시(Node.js+SQLite)
+> 기준이다. 그 서버는 `server-legacy/`로 이름을 옮겼고, 이후 한때 Firebase(Firestore +
+> Cloud Functions + Firebase Auth)로 교체를 시도했으나 **그 시도는 폐기됐다**(`functions/`
+> 삭제, 저장소에 Firebase 관련 코드가 전혀 남아있지 않음). **현재 실제로 배포되어 있는
+> 백엔드는 Cloudflare Workers**(Hono + D1 + Durable Objects, `workers/`)다. 자세한 내용은
+> [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) 11절을 본다.
 
 ---
 
@@ -23,8 +25,8 @@
 |---|---|
 | 장르 | 전략 SNG (도시 건설 + 수집형 + 비동기 대인전) |
 | 플랫폼 | 웹 브라우저 (PC·모바일 브라우저 공용) |
-| 기술 구성 | 빌드 도구 없는 정적 클라이언트(HTML/CSS/JS) + Firebase 백엔드(Firestore + Cloud Functions + Firebase Auth) |
-| 대인전 방식 | **비동기 PvP** — 상대가 접속해 있지 않아도 서버(Cloud Scheduler 주기 함수)가 정해진 시각에 전투를 판정 |
+| 기술 구성 | 빌드 도구 없는 정적 클라이언트(HTML/CSS/JS) + Cloudflare Workers 백엔드(Hono + D1 + Durable Objects) |
+| 대인전 방식 | **비동기 PvP** — 상대가 접속해 있지 않아도 서버(Durable Object의 Alarm API)가 미션 도착 시각에 정확히 깨어나 전투를 판정 |
 | 세션 길이 | 짧은 루프 5~30초 / 긴 루프 10분(여관 주기) / 원정 수 분~수십 분 |
 | 언어 | 한국어 단일 |
 | 과금 | 없음 (비목표) |
@@ -77,8 +79,9 @@
 ### 4-2. 전투 — "영웅 3명 + 병사 한 무리 = 부대 하나"
 
 - 부대 **3개**를 동시에 굴린다. 부대마다 영웅 3명 + 병종 5종을 섞어 편성
-- 대상은 세 종류: **야생 몬스터**(상시 8슬롯, Lv.1~30) / **월드맵 NPC 성**(Lv.1~20) /
-  **보스 레이드**(6종 선행 체인)
+- 대상은 세 종류: **야생 몬스터**(상시 8슬롯, Lv.1~30) / **NPC 성 20개**(Lv.1~20,
+  "🏯 침략" 버튼/모달에서 열람·공격) / **보스 레이드**(6종 선행 체인, 필드·NPC 성보다
+  훨씬 강하도록 설계)
 - 이기면 병력 손실 최대 60%, 지면 최대 100% — **지는 쪽이 훨씬 아프다.** 무리한 출정에
   실제 대가가 있어야 감시탑으로 적을 살피는 행동이 의미를 갖는다
 
@@ -139,11 +142,11 @@
 
 ## 9. 현재 개발 상태 한눈에
 
-**핵심 시스템은 이미 전부 동작한다.** 건물 11종, 영웅 300명, 병종 5종, 연구 30종,
-몬스터·월드맵·레이드, 그리고 비동기 PvP(공격·지원·약탈·보호막)까지 구현되어 있다.
-백엔드는 2026-08-11에 Node.js/SQLite에서 **Firebase(Firestore + Cloud Functions +
-Firebase Auth)로 전면 교체**했고, 에뮬레이터 기준으로 전 시나리오를 재검증했다.
+**핵심 시스템은 이미 전부 동작하고, 실제로 배포되어 있다.** 건물 11종, 영웅 300명,
+병종 5종, 연구 30종, 몬스터·NPC 성 침략·레이드, 그리고 비동기 PvP(공격·지원·약탈·보호막)까지
+구현되어 있다. 백엔드는 Node.js/SQLite → (한때) Firebase 시도 → **현재 Cloudflare
+Workers(D1 + Durable Objects)**로 정착했고, `main` 브랜치에 푸시할 때마다 GitHub Actions가
+자동으로 배포한다(`.github/workflows/cloudflare-deploy.yml`).
 
-남은 것은 **새 기능이 아니라 검증과 다듬기**다 — 실제 Firebase 프로젝트 연결 후 재검증,
-서버 신뢰성 보강, 온보딩, 콘텐츠(영웅 초상 등). 자세한 구분과 일정은
-[DEV_PLAN.md](DEV_PLAN.md)를 본다.
+남은 것은 **새 기능이 아니라 검증과 다듬기**다 — 다인 PvP 실전 검증, 후반 밸런스,
+온보딩, 콘텐츠(영웅 초상 등). 자세한 구분과 일정은 [DEV_PLAN.md](DEV_PLAN.md)를 본다.
