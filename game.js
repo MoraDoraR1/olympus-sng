@@ -1057,6 +1057,7 @@
       openBuildingModal(openBuildingTileId);
     }
     if (!document.getElementById("modal-raid").hidden) renderRaidModal();
+    if (!document.getElementById("modal-raid-battle").hidden) renderRaidBattleModal();
     if (!document.getElementById("modal-inventory").hidden) renderInventoryModal();
     save();
   }
@@ -1530,10 +1531,19 @@
     }
     Object.entries(comp).forEach(([key, count]) => { state.troopsByType[key] -= count; });
     army.lastComp = { ...comp };
-    const marchTime = kind === "castle" ? 8 + enemy.level : 5 + Math.round(enemy.level / 3) + (enemy.elite ? 5 : 0);
-    army.mission = { kind, targetId, comp, phase: "march", timeLeft: marchTime, marchTime };
-    toast(`🪖 부대 ${squadIdx + 1} 출정! → ${enemy.name}(Lv.${enemy.level})`);
     closeModal("modal-monster");
+    if (kind === "raid") {
+      // 레이드는 진군 없이 곧장 전투로 들어간다 — 전용 팝업이 그 자리에서 전투 연출과
+      // 결과를 바로 보여주므로, 다른 원정처럼 도착을 기다릴 이유가 없다.
+      const battleDuration = battleDurationFor(enemy.level, true);
+      army.mission = { kind, targetId, comp, phase: "battle", timeLeft: battleDuration, battleDuration };
+      toast(`⚔️ 부대 ${squadIdx + 1} 전투 시작! → ${enemy.name}(Lv.${enemy.level})`);
+      openRaidBattleModal(squadIdx);
+    } else {
+      const marchTime = kind === "castle" ? 8 + enemy.level : 5 + Math.round(enemy.level / 3) + (enemy.elite ? 5 : 0);
+      army.mission = { kind, targetId, comp, phase: "march", timeLeft: marchTime, marchTime };
+      toast(`🪖 부대 ${squadIdx + 1} 출정! → ${enemy.name}(Lv.${enemy.level})`);
+    }
     renderMonsterArea();
     renderWorldMap();
     save();
@@ -1561,9 +1571,9 @@
       totalLost += lost;
       state.troopsByType[key] = (state.troopsByType[key] || 0) + (count - lost);
     });
+    let reward = {};
+    let bonusMsg = "";
     if (verdict.win) {
-      let reward = {};
-      let bonusMsg = "";
       if (mission.kind === "castle") {
         Object.entries(enemy.bank).forEach(([r, v]) => { if (Math.round(v) > 0) reward[r] = Math.round(v); });
         enemy.bank = { food: 0, wood: 0, stone: 0, gold: 0 };
@@ -1594,9 +1604,16 @@
       toast(`💀 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level})에게 패배했습니다. 병사 ${totalLost}명 손실, 전과 없음.`);
       logEvent(`💀 부대 ${squadIdx + 1} 패배… ${enemy.name}(Lv.${enemy.level})에게 패배`, "battle-lose");
     }
+    // 레이드 전투 팝업이 이 부대를 추적 중이면 결과를 그 팝업에도 바로 반영해, 팝업을
+    // 보고 있는 자리에서 승패·보상을 즉시 확인할 수 있게 한다(팝업을 닫아둔 경우에도
+    // 위 toast/logEvent로는 항상 알림이 간다).
+    if (mission.kind === "raid" && raidBattleSquadIdx === squadIdx) {
+      raidBattleResult = { win: verdict.win, enemy, reward, bonusMsg, totalLost };
+    }
     army.mission = null;
     renderMonsterArea();
     renderWorldMap();
+    if (!document.getElementById("modal-raid-battle").hidden) renderRaidBattleModal();
     save();
   }
 
@@ -2228,6 +2245,7 @@
           <div class="mname">${m.name}${m.elite ? " 👑" : ""}</div>
           <div class="mlevel">${revealed ? `Lv.${m.level}` : "Lv.?"}</div>
           <div class="mstats">${revealed ? `⚔️${m.atk} 🛡️${m.def} ❤️${m.hp}` : `감시탑 Lv.${requiredWatchLevelFor(m.level)}+ 필요`}</div>
+          ${revealed ? `<div class="mrecommend">🎯 권장 전투력 ${(m.atk + m.def + m.hp).toLocaleString()}</div>` : ""}
           <button class="do-attack">공격</button>
         `;
         card.querySelector(".do-attack").addEventListener("click", () => openEngageModal("monster", slot.id));
@@ -2354,7 +2372,10 @@
     const attackingIdx = state.armies.findIndex((a) => a.mission && a.mission.kind === "raid" && a.mission.targetId === boss.id);
     if (attackingIdx >= 0) {
       const mission = state.armies[attackingIdx].mission;
-      return `<span class="raid-status inprogress">부대${attackingIdx + 1} ${mission.phase === "march" ? "진군 중" : "전투 중"}… ${mission.timeLeft}s</span>`;
+      // 레이드는 진군 없이 곧장 전투로 들어가므로 phase는 사실상 항상 "battle"이다 —
+      // 업데이트 전에 이미 진군 중이던 저장 데이터만 예외적으로 "진군 중"으로 보일 수 있다.
+      const phaseLabel = mission.phase === "march" ? "진군 중" : "전투 중";
+      return `<button class="raid-status inprogress" data-reopen-battle="${attackingIdx}">⚔️ 부대${attackingIdx + 1} ${phaseLabel}… ${mission.timeLeft}s</button>`;
     }
     if (!raidBossUnlocked(boss)) {
       const prevName = RAID_BOSSES.find((b) => b.id === boss.requires)?.name || "";
@@ -2397,11 +2418,81 @@
         openEngageModal("raid", btn.dataset.id);
       });
     });
+    body.querySelectorAll("[data-reopen-battle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        closeModal("modal-raid");
+        openRaidBattleModal(Number(btn.dataset.reopenBattle));
+      });
+    });
   }
   document.getElementById("btn-raid").addEventListener("click", () => {
     renderRaidModal();
     openModal("modal-raid");
   });
+
+  // ---------- 레이드 전투 팝업 ----------
+  // 레이드는 진군이 없어 dispatchSquad 직후 곧장 이 팝업을 띄운다. 팝업이 열려 있는 동안은
+  // tick()이 매초 renderRaidBattleModal()을 다시 불러 카운트다운을 갱신하고, resolveBattle()이
+  // 이 부대를 처치하면 같은 팝업 안에서 곧바로 승패/보상 결과 화면으로 전환된다.
+  let raidBattleSquadIdx = null;
+  let raidBattleResult = null;
+  function openRaidBattleModal(squadIdx) {
+    raidBattleSquadIdx = squadIdx;
+    raidBattleResult = null;
+    // renderRaidBattleModal()은 "숨겨진 동안은 그린다"는 헛수고를 막으려고 hidden 여부부터
+    // 확인한다 — 그래서 openModal보다 먼저 부르면 그 첫 렌더가 그냥 조용히 건너뛰어져
+    // 팝업이 뜬 직후 최대 1초(다음 tick)간 비어 보인다. 반드시 openModal 다음에 그린다.
+    openModal("modal-raid-battle");
+    renderRaidBattleModal();
+  }
+  function renderRaidBattleModal() {
+    const overlay = document.getElementById("modal-raid-battle");
+    if (overlay.hidden || raidBattleSquadIdx === null) return;
+    const body = document.getElementById("raid-battle-modal-body");
+    if (raidBattleResult) {
+      const r = raidBattleResult;
+      body.innerHTML = `
+        <div class="rb-result ${r.win ? "win" : "lose"}">
+          <div class="rb-result-icon">${r.win ? "🏆" : "💀"}</div>
+          <div class="rb-result-title">${r.win ? "승리!" : "패배…"}</div>
+          <div class="rb-result-enemy">${r.enemy.name} (Lv.${r.enemy.level})</div>
+          <div class="rb-result-rewards">${r.win ? `보상: ${costText(r.reward)}${r.bonusMsg}` : "전과 없음"}</div>
+          <div class="rb-result-loss ${r.totalLost > 0 ? "" : "ok"}">${r.totalLost > 0 ? `병사 ${r.totalLost}명 손실` : "병력 손실 없음"}</div>
+          <button id="rb-close">확인</button>
+        </div>
+      `;
+      body.querySelector("#rb-close").addEventListener("click", () => closeModal("modal-raid-battle"));
+      return;
+    }
+    const army = state.armies[raidBattleSquadIdx];
+    if (!army || !army.mission || army.mission.kind !== "raid") {
+      // 팝업이 열린 채로 다른 경로(오프라인 진행 등)로 이미 정리된 경우를 위한 안전망
+      closeModal("modal-raid-battle");
+      return;
+    }
+    const mission = army.mission;
+    const boss = RAID_BOSSES.find((b) => b.id === mission.targetId);
+    const total = mission.battleDuration || 1;
+    const progress = Math.min(1, Math.max(0, 1 - mission.timeLeft / total));
+    body.innerHTML = `
+      <div class="rb-arena">
+        <div class="rb-side mine">
+          <div class="rb-squad">${marchingSquadHTML()}</div>
+          <div class="rb-label">부대 ${raidBattleSquadIdx + 1}</div>
+        </div>
+        <div class="rb-vs">
+          <div class="rb-clash">⚔️</div>
+          <div class="rb-timer">${mission.timeLeft}s</div>
+          <div class="rb-progress"><div class="rb-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>
+        </div>
+        <div class="rb-side enemy">
+          <div class="rb-boss-icon">${monsterIconHTML(boss.key)}</div>
+          <div class="rb-label">${boss.name} 👑</div>
+        </div>
+      </div>
+      <div class="rb-caption">전투 중…</div>
+    `;
+  }
 
   // ---------- 침략(월드맵 성 NPC 20개, PvE) ----------
   // "정복"(btn-worldmap/#screen-worldmap)이 실제 플레이어끼리 겨루는 PvP 맵으로 개편되며

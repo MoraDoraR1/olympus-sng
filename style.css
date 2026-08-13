@@ -472,6 +472,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .monster-card .mname,
 .monster-card .mlevel,
 .monster-card .mstats,
+.monster-card .mrecommend,
 .monster-card .mstatus {
   position: relative; z-index: 2;
   background: color-mix(in srgb, var(--panel) 88%, transparent);
@@ -483,6 +484,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .monster-card .mname { font-family: var(--font-display); font-size: 1.05rem; margin-top: -64px; font-weight: 800; }
 .monster-card .mlevel { font-size: .92rem; font-weight: 700; color: var(--ink-soft); }
 .monster-card .mstats { font-size: .84rem; font-weight: 600; color: var(--ink-soft); }
+.monster-card .mrecommend { font-size: .78rem; font-weight: 700; color: var(--roof); }
 .monster-card .mstatus { font-size: .88rem; font-weight: 800; color: var(--wood); }
 .monster-card .mstatus.battle { color: #d64545; }
 .monster-card button.do-attack { margin-top: 2px; font-size: .9rem; padding: 5px 11px; background: #b0463f; color: #fff; }
@@ -942,6 +944,34 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .raid-status.inprogress { color: var(--wood); }
 .raid-status.defeated { color: var(--easy); }
 .raid-status.locked { color: var(--ink-soft); }
+/* 전투 중 상태는 <button>이라 클릭해서 레이드 전투 팝업을 다시 열 수 있다 — 공용 button{}
+   기본 배경을 덮어써 "진행 중" 느낌의 색으로 구분한다 */
+button.raid-status.inprogress { background: var(--wood); color: #fff; padding: 7px 14px; font-size: .84rem; }
+
+/* ---------- 레이드 전투 팝업: 진군 없이 곧장 전투 연출 + 즉시 결과 표시 ---------- */
+.rb-arena { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 22px 4px 6px; }
+.rb-side { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+.rb-squad { display: flex; align-items: flex-end; gap: .16em; font-size: 3.2rem; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.rb-boss-icon { font-size: 5.2rem; line-height: 1; animation: idle-float 2.2s ease-in-out infinite, battle-shake .35s ease-in-out infinite; filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)); }
+.rb-boss-icon img { width: 1em; height: 1em; }
+.rb-label { font-family: var(--font-display); font-weight: 800; font-size: .95rem; text-align: center; }
+.rb-vs { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 92px; }
+.rb-clash { font-size: 2.4rem; animation: clash-pulse .5s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(255,255,255,.85)); }
+.rb-timer { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: #d64545; }
+.rb-progress { width: 100%; height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.rb-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #d64545); transition: width 1s linear; }
+.rb-caption { text-align: center; font-weight: 700; color: var(--ink-soft); margin-top: 6px; }
+
+.rb-result { text-align: center; padding: 22px 8px 6px; }
+.rb-result-icon { font-size: 4rem; margin-bottom: 2px; animation: idle-float 2.2s ease-in-out infinite; }
+.rb-result-title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 900; margin-bottom: 2px; }
+.rb-result.win .rb-result-title { color: var(--gold); }
+.rb-result.lose .rb-result-title { color: #d64545; }
+.rb-result-enemy { font-weight: 700; color: var(--ink-soft); margin-bottom: 10px; }
+.rb-result-rewards { font-weight: 700; margin-bottom: 4px; }
+.rb-result-loss { font-size: .88rem; color: #d64545; font-weight: 700; }
+.rb-result-loss.ok { color: var(--ink-soft); }
+.rb-result #rb-close { margin-top: 16px; padding: 9px 26px; font-size: 1rem; }
 
 .inv-item { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
 .inv-item-icon { font-size: 1.6rem; }
