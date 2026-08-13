@@ -1172,6 +1172,94 @@
       toast(`중복 영입: ${hero.name} 조각 +1 (보유 ${state.owned[heroId].count}번째, 조각 ${state.owned[heroId].shards})`);
     }
   }
+  // ---------- 영입 연출(등급별 임팩트) ----------
+  // 확률표(★1~3 83% · ★4~5 16.5% · ★6~7 0.45% · ★8/까미 0.1%)가 극단적으로 갈리므로,
+  // 자주 나오는 낮은 등급은 가볍게, 희귀할수록 화면을 장악하는 연출로 체감 차이를 크게 준다.
+  function heroRevealTier(hero) {
+    if (hero.rarity >= 8) return "ultra";
+    if (hero.rarity >= 6) return "high";
+    if (hero.rarity >= 4) return "mid";
+    return "low";
+  }
+  // CSS --r1~--r7 변수를 그대로 읽어와 색을 이중 관리하지 않는다(--r8은 별 배지용
+  // conic-gradient라 단색이 필요한 자리엔 못 쓰므로 금색으로 대신한다).
+  function rarityFxColor(rarity) {
+    if (rarity >= 8) return "#ffd93d";
+    return getComputedStyle(document.documentElement).getPropertyValue(`--r${rarity}`).trim() || "#fff";
+  }
+  function spawnRecruitFX(originRect, hero, tier) {
+    if (simulating || tier === "ultra") return;
+    const layer = document.getElementById("fx-layer");
+    const color = rarityFxColor(hero.rarity);
+    const x = originRect ? originRect.left + originRect.width / 2 : window.innerWidth / 2;
+    const y = originRect ? originRect.top + originRect.height / 2 : window.innerHeight / 2;
+    const wrap = document.createElement("div");
+    wrap.className = "fx-burst";
+    wrap.style.setProperty("--fx-x", `${x}px`);
+    wrap.style.setProperty("--fx-y", `${y}px`);
+    wrap.style.setProperty("--fx-color", color);
+    const sparkCount = tier === "high" ? 16 : tier === "mid" ? 9 : 5;
+    const maxDist = tier === "high" ? 90 : tier === "mid" ? 62 : 40;
+    let html = `<div class="fx-ring"></div>`;
+    for (let i = 0; i < sparkCount; i++) {
+      const ang = Math.round((360 / sparkCount) * i + (Math.random() * 16 - 8));
+      const dist = Math.round(maxDist * 0.55 + Math.random() * maxDist * 0.45);
+      html += `<div class="fx-spark" style="--ang:${ang}deg;--dist:${dist}px"></div>`;
+    }
+    wrap.innerHTML = html;
+    layer.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 900);
+    if (tier === "high") {
+      const flash = document.createElement("div");
+      flash.className = "fx-flash";
+      flash.style.setProperty("--fx-color", color);
+      layer.appendChild(flash);
+      setTimeout(() => flash.remove(), 550);
+      const banner = document.createElement("div");
+      banner.className = "fx-banner";
+      banner.style.setProperty("--fx-color", color);
+      banner.innerHTML = `★${hero.rarity} 영웅 등장!<br>${hero.name}`;
+      layer.appendChild(banner);
+      setTimeout(() => banner.remove(), 1400);
+      const stage = document.querySelector(".modal-overlay:not([hidden]) .modal");
+      if (stage) {
+        stage.classList.add("fx-shake-once");
+        setTimeout(() => stage.classList.remove("fx-shake-once"), 420);
+      }
+    }
+  }
+  // ★8/까미 전용 — 확률 합계 0.1%인 최상위 등급이므로 화면을 통째로 차지하는 전용
+  // 모달로 확실히 다른 등급과 체감 차이를 준다(다른 등급은 spawnRecruitFX로 충분).
+  function openHeroRevealModal(hero) {
+    if (simulating) return;
+    const isKami = !!hero.secret;
+    const color = isKami ? "#ffd93d" : rarityFxColor(hero.rarity);
+    const panel = document.querySelector("#modal-hero-reveal .hero-reveal-modal");
+    panel.classList.toggle("kami", isKami);
+    let confetti = "";
+    for (let i = 0; i < 18; i++) {
+      const ang = Math.round(Math.random() * 360);
+      const dist = Math.round(90 + Math.random() * 130);
+      const delay = (Math.random() * 0.25).toFixed(2);
+      confetti += `<span style="--ang:${ang}deg;--dist:${dist}px;--fx-delay:${delay}s"></span>`;
+    }
+    document.getElementById("hero-reveal-body").innerHTML = `
+      <div class="hr-stage" style="--hr-color:${color}">
+        <div class="hr-rays"></div>
+        <div class="hr-confetti">${confetti}</div>
+        <div class="hr-portrait-wrap">${heroPortraitHTML(hero)}</div>
+        <div class="hr-title">${isKami ? "✨ 궁극의 존재 ✨" : "★8 최고 등급 영웅"}</div>
+        <div class="hr-name">${hero.name}</div>
+        <div class="hr-stars">${heroStarRowHTML(hero.rarity)}</div>
+      </div>
+    `;
+    openModal("modal-hero-reveal");
+  }
+  function playRecruitReveal(hero, originRect) {
+    const tier = heroRevealTier(hero);
+    if (tier === "ultra") openHeroRevealModal(hero);
+    else spawnRecruitFX(originRect, hero, tier);
+  }
   // 레이드 확정 소환권 1장을 소모해 즉시 영웅 1명을 영입한다(여관 자원 비용 없음)
   function redeemRaidTicket(rarity) {
     const key = rarity >= 6 ? "t6" : "t5";
@@ -1180,11 +1268,12 @@
     if (heroId == null) { toast("영입할 수 있는 영웅이 없습니다"); return; }
     state.raidTickets[key] -= 1;
     addOwned(heroId);
+    playRecruitReveal(HERO_BY_ID[heroId], null);
     renderInventoryModal();
     renderTopbar();
     save();
   }
-  function recruit(slotIndex) {
+  function recruit(slotIndex, originRect) {
     const heroId = state.tavern.candidates[slotIndex];
     if (heroId === null || heroId === undefined) return;
     const hero = HERO_BY_ID[heroId];
@@ -1195,6 +1284,7 @@
     state.tavern.candidates[slotIndex] = null;
     renderTavernCards();
     renderTopbar();
+    playRecruitReveal(hero, originRect);
     save();
   }
   // 별 등급은 뽑힌 즉시 고정. 대신 중복 조각으로 같은 영웅을 "강화"(0~5강)해 스탯/효과를 올린다.
@@ -2142,7 +2232,9 @@
             <button class="do-recruit">영입</button>
           </div>
         `;
-        cell.querySelector(".do-recruit").addEventListener("click", () => recruit(idx));
+        cell.querySelector(".do-recruit").addEventListener("click", () => {
+          recruit(idx, cell.querySelector(".hc-portrait").getBoundingClientRect());
+        });
       }
       grid.appendChild(cell);
     });

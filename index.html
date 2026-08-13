@@ -144,6 +144,8 @@
   </div>
 
   <div id="toast-layer"></div>
+  <!-- 여관 영입 연출(등급 낮은 쪽) 전용 레이어 — 모달 위에 그려져야 해서 별도로 둔다 -->
+  <div id="fx-layer"></div>
   <div id="log-widget" class="log-widget">
     <div id="log-panel" class="log-panel" hidden>
       <div class="log-panel-head">
@@ -217,6 +219,15 @@
     <div class="modal modal-narrow">
       <button class="modal-close" data-close>✕</button>
       <div id="tavern-odds-body"></div>
+    </div>
+  </div>
+
+  <!-- 영웅 획득 대연출 — ★8/까미 전용. 등장 자체가 희귀하므로(합계 0.1%) 화면을 통째로
+       차지하는 전용 모달로 다른 등급과 체감 차이를 확실히 준다 -->
+  <div class="modal-overlay reveal-overlay" id="modal-hero-reveal" hidden>
+    <div class="modal modal-narrow hero-reveal-modal">
+      <button class="modal-close" data-close>✕</button>
+      <div id="hero-reveal-body"></div>
     </div>
   </div>
 
