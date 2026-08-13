@@ -2432,6 +2432,7 @@
             <div class="raid-info">
               <div class="raid-name">${c.name} <span class="raid-level">Lv.${c.level}</span></div>
               <div class="raid-stats">⚔️${c.atk.toLocaleString()} 🛡️${c.def.toLocaleString()} ❤️${c.hp.toLocaleString()}</div>
+              <div class="raid-recommend">🎯 권장 전투력 <b>${(c.atk + c.def + c.hp).toLocaleString()}</b></div>
               <div class="raid-reward">💰 약탈 가능: ${hasBank ? costText(bank) : "아직 모은 자원 없음"}</div>
             </div>
             <div class="raid-action">${worldCastleActionHTML(c)}</div>
