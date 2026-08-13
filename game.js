@@ -3525,13 +3525,26 @@
     const label = kind === "attack" ? "⚔️ 공격 부대 편성" : "🛡️ 지원군 편성";
     return `
       <div class="ctf-dispatch">
-        <div class="ctf-line">${label}</div>
+        <div class="ctf-line">${label} <button type="button" class="ctf-automax btn-small" title="보유 병력을 전부 채웁니다">🤖 최대</button></div>
         <select class="ctf-squad-select">${freeSquadOptionsHTML()}</select>
         ${troopCompInputsHTML()}
         ${kind === "attack" ? `<div class="ctf-line">🚚 예상 수송력(약탈 자원 상한): <span class="ctf-capacity-num">0</span></div>` : ""}
         <button class="ctf-submit" data-kind="${kind}" data-target="${targetPlayerId}">${kind === "attack" ? "공격 출정" : "지원 출정"}</button>
       </div>
     `;
+  }
+  // 정복 출정 폼의 병사 입력은 매번 0에서 시작한다(군대 편성의 lastComp와 달리 PvP는
+  // 예약 개념이 없어 미리 채워둘 값이 없음) — "🤖 최대" 버튼으로 보유 병력 전량을
+  // 한 번에 채울 수 있게 해, 병종마다 일일이 숫자를 입력하지 않아도 되게 한다.
+  function attachDispatchAutoMax(infoEl) {
+    const btn = infoEl.querySelector(".ctf-automax");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      infoEl.querySelectorAll("[data-troop]").forEach((input) => {
+        input.value = input.max;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
   }
   // 공격 부대 편성 폼에서 병사 수/부대를 바꿀 때마다 예상 수송력을 즉시 갱신한다.
   function attachDispatchCapacityPreview(infoEl) {
@@ -3583,11 +3596,13 @@
     if (openAttack) openAttack.addEventListener("click", () => {
       infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("attack", occ.playerId)}`;
       infoEl.querySelector(".ctf-submit").addEventListener("click", () => submitConquestDispatch("attack", occ.playerId, infoEl));
+      attachDispatchAutoMax(infoEl);
       attachDispatchCapacityPreview(infoEl);
     });
     if (openReinforce) openReinforce.addEventListener("click", () => {
       infoEl.innerHTML = `${header}${travelHTML}${actionsHTML}${dispatchFormHTML("reinforce", occ.playerId)}`;
       infoEl.querySelector(".ctf-submit").addEventListener("click", () => submitConquestDispatch("reinforce", occ.playerId, infoEl));
+      attachDispatchAutoMax(infoEl);
     });
   }
   document.getElementById("worldmap-field").addEventListener("click", (e) => {

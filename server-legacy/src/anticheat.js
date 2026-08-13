@@ -85,6 +85,35 @@ function raidRewardAllowance(prevState, nextState, now) {
   return allowance;
 }
 
+// game.js WORLD_CASTLE_COUNT/castleBankCap과 반드시 같은 값을 유지해야 한다. 침략(NPC 성)
+// 승리 보상은 raids와 달리 lastDefeatedAt 같은 타임스탬프가 없고 "은행(bank)이 비워졌다"는
+// 상태 전이로만 드러난다 — 은행은 매 tick 이 상한까지만 채워지므로, 클라이언트가 보고하는
+// 직전 은행량을 그대로 믿지 않고 항상 이 상한으로 다시 한번 잘라(min) 허용량을 준다
+// (그래야 로컬에서 bank 필드 자체를 부풀려 보고하는 조작으로 여유분을 무한정 벌 수 없다).
+const WORLD_CASTLE_COUNT = 20;
+function worldCastleBankCap(level) { return Math.round(300 * Math.pow(1.3, level - 1)); }
+
+// prevState/nextState의 worldCastles를 id별로 대조해, 은행이 줄어든(=침략에서 승리해
+// 약탈한) 만큼을 이번 저장에서 추가로 허용되는 자원 여유분에 더한다. 성은 레이드와 달리
+// 쿨타임 없이 언제든 재도전 가능하므로 매번 재검증해야 반복 약탈도 계속 정상 허용된다.
+function worldCastleLootAllowance(prevState, nextState) {
+  const allowance = { food: 0, wood: 0, stone: 0, gold: 0 };
+  const prevById = {};
+  ((prevState && prevState.worldCastles) || []).forEach((c) => { if (c && c.id) prevById[c.id] = c; });
+  ((nextState && nextState.worldCastles) || []).forEach((next) => {
+    const prev = prevById[next && next.id];
+    if (!prev || !prev.bank || !next.bank) return;
+    const level = Number(String(next.id).replace(/^c/, ""));
+    if (!Number.isInteger(level) || level < 1 || level > WORLD_CASTLE_COUNT) return;
+    const cap = worldCastleBankCap(level);
+    RES_KEYS.forEach((key) => {
+      const drained = num(prev.bank[key]) - num(next.bank[key]);
+      if (drained > 0) allowance[key] += Math.min(drained, cap);
+    });
+  });
+  return allowance;
+}
+
 // 이전 저장이 아예 없을 때(첫 동기화) 비교 기준으로 쓸 가상의 "직전 상태".
 function freshBaseline(createdAt) {
   return {
@@ -106,13 +135,14 @@ function checkStatePush({ prevRow, createdAt, nextState, now }) {
 
   const elapsedSeconds = Math.max(0, Math.min(OFFLINE_CAP_SECONDS, (now - prevUpdatedAt) / 1000));
   const raidAllowance = raidRewardAllowance(prevState, nextState, now);
+  const castleAllowance = worldCastleLootAllowance(prevState, nextState);
 
   const prevRes = (prevState && prevState.res) || {};
   const nextRes = (nextState && nextState.res) || {};
   for (const key of RES_KEYS) {
     const delta = num(nextRes[key]) - num(prevRes[key]);
     if (delta <= 0) continue;
-    const allowed = RES_MAX_PER_SECOND[key] * elapsedSeconds + MISC_RES_GRACE + raidAllowance[key];
+    const allowed = RES_MAX_PER_SECOND[key] * elapsedSeconds + MISC_RES_GRACE + raidAllowance[key] + castleAllowance[key];
     if (delta > allowed) {
       return { ok: false, error: `자원(${key}) 증가량이 비정상적으로 큽니다. 저장을 거부합니다.` };
     }
