@@ -590,6 +590,25 @@
     lastServerSyncAt = now;
     apiRequest("/api/state", { method: "PUT", body: JSON.stringify({ state }) }).catch(() => {});
   }
+  // 탭이 숨겨지거나(다른 탭 전환·최소화) 페이지를 떠날 때(새로고침·닫기) 마지막 동기화
+  // 이후 최대 SERVER_SYNC_INTERVAL_MS(15초)치 진행이 서버에 반영되지 못한 채로 남아있을
+  // 수 있다 — 새로고침 시 bootAuth()가 로컬 상태 대신 서버의 마지막 동기화본을 그대로
+  // 채택하므로(부분 병합 아님) 그 사이 진행이 유실된다. fetch(keepalive:true)는 일반
+  // fetch와 달리 페이지가 언로드되기 시작해도 요청이 계속 전송되도록 브라우저가 보장해
+  // 주는 API라 이 순간의 flush에 적합하다(sendBeacon과 달리 Authorization 헤더를 그대로
+  // 실어 보낼 수 있다는 것도 이유). 페이로드가 너무 크면(브라우저마다 다르지만 대략 64KB)
+  // 조용히 실패할 수 있는데, 그래도 기존 동작(아무 시도도 안 함)보다는 항상 낫다.
+  function flushSyncOnUnload() {
+    if (!authToken) return;
+    try {
+      fetch(API_BASE + "/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + authToken },
+        body: JSON.stringify({ state }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (e) {}
+  }
 
   function renderAccountBadge() {
     const badge = document.getElementById("account-badge");
@@ -3827,10 +3846,15 @@
     else closeModal("modal-tutorial");
   });
   // 탭이 백그라운드에 있는 동안 브라우저가 타이머를 강하게 절전(throttle)시킬 수 있어
-  // 다시 활성화될 때 경과 시간만큼 한 번 더 따라잡는다(게임이 이미 시작된 뒤에만)
+  // 다시 활성화될 때 경과 시간만큼 한 번 더 따라잡는다(게임이 이미 시작된 뒤에만).
+  // 반대로 숨겨지는 순간에는 마지막 서버 동기화 이후 미반영 진행을 즉시 flush한다.
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && tickHandle) applyOfflineProgress();
+    if (document.hidden) flushSyncOnUnload();
   });
+  // 새로고침·탭 닫기·다른 페이지 이동 등 실제 언로드 시점의 최종 안전망
+  // (모바일 브라우저는 이 상황에서 visibilitychange를 먼저 안 쏠 수도 있어 별도로 둔다)
+  window.addEventListener("pagehide", flushSyncOnUnload);
   document.getElementById("btn-end-game").addEventListener("click", () => {
     save();
     if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }

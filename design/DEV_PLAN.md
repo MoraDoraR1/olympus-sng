@@ -308,10 +308,30 @@ npx firebase emulators:start --only firestore,auth,functions
   성) 전투 → 레이드 보스 전투(전용 팝업, 메두사 승리 확인 — 위 수정 후에도 정상적으로
   이길 수 있는 범위) → 연구 → 정복(PvP) 맵 참가 → 새로고침 후 저장 지속성까지 전 구간
   콘솔 에러 없이 통과(외부 Google Fonts CDN 차단·의도된 PNG→SVG 초상 폴백 404 제외)
-- **관찰 사항(버그 아님, 설계 특성)**: `PUT /api/state` 서버 동기화는 최대 15초
-  스로틀(`SERVER_SYNC_INTERVAL_MS`)이 있고, 페이지를 새로고침하면 `bootAuth()`가
+- **관찰 사항(버그 아님, 설계 특성) → 같은 날 수정 완료**: `PUT /api/state` 서버 동기화는
+  최대 15초 스로틀(`SERVER_SYNC_INTERVAL_MS`)이 있고, 페이지를 새로고침하면 `bootAuth()`가
   로컬 상태 대신 **서버의 마지막 동기화본을 무조건 채택**한다(부분 병합 아님). 따라서
   마지막 동기화 후 15초 이내에 탭을 닫거나 새로고침하면 그 사이의 진행이 유실될 수
-  있다 — 의도된 트레이드오프(문서화된 스팸 방지 목적)이지만, 완전히 없애려면
-  `beforeunload` 시점에 남은 변경을 flush하는 별도 작업이 필요하다(이번 범위 밖으로
-  남겨둠, 12절 결정 항목 후보)
+  있었다 — 아래 "새로고침 데이터 유실 수정" 항목에서 해소함
+
+### 2026-08-13 — 새로고침 데이터 유실 수정 [완료]
+
+사용자가 "백그라운드 셀이 실패한다"고 보고. GitHub Actions 최근 실행 이력(15건+ 연속
+성공, 과거 실패 7건은 모두 2026-08-12 초기 CI 파이프라인 구축 당시로 24시간 이상 지난
+건)과 프로세스 상태를 확인한 결과 배포 파이프라인 자체는 정상이었고, 실제로는 위
+시뮬레이션 작업 중 반복적 디버깅(스크립트 버그 수정, 의도된 이상치 탐지용 종료코드 1
+등)으로 발생한 Bash 호출 이력을 가리키는 것으로 판단 — 현재 시점에 남아있는 이슈는 아님.
+다만 조사 중 위 "관찰 사항"에 적어둔 새로고침 데이터 유실 건은 실제로 남아있던 버그였으므로
+같이 수정:
+
+- `flushSyncOnUnload()` 추가(`game.js`) — 탭이 숨겨지는 순간(`visibilitychange`,
+  `document.hidden === true`)과 실제 언로드 시점(`pagehide`, 새로고침·닫기·이동) 양쪽에서
+  `fetch(API_BASE + "/api/state", { ..., keepalive: true })`로 즉시 flush한다
+  - `sendBeacon` 대신 keepalive-fetch를 쓴 이유: `Authorization: Bearer` 헤더가 필요한데
+    `sendBeacon`은 커스텀 헤더를 지원하지 않음
+  - `visibilitychange`와 `pagehide`를 둘 다 두는 이유: 모바일 브라우저 일부는 실제 언로드
+    시 `visibilitychange`를 먼저 안 쏘는 경우가 있어 `pagehide`가 최종 안전망 역할
+- Playwright로 검증: `visibilitychange`(hidden)와 `pagehide` 각각에서 `PUT /api/state`가
+  `keepalive:true` + `Authorization` 헤더를 실은 채 정확히 1회씩 발생함을 확인, 페이지
+  에러 0건, 새로고침 후 로그인 상태 유지(회귀 없음) 확인
+- `SYSTEM_DESIGN.md` 12절 결정 항목 #11을 해결 처리로 갱신
