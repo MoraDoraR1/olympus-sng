@@ -32,11 +32,15 @@
     if (level >= 7) return 2;
     return 1;
   }
-  function buildingSpriteSrc(type, level) {
-    return `assets/buildings/${BUILDING_SLUG[type]}_${spriteTier(level || 1)}.svg`;
+  // 마누스 등으로 새로 그린 실제 일러스트가 assets/buildings/{slug}_{tier}.png로 들어오면
+  // 그걸 먼저 쓰고, 아직 없으면(onerror) 기존 절차적 SVG로 조용히 대체한다 — heroPortraitHTML과
+  // 동일한 패턴이라 어떤 건물/티어부터 순서 없이 하나씩 교체해도 나머지가 깨지지 않는다.
+  function buildingSpriteSrc(type, level, ext) {
+    return `assets/buildings/${BUILDING_SLUG[type]}_${spriteTier(level || 1)}.${ext || "svg"}`;
   }
   function buildingIconHTML(type, level, cssClass) {
-    return `<img class="${cssClass || ""}" src="${buildingSpriteSrc(type, level)}" alt="${type}" />`;
+    const svgSrc = buildingSpriteSrc(type, level, "svg");
+    return `<img class="${cssClass || ""}" src="${buildingSpriteSrc(type, level, "png")}" alt="${type}" onerror="this.onerror=null;this.src='${svgSrc}';" />`;
   }
 
   // 다른 건물 레벨이 조건이 되는 기본적인 선행 관계 (성이 항상 최종 상한선)
@@ -270,8 +274,10 @@
   const MONSTER_SLOT_COUNT = 8;
   // 필드 몬스터 로테이션 주기 — 이 시간마다(교전 중이 아닌 칸만) 새 종류/레벨로 갈아치운다.
   const MONSTER_ROTATION_SECONDS = 5 * 60;
+  // buildingIconHTML과 동일한 PNG 우선 로드 + SVG 폴백 패턴 — 필드 몬스터·레이드 보스
+  // 아트를 순서 없이 하나씩 실제 일러스트로 교체할 수 있게 한다.
   function monsterIconHTML(key) {
-    return `<img src="assets/monsters/${key}.svg" alt="${key}" />`;
+    return `<img src="assets/monsters/${key}.png" alt="${key}" onerror="this.onerror=null;this.src='assets/monsters/${key}.svg';" />`;
   }
 
   function rollMonsterLevel() {

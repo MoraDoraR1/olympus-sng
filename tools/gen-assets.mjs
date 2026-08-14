@@ -963,9 +963,13 @@ function mulberry32(seed) {
   };
 }
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
-const SKIN_TONES = ["#F0C9A0", "#E8B98A", "#D6A26B", "#C98B5C", "#8C5A3C"];
+const SKIN_TONES = ["#F0C9A0", "#E8B98A", "#D6A26B", "#C98B5C", "#8C5A3C", "#6B4226"];
 const HAIR_COLORS = ["#2B2118", "#3A2A1C", "#5B3A29", "#6B4423", "#8C6A46", "#3A3A3A", "#B8AA95", "#A8582E"];
-const CLOTH_COLORS = ["#7FA35C", "#4C8FE0", "#C0433A", "#9B59D0", "#5B7A8F", "#B5651D", "#4E8F5B", "#C9694A", "#3E7C8A", "#A0527A"];
+// 문화권별로 옷감 색을 분리한다(예전엔 하나의 풀에서 완전 무작위라 로마 영웅이 그리스풍
+// 크림색 키톤을 입는 등 문화 신호가 뒤섞였다) — 그리스는 크림/옅은 청·녹(에게해),
+// 로마는 짙은 적·자주·금갈(제국) 톤.
+const CLOTH_COLORS_GREEK = ["#F4E9D8", "#E7DCC4", "#CFE0E8", "#DCE8C6", "#B7CFE0", "#7FA35C"];
+const CLOTH_COLORS_ROMAN = ["#9C3B3B", "#7A3B12", "#5A3B7A", "#8C2E4E", "#6B2740", "#3B4E7A"];
 
 function leaf(cx, cy, ang, fill) {
   return `<ellipse cx="${cx}" cy="${cy}" rx="4.2" ry="2.1" fill="${fill}" stroke="${P.ink}" stroke-width="0.9" transform="rotate(${ang} ${cx} ${cy})"/>`;
@@ -1157,17 +1161,33 @@ const GOD_AURA = {
   267: "#3E7C8A", 268: "#B5651D", 269: "#5E8B4C", 270: "#9B59D0", 271: "#C0433A", 272: "#E8B93B", 273: "#B8C4D9", 274: "#D6864C",
 };
 
-// 사람 형태 초상의 공용 뼈대(옷/목/얼굴/눈/입) — 신화 인물·일반 영웅 공용으로 재사용
+// 사람 형태 초상의 공용 뼈대(옷/목/얼굴/눈/입) — 신화 인물·일반 영웅 공용으로 재사용.
+// 예전엔 단색 fill이라 건물/몬스터 아트(그라디언트+하이라이트로 입체감을 줌)보다 훨씬
+// 납작해 보였다 — 같은 dGrad()/gloss() 기법을 얹어 눈높이를 맞춘다.
 function portraitBase(skin, cloth, hairColor, hairStyle, hasBeard) {
-  let s = `<path d="M 18 96 Q 50 72 82 96 L 82 100 L 18 100 Z" fill="${cloth}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
-  s += `<rect x="43" y="68" width="14" height="16" fill="${skin}" stroke="${P.ink}" stroke-width="1.6"/>`;
-  s += `<circle cx="50" cy="54" r="22" fill="${skin}" stroke="${P.ink}" stroke-width="2.6"/>`;
-  if (hasBeard) s += beardShape(hairColor);
-  s += hairShape(hairStyle, hairColor);
+  const clothG = dGrad(shade(cloth, 0.22), shade(cloth, -0.2));
+  const skinG = dGrad(shade(skin, 0.14), shade(skin, -0.22));
+  const hairG = dGrad(shade(hairColor, 0.2), shade(hairColor, -0.18));
+  let s = clothG.defs + skinG.defs + hairG.defs;
+  s += `<path d="M 18 96 Q 50 72 82 96 L 82 100 L 18 100 Z" fill="${clothG.id}" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  s += `<rect x="43" y="68" width="14" height="16" fill="${skinG.id}" stroke="${P.ink}" stroke-width="1.6"/>`;
+  s += `<circle cx="50" cy="54" r="22" fill="${skinG.id}" stroke="${P.ink}" stroke-width="2.6"/>`;
+  s += gloss(43, 46, 5.5, 3);
+  if (hasBeard) s += beardShape(hairG.id);
+  s += hairShape(hairStyle, hairG.id);
   s += `<circle cx="43" cy="55" r="2" fill="${P.ink}"/><circle cx="57" cy="55" r="2" fill="${P.ink}"/>`;
   s += `<path d="M 45 64 Q 50 67 55 64" stroke="${P.ink}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
   return s;
 }
+// 등급이 오를수록 뚜렷해지는 은은한 배경 오라 — 한눈에 등급을 신호하는 가챠 장르 관습.
+// 신별 고유색(GOD_AURA)이 있으면 그걸, 없으면 등급색을 쓴다.
+const RARITY_AURA = { 1: "#9AA0A6", 2: "#63B36A", 3: "#4C8FE0", 4: "#4FC3E8", 5: "#E08A2E", 6: "#E0483D", 7: "#9B59D0", 8: "#E8B93B" };
+function auraHTML(color, rarity) {
+  const strength = rarity >= 7 ? 0.5 : rarity >= 6 ? 0.42 : rarity >= 4 ? 0.3 : 0.16;
+  const id = uid("aura");
+  return `<radialGradient id="${id}" cx="50%" cy="44%" r="62%"><stop offset="0%" stop-color="${color}" stop-opacity="${strength}"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></radialGradient><circle cx="50" cy="48" r="48" fill="url(#${id})"/>`;
+}
+const groundShadow = () => `<ellipse cx="50" cy="93" rx="24" ry="3.6" fill="${P.ink}" opacity="0.16"/>`;
 
 // 실제 그리스·로마 신화에 없는 "가상(이름 없는) 영웅" 판정 — ★1~3 전원 + ★4 중 아래 6명
 // (병영 취사병/궁수 견습생 등 이름 없는 필러 캐릭터). 나머지는 전부 실존 신화 인물.
@@ -1182,46 +1202,48 @@ function isGenericHero(hero) {
 // ---------- 가상 영웅 전용 — 딱 10종 고정 템플릿을 그대로 복제해서 재사용 ----------
 // (신화 속 실존 인물이 아닌) 151명의 "이름 없는" 영웅 전원이 이 10개 중 하나를
 // hero.id % 10 으로 결정적으로 배정받아 그대로 복제한다 — 매번 새로 그리지 않는다.
+// svg()로 감싸지 않은 "몸통 콘텐츠"만 반환한다 — heroPortrait()가 오라/그림자를
+// 앞에 붙이고 마지막에 한 번만 svg()로 감싸도록 통일했다.
 const GENERIC_TEMPLATES = [
-  () => svg(portraitBase("#E8B98A", "#8F897C", "#3A2A1C", 0, false) + // 0: 방패병(남)
-    `<path d="M 20 60 Q 14 50 20 40 Q 30 36 30 50 Q 30 62 20 60 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/><line x1="20" y1="46" x2="20" y2="54" stroke="${P.stoneDeep}" stroke-width="1.4"/>`),
-  () => svg(portraitBase("#D6A26B", "#C0433A", "#2B2118", 2, false) + // 1: 여전사(창)
-    `<line x1="76" y1="20" x2="66" y2="70" stroke="${P.woodDeep}" stroke-width="2.4" stroke-linecap="round"/><path d="M 76 20 L 71 12 L 81 15 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`),
-  () => svg(portraitBase("#F0C9A0", "#FFF8EC", "#B8AA95", 2, false) + // 2: 무녀/사제(여)
-    `<circle cx="26" cy="70" r="4.4" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/><path d="M 26 74 L 26 82" stroke="${P.ink}" stroke-width="1.6"/><path d="M 22 66 Q 26 60 30 66" fill="none" stroke="${P.red}" stroke-width="1.6" stroke-linecap="round"/>`),
-  () => svg(portraitBase("#C98B5C", "#B9B4A8", "#5B3A29", 0, true) + // 3: 석공/장인(남)
-    `<rect x="70" y="60" width="4" height="16" rx="1.5" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.3"/><path d="M 66 58 L 78 58 L 74 50 L 70 50 Z" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`),
-  () => svg(portraitBase("#E8B98A", "#5E8B4C", "#6B4423", 0, true) + // 4: 목동/농부(남)
-    `<path d="M 22 78 Q 20 50 26 34 Q 30 30 32 34 Q 26 48 28 78 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`),
-  () => svg(portraitBase("#D6A26B", "#9B59D0", "#3A2A1C", 1, false) + // 5: 약초꾼/치료사(여)
-    leaf(72, 68, 20, P.food) + leaf(76, 74, -10, P.foodDeep) + leaf(70, 76, 50, P.food)),
-  () => svg(portraitBase("#C98B5C", "#4E8F5B", "#2B2118", 0, false) + // 6: 궁수/정찰병(남)
-    `<path d="M 74 30 Q 84 50 74 70" fill="none" stroke="${P.woodDeep}" stroke-width="2.2" stroke-linecap="round"/><line x1="74" y1="30" x2="74" y2="70" stroke="${P.ink}" stroke-width="0.9" opacity="0.6"/>`),
-  () => svg(portraitBase("#F0C9A0", "#E7A26B", "#8C6A46", 0, false) + // 7: 상인(남)
-    `<path d="M 22 72 Q 18 62 24 58 Q 32 58 30 68 Q 30 76 22 72 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/><line x1="26" y1="58" x2="26" y2="54" stroke="${P.ink}" stroke-width="1.4"/>`),
-  () => svg(portraitBase("#8C5A3C", "#3E7C8A", "#3A3A3A", 0, true) + // 8: 뱃사공/어부(남)
-    `<path d="M 74 24 L 74 66 M 74 24 Q 66 30 74 36 Q 82 42 74 48" fill="none" stroke="${P.stoneDeep}" stroke-width="2" stroke-linecap="round"/>`),
-  () => svg(portraitBase("#E8B98A", "#DCE8C6", "#7FB069", 2, false) + // 9: 숲의 정령(여)
-    leaf(38, 30, -30, P.food) + leaf(50, 26, 0, P.foodDeep) + leaf(62, 30, 30, P.food)),
+  () => portraitBase("#E8B98A", "#8F897C", "#3A2A1C", 0, false) + // 0: 방패병(남)
+    `<path d="M 20 60 Q 14 50 20 40 Q 30 36 30 50 Q 30 62 20 60 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="2" stroke-linejoin="round"/><line x1="20" y1="46" x2="20" y2="54" stroke="${P.stoneDeep}" stroke-width="1.4"/>`,
+  () => portraitBase("#D6A26B", "#C0433A", "#2B2118", 2, false) + // 1: 여전사(창)
+    `<line x1="76" y1="20" x2="66" y2="70" stroke="${P.woodDeep}" stroke-width="2.4" stroke-linecap="round"/><path d="M 76 20 L 71 12 L 81 15 Z" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`,
+  () => portraitBase("#F0C9A0", "#FFF8EC", "#B8AA95", 2, false) + // 2: 무녀/사제(여)
+    `<circle cx="26" cy="70" r="4.4" fill="${P.gold}" stroke="${P.ink}" stroke-width="1.4"/><path d="M 26 74 L 26 82" stroke="${P.ink}" stroke-width="1.6"/><path d="M 22 66 Q 26 60 30 66" fill="none" stroke="${P.red}" stroke-width="1.6" stroke-linecap="round"/>`,
+  () => portraitBase("#C98B5C", "#B9B4A8", "#5B3A29", 0, true) + // 3: 석공/장인(남)
+    `<rect x="70" y="60" width="4" height="16" rx="1.5" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.3"/><path d="M 66 58 L 78 58 L 74 50 L 70 50 Z" fill="${P.stoneDeep}" stroke="${P.ink}" stroke-width="1.4" stroke-linejoin="round"/>`,
+  () => portraitBase("#E8B98A", "#5E8B4C", "#6B4423", 0, true) + // 4: 목동/농부(남)
+    `<path d="M 22 78 Q 20 50 26 34 Q 30 30 32 34 Q 26 48 28 78 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/>`,
+  () => portraitBase("#D6A26B", "#9B59D0", "#3A2A1C", 1, false) + // 5: 약초꾼/치료사(여)
+    leaf(72, 68, 20, P.food) + leaf(76, 74, -10, P.foodDeep) + leaf(70, 76, 50, P.food),
+  () => portraitBase("#C98B5C", "#4E8F5B", "#2B2118", 0, false) + // 6: 궁수/정찰병(남)
+    `<path d="M 74 30 Q 84 50 74 70" fill="none" stroke="${P.woodDeep}" stroke-width="2.2" stroke-linecap="round"/><line x1="74" y1="30" x2="74" y2="70" stroke="${P.ink}" stroke-width="0.9" opacity="0.6"/>`,
+  () => portraitBase("#F0C9A0", "#E7A26B", "#8C6A46", 0, false) + // 7: 상인(남)
+    `<path d="M 22 72 Q 18 62 24 58 Q 32 58 30 68 Q 30 76 22 72 Z" fill="${P.woodDeep}" stroke="${P.ink}" stroke-width="1.6" stroke-linejoin="round"/><line x1="26" y1="58" x2="26" y2="54" stroke="${P.ink}" stroke-width="1.4"/>`,
+  () => portraitBase("#8C5A3C", "#3E7C8A", "#3A3A3A", 0, true) + // 8: 뱃사공/어부(남)
+    `<path d="M 74 24 L 74 66 M 74 24 Q 66 30 74 36 Q 82 42 74 48" fill="none" stroke="${P.stoneDeep}" stroke-width="2" stroke-linecap="round"/>`,
+  () => portraitBase("#E8B98A", "#DCE8C6", "#7FB069", 2, false) + // 9: 숲의 정령(여)
+    leaf(38, 30, -30, P.food) + leaf(50, 26, 0, P.foodDeep) + leaf(62, 30, 30, P.food),
 ];
 
 function heroPortrait(hero) {
-  if (isGenericHero(hero)) return GENERIC_TEMPLATES[hero.id % GENERIC_TEMPLATES.length]();
+  const r = hero.rarity;
+  if (isGenericHero(hero)) {
+    const body = GENERIC_TEMPLATES[hero.id % GENERIC_TEMPLATES.length]();
+    return svg(auraHTML(RARITY_AURA[r] || RARITY_AURA[1], r) + groundShadow() + body);
+  }
 
   // 실존 신화 인물 — 인물별로 고유한 얼굴 시드는 유지하되, ★6 이상은 후광·월계관 등급을
   // 한 단계 더 올리고(품질 차등), GOD_SYMBOL이 등록된 인물은 그 인물만의 상징 배지를 추가로 얹는다.
   const rng = mulberry32(hero.id * 2654435761);
   const skin = pick(rng, SKIN_TONES);
   const hairColor = pick(rng, HAIR_COLORS);
-  const cloth = pick(rng, CLOTH_COLORS);
+  const cloth = pick(rng, hero.culture === "로마" ? CLOTH_COLORS_ROMAN : CLOTH_COLORS_GREEK);
   const hairStyle = Math.floor(rng() * 3);
   const hasBeard = rng() < 0.32;
-  const r = hero.rarity;
 
-  let s = "";
-  if (r >= 6 || GOD_AURA[hero.id]) {
-    s += `<circle cx="50" cy="54" r="29" fill="none" stroke="${GOD_AURA[hero.id] || P.gold}" stroke-width="2" opacity="0.5"/>`;
-  }
+  let s = auraHTML(GOD_AURA[hero.id] || RARITY_AURA[r] || RARITY_AURA[1], r) + groundShadow();
   s += portraitBase(skin, cloth, hairColor, hairStyle, hasBeard);
 
   if (r === 4) s += `<path d="M 28 48 Q 50 40 72 48" stroke="${pick(rng, [P.gold, cloth, P.stoneDeep])}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
@@ -1240,7 +1262,7 @@ function heroPortrait(hero) {
 }
 // 까미 전용 — 사람이 아니라 고양이(설정상 신화 인물이 아니라 강사님 고양이)
 function kamiPortrait() {
-  let s = `<circle cx="50" cy="54" r="29" fill="none" stroke="${P.gold}" stroke-width="2" opacity="0.6"/>`;
+  let s = auraHTML(RARITY_AURA[8], 8) + groundShadow();
   s += `<path d="M 20 96 Q 50 76 80 96 L 80 100 L 20 100 Z" fill="#8C6A46" stroke="${P.ink}" stroke-width="2.4" stroke-linejoin="round"/>`;
   s += `<path d="M 29 38 L 22 16 L 42 32 Z" fill="#D9A066" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
   s += `<path d="M 71 38 L 78 16 L 58 32 Z" fill="#D9A066" stroke="${P.ink}" stroke-width="2.2" stroke-linejoin="round"/>`;
