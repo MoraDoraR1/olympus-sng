@@ -12,6 +12,7 @@ on:
       - "game.js"
       - "style.css"
       - "data/**"
+      - "assets/**"
       - ".assetsignore"
       - ".github/workflows/cloudflare-deploy.yml"
   workflow_dispatch: {}
