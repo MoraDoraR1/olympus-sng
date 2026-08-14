@@ -21,6 +21,24 @@
   };
   const SELECTABLE_TYPES = Object.keys(BUILDING_TYPES).filter((t) => BUILDING_TYPES[t].selectable);
 
+  // ---------- 실제 일러스트(.png) 우선 로드 + 절차적 SVG 폴백 공용 헬퍼 ----------
+  // 건물판(renderBoard)·필드 몬스터 영역(renderMonsterArea)은 매 tick(1초)마다 innerHTML을
+  // 통째로 다시 그린다 — PNG가 아직 없는 상태에서 <img onerror>로 매번 새로 실패→대체를
+  // 반복하면, 그 찰나에 깨진 이미지가 보였다 사라지는 것처럼 매초 깜박이는 문제가 있었다.
+  // 한 번 실패한 경로는 캐시해두고, 이후 렌더링에서는 처음부터 SVG를 그려 이 반복을 없앤다.
+  const missingAssetPng = new Set();
+  window.__onAssetPngError = function (img, pngSrc, svgSrc) {
+    missingAssetPng.add(pngSrc);
+    img.onerror = null;
+    img.src = svgSrc;
+  };
+  function iconImgHTML(pngSrc, svgSrc, alt, cssClass, extraAttrs) {
+    const cls = cssClass ? ` class="${cssClass}"` : "";
+    const extra = extraAttrs ? ` ${extraAttrs}` : "";
+    if (missingAssetPng.has(pngSrc)) return `<img${cls}${extra} src="${svgSrc}" alt="${alt}" />`;
+    return `<img${cls}${extra} src="${pngSrc}" alt="${alt}" onerror="window.__onAssetPngError(this,'${pngSrc}','${svgSrc}')" />`;
+  }
+
   // ---------- 건물 스프라이트(절차적 SVG, assets/buildings/) ----------
   const BUILDING_SLUG = {
     "성": "castle", "여관": "tavern", "병영": "barracks", "농장": "farm", "벌목장": "lumber",
@@ -39,8 +57,7 @@
     return `assets/buildings/${BUILDING_SLUG[type]}_${spriteTier(level || 1)}.${ext || "svg"}`;
   }
   function buildingIconHTML(type, level, cssClass) {
-    const svgSrc = buildingSpriteSrc(type, level, "svg");
-    return `<img class="${cssClass || ""}" src="${buildingSpriteSrc(type, level, "png")}" alt="${type}" onerror="this.onerror=null;this.src='${svgSrc}';" />`;
+    return iconImgHTML(buildingSpriteSrc(type, level, "png"), buildingSpriteSrc(type, level, "svg"), type, cssClass);
   }
 
   // 다른 건물 레벨이 조건이 되는 기본적인 선행 관계 (성이 항상 최종 상한선)
@@ -277,7 +294,7 @@
   // buildingIconHTML과 동일한 PNG 우선 로드 + SVG 폴백 패턴 — 필드 몬스터·레이드 보스
   // 아트를 순서 없이 하나씩 실제 일러스트로 교체할 수 있게 한다.
   function monsterIconHTML(key) {
-    return `<img src="assets/monsters/${key}.png" alt="${key}" onerror="this.onerror=null;this.src='assets/monsters/${key}.svg';" />`;
+    return iconImgHTML(`assets/monsters/${key}.png`, `assets/monsters/${key}.svg`, key);
   }
 
   function rollMonsterLevel() {
@@ -484,7 +501,7 @@
   // 절차적 SVG 초상으로 자동 대체된다(onerror 폴백이라 전원분을 한꺼번에 교체할
   // 필요 없이 그린 만큼씩 순차 반영 가능).
   function heroPortraitHTML(hero) {
-    return `<img src="assets/heroes/${hero.id}.png" loading="lazy" alt="${hero.name}" onerror="this.onerror=null;this.src='assets/heroes/${hero.id}.svg';" />`;
+    return iconImgHTML(`assets/heroes/${hero.id}.png`, `assets/heroes/${hero.id}.svg`, hero.name, null, 'loading="lazy"');
   }
   // 가챠 카드 상단 별줄 — 등급(1~8)만큼 별을 채운다.
   function heroStarRowHTML(rarity) {
