@@ -34,6 +34,9 @@
       <button id="btn-auto-assign" title="아직 어떤 건물에도 배치되지 않은 영웅을 특성에 맞는 건물에 자동으로 배치합니다">🤖 영웅 자동 배치</button>
       <button id="btn-heroes">🦸 보유 영웅</button>
       <button id="btn-codex">📖 영웅 도감</button>
+      <button id="btn-quests">📜 업적<span id="quest-badge" class="nav-badge" hidden>0</span></button>
+      <button id="btn-leaderboard">🏆 랭킹</button>
+      <button id="btn-mailbox">✉️ 우편함<span id="mail-badge" class="nav-badge" hidden>0</span></button>
       <button id="btn-help">📖 설명서</button>
       <button id="btn-end-game" title="게임 종료">🚪 종료</button>
       <button id="btn-reset-game" title="게임 데이터 초기화">↺</button>
@@ -276,6 +279,35 @@
     <div class="modal modal-xwide">
       <button class="modal-close" data-close>✕</button>
       <div id="army-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 일일 업적/퀘스트 모달 -->
+  <div class="modal-overlay" id="modal-quests" hidden>
+    <div class="modal modal-wide">
+      <button class="modal-close" data-close>✕</button>
+      <h2>📜 일일 업적</h2>
+      <p class="quests-reset-label" id="quests-reset-label"></p>
+      <div class="quests-list" id="quests-list"></div>
+    </div>
+  </div>
+
+  <!-- 랭킹(순위표) 모달 -->
+  <div class="modal-overlay" id="modal-leaderboard" hidden>
+    <div class="modal modal-wide">
+      <button class="modal-close" data-close>✕</button>
+      <h2>🏆 랭킹</h2>
+      <p class="leaderboard-me" id="leaderboard-me"></p>
+      <div class="leaderboard-list" id="leaderboard-list"></div>
+    </div>
+  </div>
+
+  <!-- 우편함 모달 -->
+  <div class="modal-overlay" id="modal-mailbox" hidden>
+    <div class="modal modal-wide">
+      <button class="modal-close" data-close>✕</button>
+      <h2>✉️ 우편함 <button id="btn-mailbox-read-all" class="btn-small">모두 읽음</button></h2>
+      <div class="mailbox-list" id="mailbox-list"></div>
     </div>
   </div>
 

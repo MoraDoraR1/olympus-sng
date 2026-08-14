@@ -90,7 +90,13 @@ body {
 .res .cap { color: var(--ink-soft); font-weight: 500; font-size: .74rem; }
 .res.stat { background: transparent; }
 .topbar-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-.topbar-actions button { padding: 5px 9px; font-size: .74rem; box-shadow: none; }
+.topbar-actions button { padding: 5px 9px; font-size: .74rem; box-shadow: none; position: relative; }
+.nav-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
+  padding: 0 3px; border-radius: 999px; background: var(--hard); color: #fff;
+  font-size: .62rem; font-weight: 800; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px var(--panel);
+}
 
 button {
   font-family: var(--font-display);
@@ -1154,3 +1160,50 @@ button.raid-status.inprogress { background: var(--wood); color: #fff; padding: 7
 .battle-report-loot { margin-top: 8px; font-weight: 700; }
 @keyframes log-panel-in { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
 @media (max-width: 700px) { .log-panel { width: 190px; } }
+
+/* 일일 업적/퀘스트 모달 */
+.quests-reset-label { color: var(--ink-soft); font-weight: 700; font-size: .82rem; margin: -6px 0 10px; }
+.quests-list { display: flex; flex-direction: column; gap: 8px; }
+.quest-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: 10px; background: var(--bg); border: 2px solid var(--line);
+}
+.quest-row.quest-ready { border-color: var(--gold); }
+.quest-row.quest-claimed { opacity: .55; }
+.quest-icon { font-size: 1.3rem; }
+.quest-info { flex: 1; min-width: 0; }
+.quest-label { font-weight: 800; font-size: .85rem; }
+.quest-progress-bar { height: 6px; border-radius: 999px; background: var(--line); margin: 4px 0 2px; overflow: hidden; }
+.quest-progress-fill { height: 100%; background: var(--gold); border-radius: 999px; }
+.quest-progress-text { font-size: .7rem; color: var(--ink-soft); font-weight: 700; }
+.quest-reward { font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.quest-claim-btn { white-space: nowrap; }
+.quest-claim-btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+
+/* 랭킹(순위표) 모달 */
+.leaderboard-me { color: var(--ink-soft); font-weight: 800; font-size: .82rem; margin: -6px 0 10px; }
+.leaderboard-list { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow-y: auto; }
+.leaderboard-loading { color: var(--ink-soft); font-weight: 700; padding: 12px 0; }
+.lb-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border-radius: 8px; font-weight: 700; font-size: .82rem;
+}
+.lb-row:nth-child(odd) { background: var(--bg); }
+.lb-row.lb-me { background: color-mix(in srgb, var(--gold) 25%, transparent); border: 2px solid var(--gold); }
+.lb-rank { width: 2.2em; text-align: center; color: var(--ink-soft); }
+.lb-nickname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-castle, .lb-power { white-space: nowrap; font-size: .76rem; color: var(--ink-soft); }
+
+/* 우편함 모달 */
+.mailbox-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.mailbox-empty { color: var(--ink-soft); font-weight: 700; padding: 12px 0; }
+.mail-row {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px;
+  border-radius: 10px; background: var(--bg); border: 2px solid transparent; cursor: pointer;
+}
+.mail-row.mail-unread { border-color: var(--gold); }
+.mail-icon { font-size: 1.2rem; }
+.mail-body { flex: 1; min-width: 0; }
+.mail-title { font-weight: 800; font-size: .82rem; }
+.mail-desc { font-size: .76rem; color: var(--ink-soft); margin-top: 1px; }
+.mail-time { font-size: .68rem; color: var(--ink-soft); opacity: .8; margin-top: 3px; }

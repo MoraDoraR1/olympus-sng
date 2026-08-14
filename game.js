@@ -460,7 +460,7 @@
     });
   });
 
-  const RES_LABEL = { food: "🌾", wood: "🪵", stone: "🪨", gold: "🪙" };
+  const RES_LABEL = { food: "🌾", wood: "🪵", stone: "🪨", gold: "🪙", raidShards: "💎" };
   // 코덱스로 새로 뽑은 일러스트는 .png로 들어온다 — 아직 그리지 않은 영웅은 예전
   // 절차적 SVG 초상으로 자동 대체된다(onerror 폴백이라 전원분을 한꺼번에 교체할
   // 필요 없이 그린 만큼씩 순차 반영 가능).
@@ -546,6 +546,29 @@
     { rarity: 8, p: 0.05 },
   ];
 
+  // ---------- 일일 업적/퀘스트 ----------
+  // 실제 달력의 자정이 아니라 "마지막 리셋 이후 24시간"으로 굴러가는 롤링 리셋이다
+  // (레이드 보스 24시간 쿨다운과 같은 방식) — 서버 시각 동기화나 타임존 문제 없이
+  // 순수 타임스탬프 비교만으로 결정론적으로 동작한다.
+  const DAILY_QUEST_RESET_MS = 24 * 60 * 60 * 1000;
+  const DAILY_QUEST_DEFS = [
+    { id: "login", icon: "🌅", label: "오늘 접속하기", target: 1, key: "login", reward: { gold: 500 } },
+    { id: "gold", icon: "🪙", label: "골드 500 생산하기", target: 500, key: "goldProduced", reward: { raidShards: 5 } },
+    { id: "monster", icon: "🐴", label: "필드 몬스터 3마리 처치", target: 3, key: "monstersKilled", reward: { raidShards: 10 } },
+    { id: "train", icon: "🪖", label: "병사 10명 훈련 시작하기", target: 10, key: "troopsTrained", reward: { raidShards: 5 } },
+    { id: "attack", icon: "⚔️", label: "정복 맵 공격 1회 보내기", target: 1, key: "attacksSent", reward: { gold: 1000 } },
+  ];
+  function freshDailyQuestProgress() {
+    const progress = {};
+    DAILY_QUEST_DEFS.forEach((q) => { progress[q.key] = 0; });
+    progress.login = 1; // 이 세이브가 오늘 처음 생성/리셋된 시점 자체가 "오늘 접속"이다
+    return progress;
+  }
+  function freshDailyQuests() {
+    return { resetAt: Date.now() + DAILY_QUEST_RESET_MS, progress: freshDailyQuestProgress(), claimed: {} };
+  }
+  function freshMailbox() { return []; }
+
   function freshState() {
     const tiles = {};
     TILE_LAYOUT.forEach((t) => {
@@ -568,11 +591,15 @@
       raidTickets: { t5: 0, t6: 0 }, // 확정 등급 이상 소환권 개수
       monsterKillsSinceGate: 0, // 성 레벨업의 "몬스터 처치" 조건용 — 조건을 소모할 때마다 0으로 리셋
       lastActiveAt: Date.now(),
+      dailyQuests: freshDailyQuests(),
+      mailbox: freshMailbox(), // 자리 비운 사이 놓쳤을 수 있는 주요 이벤트(전투 결과 등)를 모아두는 우편함
     };
   }
 
   let state = load() || freshState();
   if (!state.tavern.candidates.some((c) => c !== null)) rerollTavern();
+  updateQuestBadge();
+  updateMailBadge();
 
   // ---------- 저장 ----------
   function save() {
@@ -752,6 +779,13 @@
       });
       // 이 필드가 없던 기존 세이브는 "방금 저장됨"으로 간주해 오프라인 진행을 건너뛴다
       if (!parsed.lastActiveAt) parsed.lastActiveAt = Date.now();
+      if (!parsed.dailyQuests || typeof parsed.dailyQuests.resetAt !== "number") parsed.dailyQuests = freshDailyQuests();
+      if (!parsed.dailyQuests.progress) parsed.dailyQuests.progress = freshDailyQuestProgress();
+      DAILY_QUEST_DEFS.forEach((q) => {
+        if (typeof parsed.dailyQuests.progress[q.key] !== "number") parsed.dailyQuests.progress[q.key] = 0;
+      });
+      if (!parsed.dailyQuests.claimed) parsed.dailyQuests.claimed = {};
+      if (!Array.isArray(parsed.mailbox)) parsed.mailbox = freshMailbox();
       return parsed;
     } catch (e) { return null; }
   }
@@ -991,6 +1025,7 @@
   // ---------- 자원/훈련/전투 틱 ----------
   function tick() {
     state.lastActiveAt = Date.now();
+    maybeResetDailyQuests();
     state.tavern.timer -= 1;
     let tavernRerolled = false;
     if (state.tavern.timer <= 0) {
@@ -1009,7 +1044,11 @@
       if (bdef.base.food) addRes("food", bdef.base.food * tile.level * mult * prodBonus);
       if (bdef.base.wood) addRes("wood", bdef.base.wood * tile.level * mult * prodBonus);
       if (bdef.base.stone) addRes("stone", bdef.base.stone * tile.level * mult * prodBonus);
-      if (bdef.base.gold) addRes("gold", bdef.base.gold * tile.level * mult * goldBonus);
+      if (bdef.base.gold) {
+        const goldGain = bdef.base.gold * tile.level * mult * goldBonus;
+        addRes("gold", goldGain);
+        state.dailyQuests.progress.goldProduced += goldGain;
+      }
       if (tile.type === "병영" && tile.training) {
         tile.training.timeLeft -= 1;
         if (tile.training.timeLeft <= 0) {
@@ -1085,6 +1124,10 @@
     if (!document.getElementById("modal-raid").hidden) renderRaidModal();
     if (!document.getElementById("modal-raid-battle").hidden) renderRaidBattleModal();
     if (!document.getElementById("modal-inventory").hidden) renderInventoryModal();
+    updateQuestBadge();
+    updateMailBadge();
+    if (!document.getElementById("modal-quests").hidden) renderQuestsModal();
+    if (!document.getElementById("modal-mailbox").hidden) renderMailboxModal();
     save();
   }
   // 탭이 백그라운드에 있거나 브라우저가 완전히 꺼져있던 동안에도 자원/훈련/
@@ -1105,6 +1148,8 @@
     renderMonsterArea();
     renderWorldMap();
     renderWallFrame();
+    updateQuestBadge();
+    updateMailBadge();
     save();
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -1117,6 +1162,96 @@
     const before = state.res[res];
     state.res[res] = Math.min(cap, state.res[res] + amount);
     if (state.res[res] !== before) pulseRes(res);
+  }
+
+  // ---------- 일일 업적/퀘스트 진행 ----------
+  function maybeResetDailyQuests() {
+    if (Date.now() >= state.dailyQuests.resetAt) state.dailyQuests = freshDailyQuests();
+  }
+  function questProgressValue(q) { return state.dailyQuests.progress[q.key] || 0; }
+  function questComplete(q) { return questProgressValue(q) >= q.target; }
+  function claimDailyQuest(id) {
+    const q = DAILY_QUEST_DEFS.find((d) => d.id === id);
+    if (!q || state.dailyQuests.claimed[id] || !questComplete(q)) return;
+    state.dailyQuests.claimed[id] = true;
+    Object.entries(q.reward).forEach(([k, v]) => {
+      if (k === "raidShards") state.raidShards += v;
+      else addRes(k, v);
+    });
+    toast(`✅ 업적 완료: ${q.label} — 보상 ${costText(q.reward)}`);
+    pushMail("📜", `업적 완료: ${q.label}`, `보상: ${costText(q.reward)}`);
+    updateQuestBadge();
+    renderQuestsModal();
+    renderTopbar();
+    save();
+  }
+  function updateQuestBadge() {
+    const badge = document.getElementById("quest-badge");
+    if (!badge) return;
+    const readyCount = DAILY_QUEST_DEFS.filter((q) => questComplete(q) && !state.dailyQuests.claimed[q.id]).length;
+    badge.hidden = readyCount <= 0;
+    badge.textContent = String(readyCount);
+  }
+  function renderQuestsModal() {
+    const wrap = document.getElementById("quests-list");
+    if (!wrap) return;
+    const resetLabel = document.getElementById("quests-reset-label");
+    if (resetLabel) resetLabel.textContent = `⏳ 다음 초기화까지 ${formatCountdownShort(Math.max(0, state.dailyQuests.resetAt - Date.now()))}`;
+    wrap.innerHTML = DAILY_QUEST_DEFS.map((q) => {
+      const val = Math.min(questProgressValue(q), q.target);
+      const done = questComplete(q);
+      const claimed = !!state.dailyQuests.claimed[q.id];
+      const pct = Math.round((val / q.target) * 100);
+      return `
+        <div class="quest-row ${claimed ? "quest-claimed" : done ? "quest-ready" : ""}">
+          <span class="quest-icon">${q.icon}</span>
+          <div class="quest-info">
+            <div class="quest-label">${q.label}</div>
+            <div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%"></div></div>
+            <div class="quest-progress-text">${val.toLocaleString()} / ${q.target.toLocaleString()}</div>
+          </div>
+          <span class="quest-reward">${costText(q.reward)}</span>
+          <button class="quest-claim-btn" data-quest="${q.id}" ${claimed || !done ? "disabled" : ""}>${claimed ? "완료" : done ? "수령" : "진행중"}</button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ---------- 우편함 ----------
+  const MAILBOX_MAX = 50;
+  function pushMail(icon, title, desc) {
+    state.mailbox.unshift({ id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, ts: Date.now(), icon, title, desc, read: false });
+    while (state.mailbox.length > MAILBOX_MAX) state.mailbox.pop();
+    updateMailBadge();
+  }
+  function updateMailBadge() {
+    const badge = document.getElementById("mail-badge");
+    if (!badge) return;
+    const unread = state.mailbox.filter((m) => !m.read).length;
+    badge.hidden = unread <= 0;
+    badge.textContent = unread > 99 ? "99+" : String(unread);
+  }
+  function formatMailTime(ts) {
+    const d = new Date(ts);
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  function renderMailboxModal() {
+    const wrap = document.getElementById("mailbox-list");
+    if (!wrap) return;
+    if (!state.mailbox.length) {
+      wrap.innerHTML = `<p class="mailbox-empty">아직 도착한 우편이 없습니다.</p>`;
+      return;
+    }
+    wrap.innerHTML = state.mailbox.map((m) => `
+      <div class="mail-row ${m.read ? "" : "mail-unread"}" data-mail="${m.id}">
+        <span class="mail-icon">${m.icon}</span>
+        <div class="mail-body">
+          <div class="mail-title">${m.title}</div>
+          <div class="mail-desc">${m.desc}</div>
+          <div class="mail-time">${formatMailTime(m.ts)}</div>
+        </div>
+      </div>
+    `).join("");
   }
 
   // ---------- 여관/가챠 ----------
@@ -1513,6 +1648,7 @@
     const baseSeconds = type.trainSeconds * count;
     const seconds = Math.max(1, Math.round(baseSeconds / (1 + bonusPercentFor(tileId) / 100)));
     tile.training = { type: typeKey, count, timeLeft: seconds, total: seconds };
+    state.dailyQuests.progress.troopsTrained += count;
     toast(`🪖 ${type.name} ${count}명 훈련 시작`);
     openBuildingModal(tileId);
     renderBoard();
@@ -1705,9 +1841,11 @@
         const ticketKey = boss.reward.ticketRarity >= 6 ? "t6" : "t5";
         state.raidTickets[ticketKey] += boss.reward.ticketCount;
         bonusMsg = ` 만능 조각 +${boss.reward.shards}, ★${boss.reward.ticketRarity}+ 확정 소환권 +${boss.reward.ticketCount}장!`;
+        pushMail("👑", `레이드 보스 ${enemy.name} 처치!`, `만능 조각 +${boss.reward.shards}, ★${boss.reward.ticketRarity}+ 확정 소환권 +${boss.reward.ticketCount}장`);
       } else {
         reward = monsterReward(enemy.level, enemy.elite);
         state.monsterKillsSinceGate += 1;
+        state.dailyQuests.progress.monstersKilled += 1;
       }
       Object.entries(reward).forEach(([r, v]) => addRes(r, v));
       toast(`⚔️ 부대 ${squadIdx + 1}: ${enemy.name}(Lv.${enemy.level}) 처치!${totalLost > 0 ? ` 병사 ${totalLost}명 손실.` : ""} 보상: ${costText(reward)}${bonusMsg}`);
@@ -3111,6 +3249,63 @@
 
   document.getElementById("btn-army").addEventListener("click", openArmyModal);
 
+  // ---------- 일일 업적/퀘스트 모달 ----------
+  document.getElementById("btn-quests").addEventListener("click", () => {
+    renderQuestsModal();
+    openModal("modal-quests");
+  });
+  document.getElementById("quests-list").addEventListener("click", (e) => {
+    const btn = e.target.closest(".quest-claim-btn");
+    if (!btn) return;
+    claimDailyQuest(btn.dataset.quest);
+  });
+
+  // ---------- 우편함 모달 ----------
+  document.getElementById("btn-mailbox").addEventListener("click", () => {
+    renderMailboxModal();
+    openModal("modal-mailbox");
+  });
+  document.getElementById("mailbox-list").addEventListener("click", (e) => {
+    const row = e.target.closest(".mail-row");
+    if (!row) return;
+    const mail = state.mailbox.find((m) => m.id === row.dataset.mail);
+    if (mail && !mail.read) { mail.read = true; row.classList.remove("mail-unread"); updateMailBadge(); save(); }
+  });
+  document.getElementById("btn-mailbox-read-all").addEventListener("click", () => {
+    if (!state.mailbox.length) return;
+    state.mailbox.forEach((m) => { m.read = true; });
+    updateMailBadge();
+    renderMailboxModal();
+    save();
+  });
+
+  // ---------- 랭킹(순위표) 모달 ----------
+  async function loadLeaderboard() {
+    const wrap = document.getElementById("leaderboard-list");
+    const meEl = document.getElementById("leaderboard-me");
+    wrap.innerHTML = `<p class="leaderboard-loading">불러오는 중…</p>`;
+    meEl.textContent = "";
+    try {
+      const data = await apiRequest("/api/leaderboard?limit=50");
+      if (!data.top.length) { wrap.innerHTML = `<p class="leaderboard-loading">아직 순위 데이터가 없습니다.</p>`; return; }
+      wrap.innerHTML = data.top.map((row) => `
+        <div class="lb-row ${currentPlayer && row.nickname === currentPlayer.nickname ? "lb-me" : ""}">
+          <span class="lb-rank">${row.rank}</span>
+          <span class="lb-nickname">${row.nickname}</span>
+          <span class="lb-castle">🏰 Lv.${row.castleLevel}</span>
+          <span class="lb-power">⚔️ ${Math.round(row.powerScore).toLocaleString()}</span>
+        </div>
+      `).join("");
+      if (data.mine) meEl.textContent = `내 순위: ${data.mine.rank}위 (전투력 ${Math.round(data.mine.powerScore).toLocaleString()})`;
+    } catch (e) {
+      wrap.innerHTML = `<p class="leaderboard-loading">순위표를 불러오지 못했습니다.</p>`;
+    }
+  }
+  document.getElementById("btn-leaderboard").addEventListener("click", () => {
+    openModal("modal-leaderboard");
+    loadLeaderboard();
+  });
+
   // 영웅 자동 배치 — 아직 어떤 건물에도 배치되지 않은 보유 영웅만 대상으로 한다(수동으로
   // 이미 배치해둔 곳은 건드리지 않는다). (영웅, 건물) 조합 중 보너스가 있는 것만 골라
   // 보너스 % 내림차순으로 그리디하게 채운다 — 전역 최적은 아니지만 직관적이고 되돌리기
@@ -3314,6 +3509,7 @@
     }
     toast(`${headline}`);
     logEvent(`${headline} — ${detail}`, myOutcomeWin ? "battle-win" : "battle-lose");
+    pushMail(myOutcomeWin ? "⚔️" : "💀", headline, detail);
     // 다른 모달이 이미 떠 있으면(예: 다른 작업 중) 굳이 덮어 열지 않는다 — 토스트+로그로도
     // 결과는 이미 전달됐고, 모달끼리 겹쳐 뜨는 걸 피하기 위함.
     if (document.querySelector(".modal-overlay:not([hidden])")) return;
@@ -3631,6 +3827,7 @@
         body: JSON.stringify({ targetPlayerId, squadIndex, comp }),
       });
       toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}${res.shieldCleared ? " · 🛡️ 내 보호막이 해제되었습니다" : ""}`);
+      if (kind === "attack") { state.dailyQuests.progress.attacksSent += 1; save(); }
       if (res.shieldCleared && conquestInfo.tile) conquestInfo.tile.protectedUntil = 0;
       lastMissionSnapshot = ""; // 다음 폴링에서 무조건 최신 상태를 반영하도록
       infoEl.hidden = true;

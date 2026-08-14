@@ -8,6 +8,7 @@ import { checkRateLimit } from "./lib/rateLimit.js";
 import * as conquest from "./lib/conquest.js";
 import * as items from "./lib/items.js";
 import * as pvp from "./lib/pvp.js";
+import * as leaderboard from "./lib/leaderboard.js";
 import { PvpCoordinator } from "./durable-objects/PvpCoordinator.js";
 
 export { PvpCoordinator };
@@ -93,13 +94,25 @@ app.put("/api/state", requireAuth, async (c) => {
   }
   const verdict = checkStatePush({ prevRow, createdAt, nextState: state, now });
   if (!verdict.ok) return c.json({ error: verdict.error }, 400);
+  const { score, castleLevel } = leaderboard.computePowerScore(state);
   await c.env.DB.prepare(
-    `INSERT INTO game_states (player_id, state_json, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(player_id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at`
+    `INSERT INTO game_states (player_id, state_json, updated_at, power_score, castle_level) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(player_id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at,
+       power_score = excluded.power_score, castle_level = excluded.castle_level`
   )
-    .bind(player.id, JSON.stringify(state), now)
+    .bind(player.id, JSON.stringify(state), now, score, castleLevel)
     .run();
   return c.json({ ok: true, updatedAt: now });
+});
+
+app.get("/api/leaderboard", requireAuth, async (c) => {
+  const player = c.get("player");
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit"), 10) || 50));
+  const [top, mine] = await Promise.all([
+    leaderboard.topPlayers(c.env.DB, limit),
+    leaderboard.myRank(c.env.DB, player.id),
+  ]);
+  return c.json({ top, mine });
 });
 
 app.get("/api/conquest/me", requireAuth, async (c) => {
