@@ -574,7 +574,9 @@
     { id: "gold", icon: "🪙", label: "골드 500 생산하기", target: 500, key: "goldProduced", reward: { raidShards: 5 } },
     { id: "monster", icon: "🐴", label: "필드 몬스터 3마리 처치", target: 3, key: "monstersKilled", reward: { raidShards: 10 } },
     { id: "train", icon: "🪖", label: "병사 10명 훈련 시작하기", target: 10, key: "troopsTrained", reward: { raidShards: 5 } },
-    { id: "attack", icon: "⚔️", label: "정복 맵 공격 1회 보내기", target: 1, key: "attacksSent", reward: { gold: 1000 } },
+    // 정복 맵 공격은 성 레벨 5부터만 가능해 저레벨 플레이어가 채울 수 없는 일일 업적이라는
+    // 문제가 있었다 — 누구나 처음부터 할 수 있는 "건물 레벨업"으로 교체한다.
+    { id: "upgrade", icon: "⬆️", label: "건물 레벨업 1회 완료하기", target: 1, key: "buildingUpgrades", reward: { gold: 1000 } },
   ];
   function freshDailyQuestProgress() {
     const progress = {};
@@ -1579,6 +1581,7 @@
     const tile = state.tiles[tileId];
     tile.level = tile.upgrading.targetLevel;
     tile.upgrading = null;
+    state.dailyQuests.progress.buildingUpgrades += 1;
     if (tile.type === "여관") {
       const need = tavernSlotsForLevel(tile.level) - state.tavern.candidates.length;
       for (let i = 0; i < need; i++) state.tavern.candidates.push(rollHeroId());
@@ -3845,7 +3848,6 @@
         body: JSON.stringify({ targetPlayerId, squadIndex, comp }),
       });
       toast(`${kind === "attack" ? "⚔️" : "🛡️"} 부대 ${squadIndex + 1} 출발! 도착까지 ${formatCountdownShort(res.travelSeconds * 1000)}${res.shieldCleared ? " · 🛡️ 내 보호막이 해제되었습니다" : ""}`);
-      if (kind === "attack") { state.dailyQuests.progress.attacksSent += 1; save(); }
       if (res.shieldCleared && conquestInfo.tile) conquestInfo.tile.protectedUntil = 0;
       lastMissionSnapshot = ""; // 다음 폴링에서 무조건 최신 상태를 반영하도록
       infoEl.hidden = true;

@@ -34,7 +34,7 @@ function baseState({ castleLevel, troops, dailyQuests, mailbox }) {
     armies: [{ heroIds: [null, null, null], mission: null, lastComp: {} }, { heroIds: [null, null, null], mission: null, lastComp: {} }, { heroIds: [null, null, null], mission: null, lastComp: {} }],
     monsters: [], worldCastles: [], raids: {}, raidShards: 0, raidTickets: { t5: 0, t6: 0 },
     monsterKillsSinceGate: 0, lastActiveAt: Date.now(),
-    dailyQuests: dailyQuests || { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 0, troopsTrained: 0, attacksSent: 0 }, claimed: {} },
+    dailyQuests: dailyQuests || { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 0, troopsTrained: 0, buildingUpgrades: 0 }, claimed: {} },
     mailbox: mailbox || [],
   };
 }
@@ -67,7 +67,7 @@ async function main() {
   await putState(tokenA, baseState({
     castleLevel: 8,
     troops: { spartan: 20, myrmidon: 15 },
-    dailyQuests: { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 3, troopsTrained: 0, attacksSent: 0 }, claimed: {} },
+    dailyQuests: { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 3, troopsTrained: 0, buildingUpgrades: 0 }, claimed: {} },
   }));
 
   // B: A보다 훨씬 약한 병력 — 랭킹에서 A보다 아래여야 한다.
