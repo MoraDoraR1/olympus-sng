@@ -223,7 +223,7 @@
   // 별도 "보스 레이드" 컨텐츠로 옮겼다. 필드 몬스터와 달리 레벨이 고정이고, 무작위
   // 리스폰도 없다 — 한 번 처치하면 그 보스는 세이브 안에서 영구적으로 다시 도전할
   // 수 없다(1인 기준 "1회성 정복" 컨텐츠). requires로 순서를 강제해 앞 보스를 먼저
-  // 처치해야 다음 보스에 도전할 수 있는 6단계 체인을 이룬다.
+  // 처치해야 다음 보스에 도전할 수 있는 9단계 체인을 이룬다.
   // powerMult: 필드 몬스터 최고 레벨(30)·월드맵 성 최고 레벨(20) 중 더 강한 쪽을
   // 기준선으로 삼아 몇 배인지(raidBossBaselineStats/raidBossStats 참고). 최초 설계값
   // (4~17배, "항상 필드/월드맵보다 강해야 한다")이 실제로 붙어보니 권장 전투력이
@@ -254,6 +254,17 @@
       reward: { resourceAmount: 800000, goldBonus: 480000, shards: 40, ticketRarity: 6, ticketCount: 5 } },
     { id: "cronus", key: "cronus", name: "크로노스", icon: "⏳", level: 40, powerMult: 5.1, requires: "typhon",
       reward: { resourceAmount: 1200000, goldBonus: 720000, shards: 50, ticketRarity: 6, ticketCount: 7 } },
+    // 7~9번째 보스 — 티탄 신화의 계보를 거슬러 올라가는 순서(기간테스 → 우라노스 → 카오스)로
+    // 크로노스 이후의 "진짜 엔드게임"을 이룬다. powerMult는 기존 체인의 가속 곡선(각 단계
+    // 대략 1.3배 안팎)을 그대로 이어간다. shards/ticketCount도 기존 증가폭을 이어가되,
+    // ticketRarity는 새 등급 없이 기존 t6(★6+) 버킷을 그대로 쓴다(t7 신설은 소환권 보관·
+    // 여관 소환 UI까지 건드리는 더 큰 변경이라 이번 범위에서는 보류).
+    { id: "gigantes", key: "gigantes", name: "기간테스", icon: "🏔️", level: 45, powerMult: 6.6, requires: "cronus",
+      reward: { resourceAmount: 1700000, goldBonus: 1020000, shards: 65, ticketRarity: 6, ticketCount: 9 } },
+    { id: "uranus", key: "uranus", name: "우라노스", icon: "🌌", level: 50, powerMult: 8.5, requires: "gigantes",
+      reward: { resourceAmount: 2300000, goldBonus: 1380000, shards: 80, ticketRarity: 6, ticketCount: 11 } },
+    { id: "chaos", key: "chaos", name: "카오스", icon: "🕳️", level: 55, powerMult: 11, requires: "uranus",
+      reward: { resourceAmount: 3000000, goldBonus: 1800000, shards: 100, ticketRarity: 6, ticketCount: 13 } },
   ];
   const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 보스별 재도전 대기시간(하루 1회)
   const MONSTER_SLOT_COUNT = 8;
@@ -495,7 +506,12 @@
     for (let l = 2; l <= level; l++) f *= levelCostRateForLevel(l);
     return f;
   }
-  const MAX_ENHANCE = 5; // 영웅 강화 상한(0~5강)
+  // 영웅 강화 상한(0~10강) — 원래 5강이었으나 후반 콘텐츠 소모처를 늘리기 위해 10강까지
+  // 확장했다. 비용(3×(n+1)개 조각)과 스탯/특성 배율(1+0.15×n, heroEnhance() 참고)은 기존
+  // 공식을 그대로 5강 너머까지 연장한 것이라 6~10강 전용 로직은 따로 없다 — 그만큼 조각
+  // 누적 비용이 가파르게 늘어(6~10강 합계 105개, 0~5강 합계 45개의 2배 이상) 자연스럽게
+  // 엔드게임 소모처가 된다.
+  const MAX_ENHANCE = 10;
   const MAX_HEROES_PER_BUILDING = 3; // 건물 하나에 배치 가능한 영웅 수 상한
   const SQUAD_COUNT = 3;
   const MIN_DEPLOY = 5;
@@ -1450,7 +1466,7 @@
     playRecruitReveal(hero, originRect);
     save();
   }
-  // 별 등급은 뽑힌 즉시 고정. 대신 중복 조각으로 같은 영웅을 "강화"(0~5강)해 스탯/효과를 올린다.
+  // 별 등급은 뽑힌 즉시 고정. 대신 중복 조각으로 같은 영웅을 "강화"(0~10강)해 스탯/효과를 올린다.
   function enhance(heroId) {
     const hero = HERO_BY_ID[heroId];
     const o = state.owned[heroId];
@@ -2649,7 +2665,7 @@
     const body = document.getElementById("raid-modal-body");
     body.innerHTML = `
       <h2>👑 보스 레이드</h2>
-      <p class="raid-intro">필드·월드맵보다 압도적으로 강한 6단계 보스 체인입니다. 앞 보스를 한 번 처치해야 다음 보스가 해금되고, 각 보스는 처치 후 24시간이 지나면 다시 도전할 수 있습니다.</p>
+      <p class="raid-intro">필드·월드맵보다 압도적으로 강한 9단계 보스 체인입니다. 앞 보스를 한 번 처치해야 다음 보스가 해금되고, 각 보스는 처치 후 24시간이 지나면 다시 도전할 수 있습니다.</p>
       <p class="raid-inventory">🧩 만능 조각 보유: <b>${state.raidShards}</b>개 · 🎫 ★5+ 확정권 <b>${state.raidTickets.t5}</b>장 · 🎫 ★6+ 확정권 <b>${state.raidTickets.t6}</b>장</p>
       <div class="raid-list">
         ${RAID_BOSSES.map((boss) => {

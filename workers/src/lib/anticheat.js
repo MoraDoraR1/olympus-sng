@@ -22,6 +22,8 @@ const TROOP_GRACE = 20;
 const OFFLINE_CAP_SECONDS = 24 * 3600;
 const FRESH_RES = { food: 80, wood: 80, stone: 60, gold: 150 };
 
+// game.js의 RAID_BOSSES와 반드시 같은 resourceAmount/goldBonus를 유지해야 한다 — 다르면
+// 정당한 보상도 "비정상 증가"로 거부될 수 있다. 7~9번째 보스(기간테스/우라노스/카오스) 추가분.
 const RAID_REWARDS = {
   medusa: { resourceAmount: 50000, goldBonus: 30000 },
   hydra: { resourceAmount: 120000, goldBonus: 72000 },
@@ -29,6 +31,9 @@ const RAID_REWARDS = {
   echidna: { resourceAmount: 500000, goldBonus: 300000 },
   typhon: { resourceAmount: 800000, goldBonus: 480000 },
   cronus: { resourceAmount: 1200000, goldBonus: 720000 },
+  gigantes: { resourceAmount: 1700000, goldBonus: 1020000 },
+  uranus: { resourceAmount: 2300000, goldBonus: 1380000 },
+  chaos: { resourceAmount: 3000000, goldBonus: 1800000 },
 };
 
 const RAID_COOLDOWN_MS = 24 * 60 * 60 * 1000;

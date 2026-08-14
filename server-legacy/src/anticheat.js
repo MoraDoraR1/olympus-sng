@@ -48,6 +48,9 @@ const RAID_REWARDS = {
   echidna: { resourceAmount: 500000, goldBonus: 300000 },
   typhon: { resourceAmount: 800000, goldBonus: 480000 },
   cronus: { resourceAmount: 1200000, goldBonus: 720000 },
+  gigantes: { resourceAmount: 1700000, goldBonus: 1020000 },
+  uranus: { resourceAmount: 2300000, goldBonus: 1380000 },
+  chaos: { resourceAmount: 3000000, goldBonus: 1800000 },
 };
 
 function num(v) {
