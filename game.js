@@ -574,9 +574,11 @@
     { id: "gold", icon: "🪙", label: "골드 500 생산하기", target: 500, key: "goldProduced", reward: { raidShards: 5 } },
     { id: "monster", icon: "🐴", label: "필드 몬스터 3마리 처치", target: 3, key: "monstersKilled", reward: { raidShards: 10 } },
     { id: "train", icon: "🪖", label: "병사 10명 훈련 시작하기", target: 10, key: "troopsTrained", reward: { raidShards: 5 } },
-    // 정복 맵 공격은 성 레벨 5부터만 가능해 저레벨 플레이어가 채울 수 없는 일일 업적이라는
-    // 문제가 있었다 — 누구나 처음부터 할 수 있는 "건물 레벨업"으로 교체한다.
-    { id: "upgrade", icon: "⬆️", label: "건물 레벨업 1회 완료하기", target: 1, key: "buildingUpgrades", reward: { gold: 1000 } },
+    // 정복 맵 공격(성 레벨 5 미만은 아예 불가)과 건물 레벨업(전 건물 만렙 20 도달 시
+    // 더는 불가)은 둘 다 진행도에 따라 채울 수 없어지는 상한/하한 문제가 있었다 —
+    // 여관 영입은 레벨과 무관하게 항상 가능하고 상한도 없어(다다익선, 중복은 조각으로
+    // 전환) 어느 시점에도 채울 수 있는 안전한 항목이다.
+    { id: "recruit", icon: "🍺", label: "여관에서 영웅 1회 영입하기", target: 1, key: "heroesRecruited", reward: { gold: 1000 } },
   ];
   function freshDailyQuestProgress() {
     const progress = {};
@@ -1344,6 +1346,7 @@
   }
   function addOwned(heroId) {
     const hero = HERO_BY_ID[heroId];
+    state.dailyQuests.progress.heroesRecruited += 1;
     if (!state.owned[heroId]) {
       state.owned[heroId] = { enhance: 0, shards: 0, count: 1 };
       toast(`✨ 새 영웅 도감 등록: ${hero.name} (★${hero.rarity})`);
@@ -1581,7 +1584,6 @@
     const tile = state.tiles[tileId];
     tile.level = tile.upgrading.targetLevel;
     tile.upgrading = null;
-    state.dailyQuests.progress.buildingUpgrades += 1;
     if (tile.type === "여관") {
       const need = tavernSlotsForLevel(tile.level) - state.tavern.candidates.length;
       for (let i = 0; i < need; i++) state.tavern.candidates.push(rollHeroId());

@@ -36,7 +36,7 @@ function baseState() {
     // 곧바로 해금되는지 확인한다. 8·9번째(우라노스/카오스)는 아직 잠겨 있어야 한다.
     raids: { cronus: { defeated: true, lastDefeatedAt: Date.now() - 25 * 60 * 60 * 1000 } },
     raidShards: 0, raidTickets: { t5: 0, t6: 0 }, monsterKillsSinceGate: 0, lastActiveAt: Date.now(),
-    dailyQuests: { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 0, troopsTrained: 0, buildingUpgrades: 0 }, claimed: {} },
+    dailyQuests: { resetAt: Date.now() + 20 * 60 * 1000, progress: { login: 1, goldProduced: 0, monstersKilled: 0, troopsTrained: 0, heroesRecruited: 0 }, claimed: {} },
     mailbox: [],
   };
 }
