@@ -9,3 +9,8 @@ workers/node_modules/
 workers/.wrangler/
 workers/.dev.vars
 .wrangler/
+
+# functions/(Firebase 백엔드 시도)는 소스 자체가 삭제됐지만, 이 컨테이너에는 그 시절
+# 남은 로컬 전용 산출물(의존성 트리·에뮬레이터 데이터)이 남아있어 무시 처리한다.
+functions/
+firestore-debug.log
